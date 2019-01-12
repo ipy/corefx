@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Runtime.InteropServices;
 using System.Net.Sockets;
 
@@ -12,7 +11,7 @@ internal static partial class Interop
     {
         [DllImport(Interop.Libraries.Ws2_32, SetLastError = true)]
         internal static extern SocketError getsockopt(
-            [In] SafeCloseSocket socketHandle,
+            [In] SafeSocketHandle socketHandle,
             [In] SocketOptionLevel optionLevel,
             [In] SocketOptionName optionName,
             [Out] out int optionValue,
@@ -20,7 +19,7 @@ internal static partial class Interop
 
         [DllImport(Interop.Libraries.Ws2_32, SetLastError = true)]
         internal static extern SocketError getsockopt(
-            [In] SafeCloseSocket socketHandle,
+            [In] SafeSocketHandle socketHandle,
             [In] SocketOptionLevel optionLevel,
             [In] SocketOptionName optionName,
             [Out] byte[] optionValue,
@@ -28,7 +27,7 @@ internal static partial class Interop
 
         [DllImport(Interop.Libraries.Ws2_32, SetLastError = true)]
         internal static extern SocketError getsockopt(
-            [In] SafeCloseSocket socketHandle,
+            [In] SafeSocketHandle socketHandle,
             [In] SocketOptionLevel optionLevel,
             [In] SocketOptionName optionName,
             [Out] out Linger optionValue,
@@ -36,7 +35,7 @@ internal static partial class Interop
 
         [DllImport(Interop.Libraries.Ws2_32, SetLastError = true)]
         internal static extern SocketError getsockopt(
-            [In] SafeCloseSocket socketHandle,
+            [In] SafeSocketHandle socketHandle,
             [In] SocketOptionLevel optionLevel,
             [In] SocketOptionName optionName,
             [Out] out IPMulticastRequest optionValue,
@@ -44,7 +43,7 @@ internal static partial class Interop
 
         [DllImport(Interop.Libraries.Ws2_32, SetLastError = true)]
         internal static extern SocketError getsockopt(
-            [In] SafeCloseSocket socketHandle,
+            [In] SafeSocketHandle socketHandle,
             [In] SocketOptionLevel optionLevel,
             [In] SocketOptionName optionName,
             [Out] out IPv6MulticastRequest optionValue,

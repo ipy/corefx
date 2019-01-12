@@ -2,12 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Composition.Runtime;
 using System.Linq;
-using Microsoft.Internal;
 
 namespace System.Composition.Hosting.Core
 {
@@ -85,9 +82,12 @@ namespace System.Composition.Hosting.Core
             _creating = true;
             try
             {
-                var reply = _descriptor.Value;
-                Assumes.IsTrue(reply != null, "Export descriptor fulfillment function returned null.");
-                return reply;
+                ExportDescriptor relay = _descriptor.Value;
+                if(relay == null)
+                {
+                    throw new ArgumentNullException("descriptor");
+                }
+                return relay;
             }
             finally
             {
@@ -101,7 +101,7 @@ namespace System.Composition.Hosting.Core
         /// <returns>A description of the promise.</returns>
         public override string ToString()
         {
-            return string.Format(Properties.Resources.ExportDescriptor_ToStringFormat, Contract, Origin);
+            return SR.Format(SR.ExportDescriptor_ToStringFormat, Contract, Origin);
         }
     }
 }

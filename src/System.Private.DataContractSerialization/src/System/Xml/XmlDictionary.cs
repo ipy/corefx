@@ -21,7 +21,7 @@ namespace System.Xml
         private XmlDictionaryString[] _strings;
         private int _nextId;
 
-        static public IXmlDictionary Empty
+        public static IXmlDictionary Empty
         {
             get
             {
@@ -88,7 +88,7 @@ namespace System.Xml
         public virtual bool TryLookup(XmlDictionaryString value, out XmlDictionaryString result)
         {
             if (value == null)
-                throw System.Runtime.Serialization.DiagnosticUtility.ExceptionUtility.ThrowHelperError(new ArgumentNullException("value"));
+                throw System.Runtime.Serialization.DiagnosticUtility.ExceptionUtility.ThrowHelperError(new ArgumentNullException(nameof(value)));
             if (value.Dictionary != this)
             {
                 result = null;

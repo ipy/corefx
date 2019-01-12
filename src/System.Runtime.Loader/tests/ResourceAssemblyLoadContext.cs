@@ -18,7 +18,7 @@ namespace System.Runtime.Loader.Tests
     {
         public LoadBy LoadBy { get; set; }
 
-        public ResourceAssemblyLoadContext()
+        public ResourceAssemblyLoadContext(bool isCollectible = false) : base(isCollectible)
         {
             LoadBy = LoadBy.Path;
         }
@@ -41,9 +41,14 @@ namespace System.Runtime.Loader.Tests
                 // Custom Load Contexts cannot be used to load an assembly in the TPA list.
                 // Hence using this hack - where the user test assembly "System.Runtime.Loader.TestAssembly" is added as an embedded resource.
                 // This custom load context will extract that resource and store it at the %temp% path at runtime.
-                // This prevents the corerun from adding the the test assembly to the TPA list.                
+                // This prevents the corerun from adding the test assembly to the TPA list.                
                 // Once loaded it is not possible to unload the assembly, therefore it cannot be deleted.
-                string path = Path.Combine(Path.GetTempPath(), assembly);
+                var tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+
+                // Create the folder since it will not exist already
+                Directory.CreateDirectory(tempPath);
+                
+                string path = Path.Combine(tempPath, assembly);
                 using (FileStream output = File.OpenWrite(path))
                 {
                     asmStream.CopyTo(output);

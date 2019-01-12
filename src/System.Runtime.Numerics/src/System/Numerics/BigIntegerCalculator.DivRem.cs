@@ -72,8 +72,7 @@ namespace System.Numerics
             return (uint)carry;
         }
 
-        [SecuritySafeCritical]
-        public unsafe static uint[] Divide(uint[] left, uint[] right,
+        public static unsafe uint[] Divide(uint[] left, uint[] right,
                                            out uint[] remainder)
         {
             Debug.Assert(left != null);
@@ -90,7 +89,7 @@ namespace System.Numerics
             uint[] localLeft = CreateCopy(left);
             uint[] bits = new uint[left.Length - right.Length + 1];
 
-            fixed (uint* l = localLeft, r = right, b = bits)
+            fixed (uint* l = &localLeft[0], r = &right[0], b = &bits[0])
             {
                 Divide(l, localLeft.Length,
                        r, right.Length,
@@ -102,8 +101,7 @@ namespace System.Numerics
             return bits;
         }
 
-        [SecuritySafeCritical]
-        public unsafe static uint[] Divide(uint[] left, uint[] right)
+        public static unsafe uint[] Divide(uint[] left, uint[] right)
         {
             Debug.Assert(left != null);
             Debug.Assert(right != null);
@@ -118,7 +116,7 @@ namespace System.Numerics
             uint[] localLeft = CreateCopy(left);
             uint[] bits = new uint[left.Length - right.Length + 1];
 
-            fixed (uint* l = localLeft, r = right, b = bits)
+            fixed (uint* l = &localLeft[0], r = &right[0], b = &bits[0])
             {
                 Divide(l, localLeft.Length,
                        r, right.Length,
@@ -128,8 +126,7 @@ namespace System.Numerics
             return bits;
         }
 
-        [SecuritySafeCritical]
-        public unsafe static uint[] Remainder(uint[] left, uint[] right)
+        public static unsafe uint[] Remainder(uint[] left, uint[] right)
         {
             Debug.Assert(left != null);
             Debug.Assert(right != null);
@@ -143,7 +140,7 @@ namespace System.Numerics
 
             uint[] localLeft = CreateCopy(left);
 
-            fixed (uint* l = localLeft, r = right)
+            fixed (uint* l = &localLeft[0], r = &right[0])
             {
                 Divide(l, localLeft.Length,
                        r, right.Length,
@@ -153,8 +150,7 @@ namespace System.Numerics
             return localLeft;
         }
 
-        [SecuritySafeCritical]
-        private unsafe static void Divide(uint* left, int leftLength,
+        private static unsafe void Divide(uint* left, int leftLength,
                                           uint* right, int rightLength,
                                           uint* bits, int bitsLength)
         {
@@ -240,8 +236,7 @@ namespace System.Numerics
             }
         }
 
-        [SecuritySafeCritical]
-        private unsafe static uint AddDivisor(uint* left, int leftLength,
+        private static unsafe uint AddDivisor(uint* left, int leftLength,
                                               uint* right, int rightLength)
         {
             Debug.Assert(leftLength >= 0);
@@ -255,15 +250,14 @@ namespace System.Numerics
             for (int i = 0; i < rightLength; i++)
             {
                 ulong digit = (left[i] + carry) + right[i];
-                left[i] = (uint)digit;
+                left[i] = unchecked((uint)digit);
                 carry = digit >> 32;
             }
 
             return (uint)carry;
         }
 
-        [SecuritySafeCritical]
-        private unsafe static uint SubtractDivisor(uint* left, int leftLength,
+        private static unsafe uint SubtractDivisor(uint* left, int leftLength,
                                                    uint* right, int rightLength,
                                                    ulong q)
         {
@@ -280,11 +274,11 @@ namespace System.Numerics
             for (int i = 0; i < rightLength; i++)
             {
                 carry += right[i] * q;
-                uint digit = (uint)carry;
+                uint digit = unchecked((uint)carry);
                 carry = carry >> 32;
                 if (left[i] < digit)
                     ++carry;
-                left[i] -= digit;
+                left[i] = unchecked(left[i] - digit);
             }
 
             return (uint)carry;

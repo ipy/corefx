@@ -30,6 +30,13 @@ public class ReadAndWrite
             Console.SetOut(savedStandardOutput);
         }
     }
+    
+    [Fact]
+    public static void WriteToOutputStream_EmptyArray()
+    {
+        Stream outStream = Console.OpenStandardOutput();
+        outStream.Write(new byte[] { }, 0, 0);
+    }
 
     [Fact]
     [OuterLoop]
@@ -188,17 +195,9 @@ public class ReadAndWrite
         }
     }
 
-    [Fact]
-    public static unsafe void ValidateConsoleEncoding()
+    public static unsafe void ValidateConsoleEncoding(Encoding encoding)
     {
-        Assert.Same(Console.Out, Console.Out);
-
-        Encoding encoding = Console.Out.Encoding;
         Assert.NotNull(encoding);
-        Assert.Same(encoding, Console.Out.Encoding);
-
-        // The primary purpose of ConsoleEncoding is to return an empty preamble.
-        Assert.Equal(Array.Empty<byte>(), encoding.GetPreamble());
 
         // There's not much validation we can do, but we can at least invoke members
         // to ensure they don't throw exceptions as they delegate to the underlying
@@ -256,6 +255,55 @@ public class ReadAndWrite
                 Assert.Equal(strAsBytes.Length, encoding.GetBytes(charsPtr, strAsChars.Length, bytesPtr, outputArr.Length));
             }
             Assert.Equal(strAsBytes.Length, encoding.GetBytes(str, 0, str.Length, outputArr, 0));
+        }
+    }
+
+    [Fact]
+    // On the full framework it is not guaranteed to eat the preamble bytes
+    [SkipOnTargetFramework(TargetFrameworkMonikers.NetFramework)]
+    public static unsafe void OutputEncodingPreamble()
+    {
+        Encoding curEncoding = Console.OutputEncoding;
+
+        try
+        {
+            Encoding encoding = Console.Out.Encoding;
+            // The primary purpose of ConsoleEncoding is to return an empty preamble.
+            Assert.Equal(Array.Empty<byte>(), encoding.GetPreamble());
+
+            // Try setting the ConsoleEncoding to something else and see if it works.
+            Console.OutputEncoding = Encoding.Unicode;
+            // The primary purpose of ConsoleEncoding is to return an empty preamble.
+            Assert.Equal(Array.Empty<byte>(), Console.Out.Encoding.GetPreamble());
+        }
+        finally
+        {
+            Console.OutputEncoding = curEncoding;
+        }
+    }
+
+    [Fact]
+    public static unsafe void OutputEncoding()
+    {
+        Encoding curEncoding = Console.OutputEncoding;
+
+        try
+        {
+            Assert.Same(Console.Out, Console.Out);
+
+            Encoding encoding = Console.Out.Encoding;
+            Assert.NotNull(encoding);
+            Assert.Same(encoding, Console.Out.Encoding);
+            ValidateConsoleEncoding(encoding);
+
+            // Try setting the ConsoleEncoding to something else and see if it works.
+            Console.OutputEncoding = Encoding.Unicode;
+            Assert.Equal(Console.OutputEncoding.CodePage, Encoding.Unicode.CodePage);
+            ValidateConsoleEncoding(Console.Out.Encoding);
+        }
+        finally
+        {
+            Console.OutputEncoding = curEncoding;
         }
     }
 
@@ -332,5 +380,23 @@ public class ReadAndWrite
             Console.SetOut(savedStandardOutput);
             Console.SetIn(savedStandardInput);
         }        
+    }
+
+    [Fact]
+    public static void OpenStandardInput_NegativeBufferSize_ThrowsArgumentOutOfRangeException()
+    {
+        AssertExtensions.Throws<ArgumentOutOfRangeException>("bufferSize", () => Console.OpenStandardInput(-1));
+    }
+
+    [Fact]
+    public static void OpenStandardOutput_NegativeBufferSize_ThrowsArgumentOutOfRangeException()
+    {
+        AssertExtensions.Throws<ArgumentOutOfRangeException>("bufferSize", () => Console.OpenStandardOutput(-1));
+    }
+
+    [Fact]
+    public static void OpenStandardError_NegativeBufferSize_ThrowsArgumentOutOfRangeException()
+    {
+        AssertExtensions.Throws<ArgumentOutOfRangeException>("bufferSize", () => Console.OpenStandardError(-1));
     }
 }

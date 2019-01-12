@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace System.Diagnostics
@@ -15,26 +16,9 @@ namespace System.Diagnostics
             return Interop.libproc.proc_listallpids();
         }
 
-        /// <summary>Gets process infos for each process on the specified machine.</summary>
-        /// <param name="machineName">The target machine.</param>
-        /// <returns>An array of process infos, one per found process.</returns>
-        public static ProcessInfo[] GetProcessInfos(string machineName)
+        private static string GetProcPath(int processId)
         {
-            ThrowIfRemoteMachine(machineName);
-            int[] procIds = GetProcessIds(machineName);
-
-            // Iterate through all process IDs to load information about each process
-            var processes = new List<ProcessInfo>(procIds.Length);
-            foreach (int pid in procIds)
-            {
-                ProcessInfo pi = CreateProcessInfo(pid);
-                if (pi != null)
-                {
-                    processes.Add(pi);
-                }
-            }
-
-            return processes.ToArray();
+            return Interop.libproc.proc_pidpath(processId);
         }
 
         // -----------------------------
@@ -46,7 +30,7 @@ namespace System.Diagnostics
             // Negative PIDs aren't valid
             if (pid < 0)
             {
-                throw new ArgumentOutOfRangeException("pid");
+                throw new ArgumentOutOfRangeException(nameof(pid));
             }
 
             ProcessInfo procInfo = new ProcessInfo()
@@ -71,7 +55,7 @@ namespace System.Diagnostics
             int sessionId = Interop.Sys.GetSid(pid);
             if (sessionId != -1)
                 procInfo.SessionId = sessionId;
-            
+
             // Create a threadinfo for each thread in the process
             List<KeyValuePair<ulong, Interop.libproc.proc_threadinfo?>> lstThreads = Interop.libproc.GetAllThreadsInProcess(pid);
             foreach (KeyValuePair<ulong, Interop.libproc.proc_threadinfo?> t in lstThreads)
@@ -98,15 +82,6 @@ namespace System.Diagnostics
             return procInfo;
         }
 
-        /// <summary>Gets an array of module infos for the specified process.</summary>
-        /// <param name="processId">The ID of the process whose modules should be enumerated.</param>
-        /// <returns>The array of modules.</returns>
-        internal static ModuleInfo[] GetModuleInfos(int processId)
-        {
-            // We currently don't provide support for modules on OS X.
-            return Array.Empty<ModuleInfo>();
-        }
-
         // ----------------------------------
         // ---- Unix PAL layer ends here ----
         // ----------------------------------
@@ -126,7 +101,7 @@ namespace System.Diagnostics
                 case Interop.libproc.ThreadRunState.TH_STATE_WAITING:
                     return System.Diagnostics.ThreadState.Standby;
                 default:
-                    throw new ArgumentOutOfRangeException("state");
+                    throw new ArgumentOutOfRangeException(nameof(state));
             }
         }
 

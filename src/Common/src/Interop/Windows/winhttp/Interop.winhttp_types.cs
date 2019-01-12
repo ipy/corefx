@@ -61,8 +61,7 @@ internal partial class Interop
         public const ushort INTERNET_DEFAULT_HTTPS_PORT = 443;
 
         public const uint WINHTTP_FLAG_SECURE = 0x00800000;
-
-        public const StringBuilder WINHTTP_NO_ADDITIONAL_HEADERS = null;
+        public const uint WINHTTP_FLAG_ESCAPE_DISABLE = 0x00000040;
 
         public const uint WINHTTP_QUERY_FLAG_NUMBER = 0x20000000;
         public const uint WINHTTP_QUERY_VERSION = 18;
@@ -149,6 +148,10 @@ internal partial class Interop
 
         public const uint WINHTTP_OPTION_ASSURED_NON_BLOCKING_CALLBACKS = 111;
 
+        public const uint WINHTTP_OPTION_ENABLE_HTTP_PROTOCOL = 133;
+        public const uint WINHTTP_OPTION_HTTP_PROTOCOL_USED = 134;
+        public const uint WINHTTP_PROTOCOL_FLAG_HTTP2 = 0x1;
+
         public const uint WINHTTP_OPTION_UPGRADE_TO_WEB_SOCKET = 114;
         public const uint WINHTTP_OPTION_WEB_SOCKET_CLOSE_TIMEOUT = 115;
         public const uint WINHTTP_OPTION_WEB_SOCKET_KEEPALIVE_INTERVAL = 116;
@@ -195,6 +198,29 @@ internal partial class Interop
         public const uint WINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE = 0x02000000;
         public const uint WINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE = 0x04000000;
 
+        public const uint WINHTTP_CALLBACK_FLAG_SEND_REQUEST =
+            WINHTTP_CALLBACK_STATUS_SENDING_REQUEST |
+            WINHTTP_CALLBACK_STATUS_REQUEST_SENT;
+        public const uint WINHTTP_CALLBACK_FLAG_HANDLES =
+            WINHTTP_CALLBACK_STATUS_HANDLE_CREATED |
+            WINHTTP_CALLBACK_STATUS_HANDLE_CLOSING;
+        public const uint WINHTTP_CALLBACK_FLAG_REDIRECT = WINHTTP_CALLBACK_STATUS_REDIRECT;
+        public const uint WINHTTP_CALLBACK_FLAG_SECURE_FAILURE = WINHTTP_CALLBACK_STATUS_SECURE_FAILURE;
+        public const uint WINHTTP_CALLBACK_FLAG_SENDREQUEST_COMPLETE = WINHTTP_CALLBACK_STATUS_SENDREQUEST_COMPLETE;
+        public const uint WINHTTP_CALLBACK_FLAG_HEADERS_AVAILABLE = WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE;
+        public const uint WINHTTP_CALLBACK_FLAG_DATA_AVAILABLE = WINHTTP_CALLBACK_STATUS_DATA_AVAILABLE;
+        public const uint WINHTTP_CALLBACK_FLAG_READ_COMPLETE = WINHTTP_CALLBACK_STATUS_READ_COMPLETE;
+        public const uint WINHTTP_CALLBACK_FLAG_WRITE_COMPLETE = WINHTTP_CALLBACK_STATUS_WRITE_COMPLETE;
+        public const uint WINHTTP_CALLBACK_FLAG_REQUEST_ERROR = WINHTTP_CALLBACK_STATUS_REQUEST_ERROR;
+        public const uint WINHTTP_CALLBACK_FLAG_GETPROXYFORURL_COMPLETE = WINHTTP_CALLBACK_STATUS_GETPROXYFORURL_COMPLETE;
+        public const uint WINHTTP_CALLBACK_FLAG_ALL_COMPLETIONS =
+            WINHTTP_CALLBACK_STATUS_SENDREQUEST_COMPLETE |
+            WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE |
+            WINHTTP_CALLBACK_STATUS_DATA_AVAILABLE |
+            WINHTTP_CALLBACK_STATUS_READ_COMPLETE |
+            WINHTTP_CALLBACK_STATUS_WRITE_COMPLETE |
+            WINHTTP_CALLBACK_STATUS_REQUEST_ERROR |
+            WINHTTP_CALLBACK_STATUS_GETPROXYFORURL_COMPLETE;
         public const uint WINHTTP_CALLBACK_FLAG_ALL_NOTIFICATIONS = 0xFFFFFFFF;
 
         public const uint WININET_E_CONNECTION_RESET = 0x80072EFF;
@@ -239,16 +265,6 @@ internal partial class Interop
         }
 
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct WINHTTP_CONNECTION_INFO
-        {
-            public uint Size;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public byte[] LocalAddress; // SOCKADDR_STORAGE
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
-            public byte[] RemoteAddress; // SOCKADDR_STORAGE
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         public struct WINHTTP_ASYNC_RESULT
         {
             public IntPtr dwResult;
@@ -261,26 +277,12 @@ internal partial class Interop
         public const uint API_WRITE_DATA = 4;
         public const uint API_SEND_REQUEST = 5;
 
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct WINHTTP_WEB_SOCKET_ASYNC_RESULT
-        {
-            public WINHTTP_ASYNC_RESULT AsyncResult;
-            public WINHTTP_WEB_SOCKET_OPERATION Operation;
-        }
-
         public enum WINHTTP_WEB_SOCKET_OPERATION
         {
             WINHTTP_WEB_SOCKET_SEND_OPERATION = 0,
             WINHTTP_WEB_SOCKET_RECEIVE_OPERATION = 1,
             WINHTTP_WEB_SOCKET_CLOSE_OPERATION = 2,
             WINHTTP_WEB_SOCKET_SHUTDOWN_OPERATION = 3
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        public struct WINHTTP_WEB_SOCKET_STATUS
-        {
-            public uint dwBytesTransferred;
-            public WINHTTP_WEB_SOCKET_BUFFER_TYPE eBufferType;
         }
     }
 }

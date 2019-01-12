@@ -4,27 +4,14 @@
 
 using System;
 using System.Diagnostics;
+using System.Numerics;
 using System.Security.Cryptography;
+using System.Security.Cryptography.Asn1;
 
 namespace Internal.Cryptography
 {
-    internal static class Helpers
+    internal static partial class Helpers
     {
-        public static byte[] CloneByteArray(this byte[] src)
-        {
-            if (src == null)
-            {
-                return null;
-            }
-
-            return (byte[])(src.Clone());
-        }
-
-        public static KeySizes[] CloneKeySizesArray(this KeySizes[] src)
-        {
-            return (KeySizes[])(src.Clone());
-        }
-
         public static bool UsesIv(this CipherMode cipherMode)
         {
             return cipherMode != CipherMode.ECB;
@@ -45,35 +32,10 @@ namespace Internal.Cryptography
             return null;
         }
 
-        public static bool IsLegalSize(this int size, KeySizes[] legalSizes)
-        {
-            for (int i = 0; i < legalSizes.Length; i++)
-            {
-                // If a cipher has only one valid key size, MinSize == MaxSize and SkipSize will be 0
-                if (legalSizes[i].SkipSize == 0)
-                {
-                    if (legalSizes[i].MinSize == size)
-                        return true;
-                }
-                else
-                {
-                    for (int j = legalSizes[i].MinSize; j <= legalSizes[i].MaxSize; j += legalSizes[i].SkipSize)
-                    {
-                        if (j == size)
-                            return true;
-                    }
-                }
-            }
-            return false;
-        }
-        
         public static byte[] GenerateRandom(int count)
         {
             byte[] buffer = new byte[count];
-            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(buffer);
-            }
+            RandomNumberGenerator.Fill(buffer);
             return buffer;
         }
 
@@ -112,6 +74,15 @@ namespace Internal.Cryptography
             }
             return oddParityKey;
         }
+
+        internal static void ConvertIntToByteArray(uint value, byte[] dest)
+        {
+            Debug.Assert(dest != null);
+            Debug.Assert(dest.Length == 4);
+            dest[0] = (byte)((value & 0xFF000000) >> 24);
+            dest[1] = (byte)((value & 0xFF0000) >> 16);
+            dest[2] = (byte)((value & 0xFF00) >> 8);
+            dest[3] = (byte)(value & 0xFF);
+        }
     }
 }
-

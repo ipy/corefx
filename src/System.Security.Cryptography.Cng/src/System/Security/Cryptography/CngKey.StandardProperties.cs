@@ -2,13 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-using System.Diagnostics;
-using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
-
+using System.Diagnostics;
 using Microsoft.Win32.SafeHandles;
-
 using Internal.Cryptography;
 
 using ErrorCode = Interop.NCrypt.ErrorCode;
@@ -167,7 +163,28 @@ namespace System.Security.Cryptography
         {
             get
             {
-                int keySize = _keyHandle.GetPropertyAsDword(KeyPropertyName.Length, CngPropertyOptions.None);
+                int keySize = 0;
+
+                // Attempt to use PublicKeyLength first as it returns the correct value for ECC keys
+                ErrorCode errorCode = Interop.NCrypt.NCryptGetIntProperty(
+                    _keyHandle,
+                    KeyPropertyName.PublicKeyLength,
+                    ref keySize);
+
+                if (errorCode != ErrorCode.ERROR_SUCCESS)
+                {
+                    // Fall back to Length (< Windows 10)
+                    errorCode = Interop.NCrypt.NCryptGetIntProperty(
+                        _keyHandle,
+                        KeyPropertyName.Length,
+                        ref keySize);
+                }
+
+                if (errorCode != ErrorCode.ERROR_SUCCESS)
+                {
+                    throw errorCode.ToCryptographicException();
+                }
+
                 return keySize;
             }
         }
@@ -268,7 +285,7 @@ namespace System.Security.Cryptography
                         // ! We must keep this byte array pinned until NCryptGetProperty() has returned *and* we've marshaled all of the inner native strings into managed String
                         // ! objects. Otherwise, a badly timed GC will move the native strings in memory and invalidate the pointers to them before we dereference them. 
                         byte[] ncryptUiPolicyAndStrings = new byte[numBytesNeeded];
-                        fixed (byte* pNcryptUiPolicyAndStrings = ncryptUiPolicyAndStrings)
+                        fixed (byte* pNcryptUiPolicyAndStrings = &ncryptUiPolicyAndStrings[0])
                         {
                             errorCode = Interop.NCrypt.NCryptGetProperty(_keyHandle, KeyPropertyName.UIPolicy, pNcryptUiPolicyAndStrings, ncryptUiPolicyAndStrings.Length, out numBytesNeeded, CngPropertyOptions.None);
                             if (errorCode != ErrorCode.ERROR_SUCCESS)

@@ -5,7 +5,7 @@
 // This file utilizes partial class feature and contains
 // only internal implementation of UriParser type
 
-using System.Collections.Generic;
+using System.Collections;
 using System.Diagnostics;
 
 namespace System
@@ -14,52 +14,90 @@ namespace System
     [Flags]
     internal enum UriSyntaxFlags
     {
-        None                    = 0x0,
+        None = 0x0,
 
-        MustHaveAuthority       = 0x1,  // must have "//" after scheme:
-        OptionalAuthority       = 0x2,  // used by generic parser due to unknown Uri syntax
-        MayHaveUserInfo         = 0x4,
-        MayHavePort             = 0x8,
-        MayHavePath             = 0x10,
-        MayHaveQuery            = 0x20,
-        MayHaveFragment         = 0x40,
+        MustHaveAuthority = 0x1,  // must have "//" after scheme:
+        OptionalAuthority = 0x2,  // used by generic parser due to unknown Uri syntax
+        MayHaveUserInfo = 0x4,
+        MayHavePort = 0x8,
+        MayHavePath = 0x10,
+        MayHaveQuery = 0x20,
+        MayHaveFragment = 0x40,
 
-        AllowEmptyHost          = 0x80,
-        AllowUncHost            = 0x100,
-        AllowDnsHost            = 0x200,
-        AllowIPv4Host           = 0x400,
-        AllowIPv6Host           = 0x800,
-        AllowAnInternetHost     = AllowDnsHost|AllowIPv4Host|AllowIPv6Host,
-        AllowAnyOtherHost       = 0x1000, // Relaxed authority syntax
+        AllowEmptyHost = 0x80,
+        AllowUncHost = 0x100,
+        AllowDnsHost = 0x200,
+        AllowIPv4Host = 0x400,
+        AllowIPv6Host = 0x800,
+        AllowAnInternetHost = AllowDnsHost | AllowIPv4Host | AllowIPv6Host,
+        AllowAnyOtherHost = 0x1000, // Relaxed authority syntax
 
-        FileLikeUri             = 0x2000, //Special case to allow file:\\balbla or file://\\balbla
-        MailToLikeUri           = 0x4000, //V1 parser inheritance mailTo:AuthorityButNoSlashes
+        FileLikeUri = 0x2000, //Special case to allow file:\\balbla or file://\\balbla
+        MailToLikeUri = 0x4000, //V1 parser inheritance mailTo:AuthorityButNoSlashes
 
-        V1_UnknownUri           = 0x10000, // a Compatibility with V1 parser for an unknown scheme
-        SimpleUserSyntax        = 0x20000, // It is safe to not call virtual UriParser methods
-        BuiltInSyntax           = 0x40000, // This is a simple Uri plus it is hardcoded in the product
-        ParserSchemeOnly        = 0x80000, // This is a Parser that does only Uri scheme parsing
+        V1_UnknownUri = 0x10000, // a Compatibility with V1 parser for an unknown scheme
+        SimpleUserSyntax = 0x20000, // It is safe to not call virtual UriParser methods
+        BuiltInSyntax = 0x40000, // This is a simple Uri plus it is hardcoded in the product
+        ParserSchemeOnly = 0x80000, // This is a Parser that does only Uri scheme parsing
 
-        AllowDOSPath            = 0x100000,  // will check for "x:\"
-        PathIsRooted            = 0x200000,  // For an authority based Uri the first path char is '/'
-        ConvertPathSlashes      = 0x400000,  // will turn '\' into '/'
-        CompressPath            = 0x800000,  // For an authority based Uri remove/compress /./ /../ in the path
-        CanonicalizeAsFilePath  = 0x1000000, // remove/convert sequences /.../ /x../ /x./ dangerous for a DOS path
-        UnEscapeDotsAndSlashes  = 0x2000000, // additionally unescape dots and slashes before doing path compression
-        AllowIdn                = 0x4000000,    // IDN host conversion allowed
-        AllowIriParsing         = 0x10000000,   // Iri parsing. String is normalized, bidi control 
-                                                // characters are removed, unicode char limits are checked etc.
+        AllowDOSPath = 0x100000,  // will check for "x:\"
+        PathIsRooted = 0x200000,  // For an authority based Uri the first path char is '/'
+        ConvertPathSlashes = 0x400000,  // will turn '\' into '/'
+        CompressPath = 0x800000,  // For an authority based Uri remove/compress /./ /../ in the path
+        CanonicalizeAsFilePath = 0x1000000, // remove/convert sequences /.../ /x../ /x./ dangerous for a DOS path
+        UnEscapeDotsAndSlashes = 0x2000000, // additionally unescape dots and slashes before doing path compression
+        AllowIdn = 0x4000000,    // IDN host conversion allowed
+        AllowIriParsing = 0x10000000,   // Iri parsing. String is normalized, bidi control 
+                                        // characters are removed, unicode char limits are checked etc.
 
-//      KeepTailLWS             = 0x8000000,
+        //      KeepTailLWS             = 0x8000000,
     }
 
     //
     // Only internal members are included here
     //
-    internal abstract partial class UriParser
+    public abstract partial class UriParser
     {
-        private static readonly LowLevelDictionary<string, UriParser> s_table;
-        private static LowLevelDictionary<string, UriParser> s_tempTable;
+        // These are always available without paying hashtable lookup cost
+        // Note: see UpdateStaticSyntaxReference()
+        internal static readonly UriParser HttpUri = new BuiltInUriParser("http", 80, HttpSyntaxFlags);
+        internal static readonly UriParser HttpsUri = new BuiltInUriParser("https", 443, HttpUri._flags);
+        internal static readonly UriParser WsUri = new BuiltInUriParser("ws", 80, HttpSyntaxFlags);
+        internal static readonly UriParser WssUri = new BuiltInUriParser("wss", 443, HttpSyntaxFlags);
+        internal static readonly UriParser FtpUri = new BuiltInUriParser("ftp", 21, FtpSyntaxFlags);
+        internal static readonly UriParser FileUri = new BuiltInUriParser("file", NoDefaultPort, FileSyntaxFlags);
+        internal static readonly UriParser UnixFileUri = new BuiltInUriParser("file", NoDefaultPort, UnixFileSyntaxFlags);
+        internal static readonly UriParser GopherUri = new BuiltInUriParser("gopher", 70, GopherSyntaxFlags);
+        internal static readonly UriParser NntpUri = new BuiltInUriParser("nntp", 119, NntpSyntaxFlags);
+        internal static readonly UriParser NewsUri = new BuiltInUriParser("news", NoDefaultPort, NewsSyntaxFlags);
+        internal static readonly UriParser MailToUri = new BuiltInUriParser("mailto", 25, MailtoSyntaxFlags);
+        internal static readonly UriParser UuidUri = new BuiltInUriParser("uuid", NoDefaultPort, NewsUri._flags);
+        internal static readonly UriParser TelnetUri = new BuiltInUriParser("telnet", 23, TelnetSyntaxFlags);
+        internal static readonly UriParser LdapUri = new BuiltInUriParser("ldap", 389, LdapSyntaxFlags);
+        internal static readonly UriParser NetTcpUri = new BuiltInUriParser("net.tcp", 808, NetTcpSyntaxFlags);
+        internal static readonly UriParser NetPipeUri = new BuiltInUriParser("net.pipe", NoDefaultPort, NetPipeSyntaxFlags);
+        internal static readonly UriParser VsMacrosUri = new BuiltInUriParser("vsmacros", NoDefaultPort, VsmacrosSyntaxFlags);
+
+        private static readonly Hashtable s_table = new Hashtable(16) // Hashtable used instead of Dictionary<> for lock-free reads
+        {
+            { HttpUri.SchemeName, HttpUri }, // HTTP
+            { HttpsUri.SchemeName, HttpsUri }, // HTTPS cloned from HTTP
+            { WsUri.SchemeName, WsUri }, // WebSockets
+            { WssUri.SchemeName, WssUri }, // Secure WebSockets
+            { FtpUri.SchemeName, FtpUri }, //FTP
+            { FileUri.SchemeName, FileUri }, //FILE
+            { GopherUri.SchemeName, GopherUri }, //GOPHER
+            { NntpUri.SchemeName, NntpUri }, //NNTP
+            { NewsUri.SchemeName, NewsUri }, //NEWS
+            { MailToUri.SchemeName, MailToUri }, //MAILTO
+            { UuidUri.SchemeName, UuidUri }, //UUID cloned from NEWS
+            { TelnetUri.SchemeName, TelnetUri }, //TELNET
+            { LdapUri.SchemeName, LdapUri }, //LDAP
+            { NetTcpUri.SchemeName, NetTcpUri },
+            { NetPipeUri.SchemeName, NetPipeUri },
+            { VsMacrosUri.SchemeName, VsMacrosUri }, //VSMACROS
+        };
+        private static Hashtable s_tempTable = new Hashtable(c_InitialTableSize); // Hashtable used instead of Dictionary<> for lock-free reads
 
         private UriSyntaxFlags _flags;
 
@@ -79,83 +117,24 @@ namespace System
         internal const int NoDefaultPort = -1;
         private const int c_InitialTableSize = 25;
 
-        // These are always available without paying hashtable lookup cost
-        // Note: see UpdateStaticSyntaxReference()
-        internal static UriParser HttpUri;
-        internal static UriParser HttpsUri;
-        internal static UriParser WsUri;
-        internal static UriParser WssUri;
-        internal static UriParser FtpUri;
-        internal static UriParser FileUri;
-        internal static UriParser GopherUri;
-        internal static UriParser NntpUri;
-        internal static UriParser NewsUri;
-        internal static UriParser MailToUri;
-        internal static UriParser UuidUri;
-        internal static UriParser TelnetUri;
-        internal static UriParser LdapUri;
-        internal static UriParser NetTcpUri;
-        internal static UriParser NetPipeUri;
-
-        internal static UriParser VsMacrosUri;
-
-
-        static UriParser()
+        internal static bool DontEnableStrictRFC3986ReservedCharacterSets
         {
-            s_table = new LowLevelDictionary<string, UriParser>(c_InitialTableSize);
-            s_tempTable = new LowLevelDictionary<string, UriParser>(c_InitialTableSize);
+            // In .NET Framework this would test against an AppContextSwitch. Since this is a potentially
+            // breaking change, we'll leave in the system used to disable it.
+            get
+            {
+                return false;
+            }
+        }
 
-            //Now we will call for the instance constructors that will interrupt this static one.
-
-            // Below we simulate calls into FetchSyntax() but avoid using lock() and other things redundant for a .cctor
-
-            HttpUri = new BuiltInUriParser("http", 80, HttpSyntaxFlags);
-            s_table[HttpUri.SchemeName] = HttpUri;                   //HTTP
-
-            HttpsUri = new BuiltInUriParser("https", 443, HttpUri._flags);
-            s_table[HttpsUri.SchemeName] = HttpsUri;                  //HTTPS cloned from HTTP
-
-            WsUri = new BuiltInUriParser("ws", 80, HttpSyntaxFlags);
-            s_table[WsUri.SchemeName] = WsUri;                   // WebSockets
-
-            WssUri = new BuiltInUriParser("wss", 443, HttpSyntaxFlags);
-            s_table[WssUri.SchemeName] = WssUri;                  // Secure WebSockets
-
-            FtpUri = new BuiltInUriParser("ftp", 21, FtpSyntaxFlags);
-            s_table[FtpUri.SchemeName] = FtpUri;                    //FTP
-
-            FileUri = new BuiltInUriParser("file", NoDefaultPort, s_fileSyntaxFlags);
-            s_table[FileUri.SchemeName] = FileUri;                   //FILE
-
-            GopherUri = new BuiltInUriParser("gopher", 70, GopherSyntaxFlags);
-            s_table[GopherUri.SchemeName] = GopherUri;                 //GOPHER
-
-            NntpUri = new BuiltInUriParser("nntp", 119, NntpSyntaxFlags);
-            s_table[NntpUri.SchemeName] = NntpUri;                   //NNTP
-
-            NewsUri = new BuiltInUriParser("news", NoDefaultPort, NewsSyntaxFlags);
-            s_table[NewsUri.SchemeName] = NewsUri;                   //NEWS
-
-            MailToUri = new BuiltInUriParser("mailto", 25, MailtoSyntaxFlags);
-            s_table[MailToUri.SchemeName] = MailToUri;                 //MAILTO
-
-            UuidUri = new BuiltInUriParser("uuid", NoDefaultPort, NewsUri._flags);
-            s_table[UuidUri.SchemeName] = UuidUri;                   //UUID cloned from NEWS
-
-            TelnetUri = new BuiltInUriParser("telnet", 23, TelnetSyntaxFlags);
-            s_table[TelnetUri.SchemeName] = TelnetUri;                 //TELNET
-
-            LdapUri = new BuiltInUriParser("ldap", 389, LdapSyntaxFlags);
-            s_table[LdapUri.SchemeName] = LdapUri;                   //LDAP
-
-            NetTcpUri = new BuiltInUriParser("net.tcp", 808, NetTcpSyntaxFlags);
-            s_table[NetTcpUri.SchemeName] = NetTcpUri;
-
-            NetPipeUri = new BuiltInUriParser("net.pipe", NoDefaultPort, NetPipeSyntaxFlags);
-            s_table[NetPipeUri.SchemeName] = NetPipeUri;
-
-            VsMacrosUri = new BuiltInUriParser("vsmacros", NoDefaultPort, VsmacrosSyntaxFlags);
-            s_table[VsMacrosUri.SchemeName] = VsMacrosUri;               //VSMACROS
+        internal static bool DontKeepUnicodeBidiFormattingCharacters
+        {
+            // In .NET Framework this would test against an AppContextSwitch. Since this is a potentially
+            // breaking change, we'll leave in the system used to disable it.
+            get
+            {
+                return false;
+            }
         }
 
         private class BuiltInUriParser : UriParser
@@ -230,18 +209,46 @@ namespace System
             _scheme = string.Empty;
         }
 
+        private static void FetchSyntax(UriParser syntax, string lwrCaseSchemeName, int defaultPort)
+        {
+            if (syntax.SchemeName.Length != 0)
+                throw new InvalidOperationException(SR.Format(SR.net_uri_NeedFreshParser, syntax.SchemeName));
+ 
+            lock (s_table)
+            {
+                syntax._flags &= ~UriSyntaxFlags.V1_UnknownUri;
+                UriParser oldSyntax = (UriParser)s_table[lwrCaseSchemeName];
+                if (oldSyntax != null)
+                    throw new InvalidOperationException(SR.Format(SR.net_uri_AlreadyRegistered, oldSyntax.SchemeName));
+
+                oldSyntax = (UriParser)s_tempTable[syntax.SchemeName];
+                if (oldSyntax != null)
+                {
+                    // optimization on schemeName, will try to keep the first reference
+                    lwrCaseSchemeName = oldSyntax._scheme;
+                    s_tempTable.Remove(lwrCaseSchemeName);
+                }
+ 
+                syntax.OnRegister(lwrCaseSchemeName, defaultPort);
+                syntax._scheme = lwrCaseSchemeName;
+                syntax.CheckSetIsSimpleFlag();
+                syntax._port = defaultPort;
+ 
+                s_table[syntax.SchemeName] = syntax;
+            }
+        } 
+
         private const int c_MaxCapacity = 512;
         //schemeStr must be in lower case!
         internal static UriParser FindOrFetchAsUnknownV1Syntax(string lwrCaseScheme)
         {
             // check may be other thread just added one
-            UriParser syntax = null;
-            s_table.TryGetValue(lwrCaseScheme, out syntax);
+            UriParser syntax = (UriParser)s_table[lwrCaseScheme];
             if (syntax != null)
             {
                 return syntax;
             }
-            s_tempTable.TryGetValue(lwrCaseScheme, out syntax);
+            syntax = (UriParser)s_tempTable[lwrCaseScheme];
             if (syntax != null)
             {
                 return syntax;
@@ -250,7 +257,7 @@ namespace System
             {
                 if (s_tempTable.Count >= c_MaxCapacity)
                 {
-                    s_tempTable = new LowLevelDictionary<string, UriParser>(c_InitialTableSize);
+                    s_tempTable = new Hashtable(c_InitialTableSize);
                 }
                 syntax = new BuiltInUriParser(lwrCaseScheme, NoDefaultPort, UnknownV1SyntaxFlags);
                 s_tempTable[lwrCaseScheme] = syntax;
@@ -258,16 +265,8 @@ namespace System
             }
         }
 
-        internal static UriParser GetSyntax(string lwrCaseScheme)
-        {
-            UriParser ret = null;
-            s_table.TryGetValue(lwrCaseScheme, out ret);
-            if (ret == null)
-            {
-                s_tempTable.TryGetValue(lwrCaseScheme, out ret);
-            }
-            return ret;
-        }
+        internal static UriParser GetSyntax(string lwrCaseScheme) =>
+            (UriParser)(s_table[lwrCaseScheme] ?? s_tempTable[lwrCaseScheme]);
 
         //
         // Builtin and User Simple syntaxes do not need custom validation/parsing (i.e. virtual method calls),
@@ -277,6 +276,25 @@ namespace System
             get
             {
                 return InFact(UriSyntaxFlags.SimpleUserSyntax);
+            }
+        }
+
+        internal void CheckSetIsSimpleFlag()
+        {
+            Type type  = this.GetType();
+ 
+            if (    type == typeof(GenericUriParser)     
+                ||  type == typeof(HttpStyleUriParser)   
+                ||  type == typeof(FtpStyleUriParser)   
+                ||  type == typeof(FileStyleUriParser)   
+                ||  type == typeof(NewsStyleUriParser)   
+                ||  type == typeof(GopherStyleUriParser) 
+                ||  type == typeof(NetPipeStyleUriParser) 
+                ||  type == typeof(NetTcpStyleUriParser) 
+                ||  type == typeof(LdapStyleUriParser)
+                )
+            {
+                _flags |= UriSyntaxFlags.SimpleUserSyntax;
             }
         }
 
@@ -297,7 +315,7 @@ namespace System
 
         //
         // These are simple internal wrappers that will call virtual protected methods
-        // (to avoid "protected internal" siganures in the public docs)
+        // (to avoid "protected internal" signatures in the public docs)
         //
         internal UriParser InternalOnNewUri()
         {
@@ -352,8 +370,6 @@ namespace System
                                             UriSyntaxFlags.AllowEmptyHost |
                                             UriSyntaxFlags.AllowUncHost |       // V1 compat
                                             UriSyntaxFlags.AllowAnInternetHost |
-                                            // UriSyntaxFlags.AllowAnyOtherHost | // V1.1 has a bug and so does not support this case
-                                            //
                                             UriSyntaxFlags.PathIsRooted |
                                             UriSyntaxFlags.AllowDOSPath |        // V1 compat, actually we should not parse DOS file out of an unknown scheme
                                             UriSyntaxFlags.ConvertPathSlashes |  // V1 compat, it will always convert backslashes
@@ -400,7 +416,7 @@ namespace System
                                         UriSyntaxFlags.AllowIdn |
                                         UriSyntaxFlags.AllowIriParsing;
 
-        private static readonly UriSyntaxFlags s_fileSyntaxFlags =
+        private const UriSyntaxFlags FileSyntaxFlags =
                                         UriSyntaxFlags.MustHaveAuthority |
                                         //
                                         UriSyntaxFlags.AllowEmptyHost |
@@ -423,6 +439,8 @@ namespace System
                                         UriSyntaxFlags.AllowIdn |
                                         UriSyntaxFlags.AllowIriParsing;
 
+        private const UriSyntaxFlags UnixFileSyntaxFlags =
+                                        FileSyntaxFlags & ~UriSyntaxFlags.ConvertPathSlashes;
 
         private const UriSyntaxFlags VsmacrosSyntaxFlags =
                                         UriSyntaxFlags.MustHaveAuthority |

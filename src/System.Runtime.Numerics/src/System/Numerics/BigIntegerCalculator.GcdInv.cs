@@ -100,7 +100,7 @@ namespace System.Numerics
                 {
                     ulong q, r, s, t;
 
-                    // odd iteration
+                    // Odd iteration
                     q = x / y;
 
                     if (q > 0xFFFFFFFF)
@@ -123,7 +123,7 @@ namespace System.Numerics
                     if (x == b)
                         break;
 
-                    // even iteration
+                    // Even iteration
                     q = y / x;
 
                     if (q > 0xFFFFFFFF)
@@ -163,7 +163,7 @@ namespace System.Numerics
 
                     if (iteration % 2 == 1)
                     {
-                        // ensure left is larger than right
+                        // Ensure left is larger than right
                         BitsBuffer temp = left;
                         left = right;
                         right = temp;
@@ -238,7 +238,7 @@ namespace System.Numerics
                     break;
             }
 
-            // use all the bits but one, see [hac] 14.58 (ii)
+            // Use all the bits but one, see [hac] 14.58 (ii)
             int z = LeadingZeros((uint)xh);
 
             x = ((xh << 32 + z) | (xm << z) | (xl >> 32 - z)) >> 1;
@@ -272,8 +272,8 @@ namespace System.Numerics
                 long yDigit = d * y[i] - c * x[i] + yCarry;
                 xCarry = xDigit >> 32;
                 yCarry = yDigit >> 32;
-                x[i] = (uint)xDigit;
-                y[i] = (uint)yDigit;
+                x[i] = unchecked((uint)xDigit);
+                y[i] = unchecked((uint)yDigit);
             }
 
             xBuffer.Refresh(length);

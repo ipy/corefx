@@ -64,7 +64,7 @@ namespace System.Data.SqlClient
             OnChange();
             if (null == values)
             {
-                throw ADP.ArgumentNull("values");
+                throw ADP.ArgumentNull(nameof(values));
             }
             foreach (object value in values)
             {
@@ -277,7 +277,7 @@ namespace System.Data.SqlClient
         {
             if (null == value)
             {
-                throw ADP.ParameterNull("value", this, s_itemType);
+                throw ADP.ParameterNull(nameof(value), this, s_itemType);
             }
 
             object parent = ((SqlParameter)value).CompareExchangeParent(this, null);
@@ -293,7 +293,7 @@ namespace System.Data.SqlClient
                 }
             }
 
-            String name = ((SqlParameter)value).ParameterName;
+            string name = ((SqlParameter)value).ParameterName;
             if (0 == name.Length)
             {
                 index = 1;
@@ -310,7 +310,7 @@ namespace System.Data.SqlClient
         {
             if (null == value)
             {
-                throw ADP.ParameterNull("value", this, s_itemType);
+                throw ADP.ParameterNull(nameof(value), this, s_itemType);
             }
             else if (!s_itemType.IsInstanceOfType(value))
             {

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Globalization;
 
@@ -31,15 +32,15 @@ namespace System.Net.Http.Headers
             }
             if (from.HasValue && (from.Value < 0))
             {
-                throw new ArgumentOutOfRangeException("from");
+                throw new ArgumentOutOfRangeException(nameof(from));
             }
             if (to.HasValue && (to.Value < 0))
             {
-                throw new ArgumentOutOfRangeException("to");
+                throw new ArgumentOutOfRangeException(nameof(to));
             }
             if (from.HasValue && to.HasValue && (from.Value > to.Value))
             {
-                throw new ArgumentOutOfRangeException("from");
+                throw new ArgumentOutOfRangeException(nameof(from));
             }
 
             _from = from;
@@ -48,7 +49,7 @@ namespace System.Net.Http.Headers
 
         private RangeItemHeaderValue(RangeItemHeaderValue source)
         {
-            Contract.Requires(source != null);
+            Debug.Assert(source != null);
 
             _from = source._from;
             _to = source._to;
@@ -97,8 +98,8 @@ namespace System.Net.Http.Headers
         internal static int GetRangeItemListLength(string input, int startIndex,
             ICollection<RangeItemHeaderValue> rangeCollection)
         {
-            Contract.Requires(rangeCollection != null);
-            Contract.Requires(startIndex >= 0);
+            Debug.Assert(rangeCollection != null);
+            Debug.Assert(startIndex >= 0);
             Contract.Ensures((Contract.Result<int>() == 0) || (rangeCollection.Count > 0),
                 "If we can parse the string, then we expect to have at least one range item.");
 
@@ -148,7 +149,7 @@ namespace System.Net.Http.Headers
 
         internal static int GetRangeItemLength(string input, int startIndex, out RangeItemHeaderValue parsedValue)
         {
-            Contract.Requires(startIndex >= 0);
+            Debug.Assert(startIndex >= 0);
 
             // This parser parses number ranges: e.g. '1-2', '1-', '-2'.
 
@@ -159,7 +160,7 @@ namespace System.Net.Http.Headers
                 return 0;
             }
 
-            // Caller must remove leading whitespaces. If not, we'll return 0.
+            // Caller must remove leading whitespace. If not, we'll return 0.
             int current = startIndex;
 
             // Try parse the first value of a value pair.
@@ -174,7 +175,7 @@ namespace System.Net.Http.Headers
             current = current + fromLength;
             current = current + HttpRuleParser.GetWhitespaceLength(input, current);
 
-            // Afer the first value, the '-' character must follow.
+            // After the first value, the '-' character must follow.
             if ((current == input.Length) || (input[current] != '-'))
             {
                 // We need a '-' character otherwise this can't be a valid range.
@@ -208,14 +209,14 @@ namespace System.Net.Http.Headers
 
             // Try convert first value to int64
             long from = 0;
-            if ((fromLength > 0) && !HeaderUtilities.TryParseInt64(input.Substring(fromStartIndex, fromLength), out from))
+            if ((fromLength > 0) && !HeaderUtilities.TryParseInt64(input, fromStartIndex, fromLength, out from))
             {
                 return 0;
             }
 
             // Try convert second value to int64
             long to = 0;
-            if ((toLength > 0) && !HeaderUtilities.TryParseInt64(input.Substring(toStartIndex, toLength), out to))
+            if ((toLength > 0) && !HeaderUtilities.TryParseInt64(input, toStartIndex, toLength, out to))
             {
                 return 0;
             }

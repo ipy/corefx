@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-
 namespace System.Composition
 {
     /// <summary>
@@ -13,8 +11,6 @@ namespace System.Composition
     /// <typeparam name="TMetadata">The metadata required from the export.</typeparam>
     public class ExportFactory<T, TMetadata> : ExportFactory<T>
     {
-        private readonly TMetadata _metadata;
-
         /// <summary>
         /// Construct an ExportFactory.
         /// </summary>
@@ -23,16 +19,13 @@ namespace System.Composition
         public ExportFactory(Func<Tuple<T, Action>> exportCreator, TMetadata metadata)
             : base(exportCreator)
         {
-            _metadata = metadata;
+            Metadata = metadata;
         }
 
         /// <summary>
         /// The metadata associated with the export.
         /// </summary>
-        public TMetadata Metadata
-        {
-            get { return _metadata; }
-        }
+        public TMetadata Metadata { get; }
     }
 }
 

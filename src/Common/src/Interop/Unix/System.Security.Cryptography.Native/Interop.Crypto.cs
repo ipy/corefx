@@ -16,7 +16,18 @@ internal static partial class Interop
         private delegate int NegativeSizeReadMethod<in THandle>(THandle handle, byte[] buf, int cBuf);
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_BioTell")]
-        internal static extern int BioTell(SafeBioHandle bio);
+        internal static extern int CryptoNative_BioTell(SafeBioHandle bio);
+
+        internal static int BioTell(SafeBioHandle bio)
+        {
+            int ret = CryptoNative_BioTell(bio);
+            if (ret < 0)
+            {
+                throw CreateOpenSslCryptographicException();
+            }
+
+            return ret;
+        }
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_BioSeek")]
         internal static extern int BioSeek(SafeBioHandle bio, int pos);
@@ -75,8 +86,16 @@ internal static partial class Interop
             return Marshal.PtrToStringAnsi(GetX509RootStorePath_private());
         }
 
+        internal static string GetX509RootStoreFile()
+        {
+            return Marshal.PtrToStringAnsi(GetX509RootStoreFile_private());
+        }
+
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_GetX509RootStorePath")]
         private static extern IntPtr GetX509RootStorePath_private();
+
+        [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_GetX509RootStoreFile")]
+        private static extern IntPtr GetX509RootStoreFile_private();
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_SetX509ChainVerifyTime")]
         private static extern int SetX509ChainVerifyTime(

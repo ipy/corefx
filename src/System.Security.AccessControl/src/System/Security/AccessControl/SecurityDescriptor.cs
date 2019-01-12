@@ -11,11 +11,11 @@
 
 using Microsoft.Win32;
 using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
-using System.Globalization;
-using System.Diagnostics.Contracts;
-
+using System.ComponentModel;
 namespace System.Security.AccessControl
 {
     [Flags]
@@ -233,19 +233,19 @@ namespace System.Security.AccessControl
 
             error = Win32.ConvertSdToSddl(binaryForm, 1, flags, out resultSddl);
 
-            if (error == Interop.mincore.Errors.ERROR_INVALID_PARAMETER ||
-                error == Interop.mincore.Errors.ERROR_UNKNOWN_REVISION)
+            if (error == Interop.Errors.ERROR_INVALID_PARAMETER ||
+                error == Interop.Errors.ERROR_UNKNOWN_REVISION)
             {
                 //
                 // Indicates that the marshaling logic in GetBinaryForm is busted
                 //
 
-                Contract.Assert(false, "binaryForm produced invalid output");
+                Debug.Assert(false, "binaryForm produced invalid output");
                 throw new InvalidOperationException();
             }
-            else if (error != Interop.mincore.Errors.ERROR_SUCCESS)
+            else if (error != Interop.Errors.ERROR_SUCCESS)
             {
-                Contract.Assert(false, string.Format(CultureInfo.InvariantCulture, "Win32.ConvertSdToSddl returned {0}", error));
+                Debug.Assert(false, string.Format(CultureInfo.InvariantCulture, "Win32.ConvertSdToSddl returned {0}", error));
                 throw new InvalidOperationException();
             }
 
@@ -260,22 +260,21 @@ namespace System.Security.AccessControl
         {
             if (binaryForm == null)
             {
-                throw new ArgumentNullException("binaryForm");
+                throw new ArgumentNullException(nameof(binaryForm));
             }
 
             if (offset < 0)
             {
-                throw new ArgumentOutOfRangeException("offset",
+                throw new ArgumentOutOfRangeException(nameof(offset),
                     SR.ArgumentOutOfRange_NeedNonNegNum);
             }
 
             if (binaryForm.Length - offset < BinaryLength)
             {
                 throw new ArgumentOutOfRangeException(
-                    "binaryForm",
+nameof(binaryForm),
                     SR.ArgumentOutOfRange_ArrayTooSmall);
             }
-            Contract.EndContractBlock();
 
             //
             // the offset will grow as we go for each additional field (owner, group,
@@ -304,7 +303,7 @@ namespace System.Security.AccessControl
 
             binaryForm[offset + 0] = Revision;
             binaryForm[offset + 1] = rmControl;
-            binaryForm[offset + 2] = (byte)((int)materializedControlFlags >> 0);
+            binaryForm[offset + 2] = unchecked((byte)((int)materializedControlFlags >> 0));
             binaryForm[offset + 3] = (byte)((int)materializedControlFlags >> 8);
 
             //
@@ -478,7 +477,7 @@ namespace System.Security.AccessControl
 
             if (binaryForm == null)
             {
-                throw new ArgumentNullException("binaryForm");
+                throw new ArgumentNullException(nameof(binaryForm));
             }
 
             if (offset < 0)
@@ -487,7 +486,7 @@ namespace System.Security.AccessControl
                 // Offset must not be negative
                 //
 
-                throw new ArgumentOutOfRangeException("offset",
+                throw new ArgumentOutOfRangeException(nameof(offset),
                      SR.ArgumentOutOfRange_NeedNonNegNum);
             }
 
@@ -498,7 +497,7 @@ namespace System.Security.AccessControl
             if (binaryForm.Length - offset < HeaderLength)
             {
                 throw new ArgumentOutOfRangeException(
-                    "binaryForm",
+nameof(binaryForm),
                      SR.ArgumentOutOfRange_ArrayTooSmall);
             }
 
@@ -508,10 +507,9 @@ namespace System.Security.AccessControl
 
             if (binaryForm[offset + 0] != Revision)
             {
-                throw new ArgumentOutOfRangeException("binaryForm",
+                throw new ArgumentOutOfRangeException(nameof(binaryForm),
                      SR.AccessControl_InvalidSecurityDescriptorRevision);
             }
-            Contract.EndContractBlock();
 
 
             ControlFlags flags;
@@ -539,7 +537,7 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                      SR.AccessControl_InvalidSecurityDescriptorSelfRelativeForm,
-                    "binaryForm");
+nameof(binaryForm));
             }
 
             //
@@ -629,19 +627,17 @@ namespace System.Security.AccessControl
         {
             if (sddlForm == null)
             {
-                throw new ArgumentNullException("sddlForm");
+                throw new ArgumentNullException(nameof(sddlForm));
             }
-            Contract.EndContractBlock();
 
             int error;
             IntPtr byteArray = IntPtr.Zero;
             uint byteArraySize = 0;
-            const System.Int32 TRUE = 1;
             byte[] binaryForm = null;
 
             try
             {
-                if (TRUE != Interop.mincore.ConvertStringSdToSd(
+                if (!Interop.Advapi32.ConvertStringSdToSd(
                         sddlForm,
                         GenericSecurityDescriptor.Revision,
                         out byteArray,
@@ -649,30 +645,29 @@ namespace System.Security.AccessControl
                 {
                     error = Marshal.GetLastWin32Error();
 
-                    if (error == Interop.mincore.Errors.ERROR_INVALID_PARAMETER ||
-                        error == Interop.mincore.Errors.ERROR_INVALID_ACL ||
-                        error == Interop.mincore.Errors.ERROR_INVALID_SECURITY_DESCR ||
-                        error == Interop.mincore.Errors.ERROR_UNKNOWN_REVISION)
+                    if (error == Interop.Errors.ERROR_INVALID_PARAMETER ||
+                        error == Interop.Errors.ERROR_INVALID_ACL ||
+                        error == Interop.Errors.ERROR_INVALID_SECURITY_DESCR ||
+                        error == Interop.Errors.ERROR_UNKNOWN_REVISION)
                     {
                         throw new ArgumentException(
                              SR.ArgumentException_InvalidSDSddlForm,
-                            "sddlForm");
+nameof(sddlForm));
                     }
-                    else if (error == Interop.mincore.Errors.ERROR_NOT_ENOUGH_MEMORY)
+                    else if (error == Interop.Errors.ERROR_NOT_ENOUGH_MEMORY)
                     {
                         throw new OutOfMemoryException();
                     }
-                    else if (error == Interop.mincore.Errors.ERROR_INVALID_SID)
+                    else if (error == Interop.Errors.ERROR_INVALID_SID)
                     {
                         throw new ArgumentException(
                              SR.AccessControl_InvalidSidInSDDLString,
-                            "sddlForm");
+nameof(sddlForm));
                     }
-                    else if (error != Interop.mincore.Errors.ERROR_SUCCESS)
+                    else if (error != Interop.Errors.ERROR_SUCCESS)
                     {
-                        Contract.Assert(false, string.Format(CultureInfo.InvariantCulture, "Unexpected error out of Win32.ConvertStringSdToSd: {0}", error));
-                        // TODO : This should be a Win32Exception once that type is available
-                        throw new Exception();
+                        Debug.Assert(false, string.Format(CultureInfo.InvariantCulture, "Unexpected error out of Win32.ConvertStringSdToSd: {0}", error));
+                        throw new Win32Exception(error, SR.Format(SR.AccessControl_UnexpectedError, error));
                     }
                 }
 
@@ -691,7 +686,7 @@ namespace System.Security.AccessControl
                 //
                 if (byteArray != IntPtr.Zero)
                 {
-                    Interop.mincore_obsolete.LocalFree(byteArray);
+                    Interop.Kernel32.LocalFree(byteArray);
                 }
             }
 
@@ -847,7 +842,7 @@ namespace System.Security.AccessControl
                      isContainer ?
                         SR.AccessControl_MustSpecifyContainerAcl :
                         SR.AccessControl_MustSpecifyLeafObjectAcl,
-                    "systemAcl");
+nameof(systemAcl));
             }
 
             if (discretionaryAcl != null &&
@@ -857,7 +852,7 @@ namespace System.Security.AccessControl
                      isContainer ?
                         SR.AccessControl_MustSpecifyContainerAcl :
                         SR.AccessControl_MustSpecifyLeafObjectAcl,
-                    "discretionaryAcl");
+nameof(discretionaryAcl));
             }
 
             _isContainer = isContainer;
@@ -869,7 +864,7 @@ namespace System.Security.AccessControl
                      isDS ?
                         SR.AccessControl_MustSpecifyDirectoryObjectAcl :
                         SR.AccessControl_MustSpecifyNonDirectoryObjectAcl,
-                    "systemAcl");
+nameof(systemAcl));
             }
 
             if (discretionaryAcl != null &&
@@ -879,7 +874,7 @@ namespace System.Security.AccessControl
                     isDS ?
                         SR.AccessControl_MustSpecifyDirectoryObjectAcl :
                         SR.AccessControl_MustSpecifyNonDirectoryObjectAcl,
-                    "discretionaryAcl");
+nameof(discretionaryAcl));
             }
 
             _isDS = isDS;
@@ -950,9 +945,8 @@ namespace System.Security.AccessControl
         {
             if (rawSecurityDescriptor == null)
             {
-                throw new ArgumentNullException("rawSecurityDescriptor");
+                throw new ArgumentNullException(nameof(rawSecurityDescriptor));
             }
-            Contract.EndContractBlock();
 
             CreateFromParts(
                 isContainer,
@@ -1075,7 +1069,7 @@ namespace System.Security.AccessControl
                              this.IsContainer ?
                                 SR.AccessControl_MustSpecifyContainerAcl :
                                 SR.AccessControl_MustSpecifyLeafObjectAcl,
-                            "value");
+nameof(value));
                     }
 
                     if (value.IsDS != this.IsDS)
@@ -1084,7 +1078,7 @@ namespace System.Security.AccessControl
                             this.IsDS ?
                                 SR.AccessControl_MustSpecifyDirectoryObjectAcl :
                                 SR.AccessControl_MustSpecifyNonDirectoryObjectAcl,
-                            "value");
+nameof(value));
                     }
                 }
 
@@ -1124,7 +1118,7 @@ namespace System.Security.AccessControl
                              this.IsContainer ?
                                 SR.AccessControl_MustSpecifyContainerAcl :
                                 SR.AccessControl_MustSpecifyLeafObjectAcl,
-                            "value");
+nameof(value));
                     }
 
                     if (value.IsDS != this.IsDS)
@@ -1133,7 +1127,7 @@ namespace System.Security.AccessControl
                              this.IsDS ?
                                 SR.AccessControl_MustSpecifyDirectoryObjectAcl :
                                 SR.AccessControl_MustSpecifyNonDirectoryObjectAcl,
-                            "value");
+nameof(value));
                     }
                 }
 
@@ -1211,9 +1205,8 @@ namespace System.Security.AccessControl
         {
             if (sid == null)
             {
-                throw new ArgumentNullException("sid");
+                throw new ArgumentNullException(nameof(sid));
             }
-            Contract.EndContractBlock();
 
             if (DiscretionaryAcl != null)
             {
@@ -1225,9 +1218,8 @@ namespace System.Security.AccessControl
         {
             if (sid == null)
             {
-                throw new ArgumentNullException("sid");
+                throw new ArgumentNullException(nameof(sid));
             }
-            Contract.EndContractBlock();
 
             if (SystemAcl != null)
             {

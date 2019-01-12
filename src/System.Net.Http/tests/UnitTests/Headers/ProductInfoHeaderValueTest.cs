@@ -40,7 +40,7 @@ namespace System.Net.Http.Tests
             Assert.Null(productInfo.Product);
             Assert.Equal("(this is a comment)", productInfo.Comment);
 
-            Assert.Throws<ArgumentException>(() => { new ProductInfoHeaderValue((string)null); });
+            AssertExtensions.Throws<ArgumentException>("comment", () => { new ProductInfoHeaderValue((string)null); });
             Assert.Throws<FormatException>(() => { new ProductInfoHeaderValue("invalid comment"); });
             Assert.Throws<FormatException>(() => { new ProductInfoHeaderValue(" (leading space)"); });
             Assert.Throws<FormatException>(() => { new ProductInfoHeaderValue("(trailing space) "); });
@@ -149,8 +149,8 @@ namespace System.Net.Http.Tests
         [Fact]
         public void GetRangeLength_DifferentInvalidScenarios_AllReturnZero()
         {
-            CheckInvalidGetProductInfoLength(" p/1.0", 0); // no leading whitespaces allowed
-            CheckInvalidGetProductInfoLength(" (c)", 0); // no leading whitespaces allowed
+            CheckInvalidGetProductInfoLength(" p/1.0", 0); // no leading whitespace allowed
+            CheckInvalidGetProductInfoLength(" (c)", 0); // no leading whitespace allowed
             CheckInvalidGetProductInfoLength("(invalid", 0);
             CheckInvalidGetProductInfoLength("product/", 0);
             CheckInvalidGetProductInfoLength("product/(1.0)", 0);

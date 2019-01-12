@@ -12,22 +12,25 @@ using System.Threading.Tasks;
 
 namespace System.Runtime.Loader.Tests
 {
-    public class AssemblyLoadContextTest
+    [SkipOnTargetFramework(TargetFrameworkMonikers.UapAot, "AssemblyLoadContext not supported on .Net Native")]
+    public partial class AssemblyLoadContextTest
     {
         private const string TestAssembly = "System.Runtime.Loader.Test.Assembly";
+        private const string TestAssembly2 = "System.Runtime.Loader.Test.Assembly2";
+        private const string TestAssemblyNotSupported = "System.Runtime.Loader.Test.AssemblyNotSupported";
 
-        [ActiveIssue(/* dotnet/coreclr */ 1187, PlatformID.Windows)] // dependency on coreclr behavior, waiting for new coreclr
         [Fact]
         public static void GetAssemblyNameTest_ValidAssembly()
         {
-            var expectedName = typeof(ISet<>).GetTypeInfo().Assembly.GetName();
-            var actualAsmName = AssemblyLoadContext.GetAssemblyName("System.Runtime.dll");
+            var expectedName = typeof(AssemblyLoadContextTest).Assembly.GetName();
+            var actualAsmName = AssemblyLoadContext.GetAssemblyName("System.Runtime.Loader.Tests.dll");
             Assert.Equal(expectedName.FullName, actualAsmName.FullName);
 
             // Verify that the AssemblyName returned by GetAssemblyName can be used to load an assembly. System.Runtime would
             // already be loaded, but this is just verifying it does not throw some other unexpected exception.
             var asm = Assembly.Load(actualAsmName);
             Assert.NotNull(asm);
+            Assert.Equal(asm, typeof(AssemblyLoadContextTest).Assembly);
         }
 
         [Fact]
@@ -84,14 +87,17 @@ namespace System.Runtime.Loader.Tests
         [Fact]
         public static void LoadFromAssemblyName_ValidTrustedPlatformAssembly()
         {
-            var asmName = AssemblyLoadContext.GetAssemblyName("System.Runtime.dll");
+            var asmName = typeof(ISet<>).Assembly.GetName();
+            asmName.CodeBase = null;
             var loadContext = new CustomTPALoadContext();
 
-            // Usage of TPA and AssemblyLoadContext is mutually exclusive, you cannot use both.
-            // Since the premise is that you either want to use the default binding mechanism (via coreclr TPA binder) 
-            // or supply your own (via AssemblyLoadContext) for your own assemblies.
-            Assert.Throws(typeof(FileLoadException), 
-                () => loadContext.LoadFromAssemblyName(asmName));
+            // We should be able to override (and thus, load) assemblies that were
+            // loaded in TPA load context.
+            var asm = loadContext.LoadFromAssemblyName(asmName);
+            Assert.NotNull(asm);
+            var loadedContext = AssemblyLoadContext.GetLoadContext(asm);
+            Assert.NotNull(loadedContext);
+            Assert.Same(loadContext, loadedContext);
         }
 
         [Fact]
@@ -114,23 +120,6 @@ namespace System.Runtime.Loader.Tests
             var context = AssemblyLoadContext.GetLoadContext(asm);
 
             Assert.NotNull(context);
-        }
-
-        [Fact]
-        public static void InitializeDefaultContextTest()
-        {
-            // The coreclr binding model will become locked upon loading the first assembly that is not on the TPA list, or
-            // upon initializing the default context for the first time. For this test, test assemblies are located alongside
-            // corerun, and hence will be on the TPA list. So, we should be able to set the default context once successfully,
-            // and fail on the second try.
-
-            var loadContext = new ResourceAssemblyLoadContext();
-            AssemblyLoadContext.InitializeDefaultContext(loadContext);
-            Assert.Equal(loadContext, AssemblyLoadContext.Default);
-
-            loadContext = new ResourceAssemblyLoadContext();
-            Assert.Throws(typeof(InvalidOperationException), 
-                () => AssemblyLoadContext.InitializeDefaultContext(loadContext));
         }
     }
 }

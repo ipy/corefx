@@ -2,15 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
 namespace System.Composition
 {
     /// <summary>
-    /// Marks a part as being constrainted to sharing within the named boundary.
+    /// Marks a part as being constrained to sharing within the named boundary.
     /// </summary>
     /// <example>
     /// [Export,
@@ -26,8 +21,7 @@ namespace System.Composition
         /// <summary>
         /// Mark a part as globally shared.
         /// </summary>
-        public SharedAttribute()
-            : base(SharingBoundaryPartMetadataName, null)
+        public SharedAttribute() : base(SharingBoundaryPartMetadataName, null)
         {
         }
 
@@ -36,14 +30,13 @@ namespace System.Composition
         /// boundary name.
         /// </summary>
         /// <param name="sharingBoundaryName">The boundary outside of which this part is inaccessible.</param>
-        public SharedAttribute(string sharingBoundaryName)
-            : base(SharingBoundaryPartMetadataName, sharingBoundaryName)
+        public SharedAttribute(string sharingBoundaryName) : base(SharingBoundaryPartMetadataName, sharingBoundaryName)
         {
         }
 
         /// <summary>
         /// he boundary outside of which this part is inaccessible.
         /// </summary>
-        public string SharingBoundary { get { return (string)base.Value; } }
+        public string SharingBoundary => (string)base.Value;
     }
 }

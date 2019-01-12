@@ -6,7 +6,6 @@ using Microsoft.Win32;
 using Microsoft.Win32.SafeHandles;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 using System.Globalization;
 using System.Runtime.InteropServices;
 
@@ -36,24 +35,23 @@ namespace System.Security.Principal
         {
             if (accountName == null)
             {
-                throw new ArgumentNullException("accountName");
+                throw new ArgumentNullException(nameof(accountName));
             }
 
             if (accountName.Length == 0)
             {
-                throw new ArgumentException(SR.Argument_StringZeroLength, "accountName");
+                throw new ArgumentException(SR.Argument_StringZeroLength, nameof(accountName));
             }
 
             if (accountName.Length > MaximumAccountNameLength)
             {
-                throw new ArgumentException(SR.IdentityReference_AccountNameTooLong, "accountName");
+                throw new ArgumentException(SR.IdentityReference_AccountNameTooLong, nameof(accountName));
             }
 
             if (domainName != null && domainName.Length > MaximumDomainNameLength)
             {
-                throw new ArgumentException(SR.IdentityReference_DomainNameTooLong, "domainName");
+                throw new ArgumentException(SR.IdentityReference_DomainNameTooLong, nameof(domainName));
             }
-            Contract.EndContractBlock();
 
             if (domainName == null || domainName.Length == 0)
             {
@@ -69,19 +67,18 @@ namespace System.Security.Principal
         {
             if (name == null)
             {
-                throw new ArgumentNullException("name");
+                throw new ArgumentNullException(nameof(name));
             }
 
             if (name.Length == 0)
             {
-                throw new ArgumentException(SR.Argument_StringZeroLength, "name");
+                throw new ArgumentException(SR.Argument_StringZeroLength, nameof(name));
             }
 
             if (name.Length > (MaximumDomainNameLength + 1 /* '\' */ + MaximumAccountNameLength))
             {
-                throw new ArgumentException(SR.IdentityReference_AccountNameTooLong, "name");
+                throw new ArgumentException(SR.IdentityReference_AccountNameTooLong, nameof(name));
             }
-            Contract.EndContractBlock();
 
             _name = name;
         }
@@ -117,9 +114,8 @@ namespace System.Security.Principal
         {
             if (targetType == null)
             {
-                throw new ArgumentNullException("targetType");
+                throw new ArgumentNullException(nameof(targetType));
             }
-            Contract.EndContractBlock();
 
             if (targetType == typeof(NTAccount))
             {
@@ -137,7 +133,7 @@ namespace System.Security.Principal
             }
             else
             {
-                throw new ArgumentException(SR.IdentityReference_MustBeIdentityReference, "targetType");
+                throw new ArgumentException(SR.IdentityReference_MustBeIdentityReference, nameof(targetType));
             }
         }
 
@@ -180,21 +176,20 @@ namespace System.Security.Principal
 
             return Result;
         }
-        
+
         internal static IdentityReferenceCollection Translate(IdentityReferenceCollection sourceAccounts, Type targetType, out bool someFailed)
         {
             if (sourceAccounts == null)
             {
-                throw new ArgumentNullException("sourceAccounts");
+                throw new ArgumentNullException(nameof(sourceAccounts));
             }
-            Contract.EndContractBlock();
 
             if (targetType == typeof(SecurityIdentifier))
             {
                 return TranslateToSids(sourceAccounts, out someFailed);
             }
 
-            throw new ArgumentException(SR.IdentityReference_MustBeIdentityReference, "targetType");
+            throw new ArgumentException(SR.IdentityReference_MustBeIdentityReference, nameof(targetType));
         }
 
         #endregion
@@ -234,18 +229,17 @@ namespace System.Security.Principal
         {
             if (sourceAccounts == null)
             {
-                throw new ArgumentNullException("sourceAccounts");
+                throw new ArgumentNullException(nameof(sourceAccounts));
             }
 
             if (sourceAccounts.Count == 0)
             {
-                throw new ArgumentException(SR.Arg_EmptyCollection, "sourceAccounts");
+                throw new ArgumentException(SR.Arg_EmptyCollection, nameof(sourceAccounts));
             }
-            Contract.EndContractBlock();
 
-            SafeLsaPolicyHandle LsaHandle = SafeLsaPolicyHandle.InvalidHandle;
-            SafeLsaMemoryHandle ReferencedDomainsPtr = SafeLsaMemoryHandle.InvalidHandle;
-            SafeLsaMemoryHandle SidsPtr = SafeLsaMemoryHandle.InvalidHandle;
+            SafeLsaPolicyHandle LsaHandle = null;
+            SafeLsaMemoryHandle ReferencedDomainsPtr = null;
+            SafeLsaMemoryHandle SidsPtr = null;
 
             try
             {
@@ -262,7 +256,7 @@ namespace System.Security.Principal
 
                     if (nta == null)
                     {
-                        throw new ArgumentException(SR.Argument_ImproperType, "sourceAccounts");
+                        throw new ArgumentException(SR.Argument_ImproperType, nameof(sourceAccounts));
                     }
 
                     Names[currentName].Buffer = nta.ToString();
@@ -293,7 +287,7 @@ namespace System.Security.Principal
                 someFailed = false;
                 uint ReturnCode;
 
-                ReturnCode = Interop.mincore.LsaLookupNames2(LsaHandle, 0, sourceAccounts.Count, Names, ref ReferencedDomainsPtr, ref SidsPtr);
+                ReturnCode = Interop.Advapi32.LsaLookupNames2(LsaHandle, 0, sourceAccounts.Count, Names, out ReferencedDomainsPtr, out SidsPtr);
 
                 //
                 // Make a decision regarding whether it makes sense to proceed
@@ -316,14 +310,14 @@ namespace System.Security.Principal
                 }
                 else if (ReturnCode != 0)
                 {
-                    int win32ErrorCode = Interop.mincore.RtlNtStatusToDosError(unchecked((int)ReturnCode));
+                    uint win32ErrorCode = Interop.Advapi32.LsaNtStatusToWinError(ReturnCode);
 
-                    if (win32ErrorCode != Interop.mincore.Errors.ERROR_TRUSTED_RELATIONSHIP_FAILURE)
+                    if (unchecked((int)win32ErrorCode) != Interop.Errors.ERROR_TRUSTED_RELATIONSHIP_FAILURE)
                     {
                         Debug.Assert(false, string.Format(CultureInfo.InvariantCulture, "Interop.LsaLookupNames(2) returned unrecognized error {0}", win32ErrorCode));
                     }
 
-                    throw new Win32Exception(win32ErrorCode);
+                    throw new Win32Exception(unchecked((int)win32ErrorCode));
                 }
 
                 //
@@ -376,9 +370,9 @@ namespace System.Security.Principal
             }
             finally
             {
-                LsaHandle.Dispose();
-                ReferencedDomainsPtr.Dispose();
-                SidsPtr.Dispose();
+                LsaHandle?.Dispose();
+                ReferencedDomainsPtr?.Dispose();
+                SidsPtr?.Dispose();
             }
         }
         #endregion

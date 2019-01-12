@@ -9,8 +9,8 @@
 
 using System;
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 using System.Globalization;
+using System.Runtime.Serialization;
 
 namespace System.Text
 {
@@ -27,8 +27,7 @@ namespace System.Text
     //      Forms D & KD have things like 0934, which decomposes to 0933 + 093C, so not normal.
     //      Form IDNA has the above problems plus case mapping, so false (like most encodings)
     //
-
-    internal class ISCIIEncoding : EncodingNLS
+    internal class ISCIIEncoding : EncodingNLS, ISerializable
     {
         // Constants
         private const int CodeDefault = 0;    // 0x40       Default
@@ -76,7 +75,12 @@ namespace System.Text
 
             // This shouldn't really be possible
             if (_defaultCodePage < CodeDevanagari || _defaultCodePage > CodePunjabi)
-                throw new ArgumentException(SR.Format(SR.Argument_CodepageNotSupported, codePage), "codePage");
+                throw new ArgumentException(SR.Format(SR.Argument_CodepageNotSupported, codePage), nameof(codePage));
+        }
+
+        void ISerializable.GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            throw new PlatformNotSupportedException();
         }
 
         // Our MaxByteCount is 4 times the input size.  That could be because
@@ -85,8 +89,7 @@ namespace System.Text
         public override int GetMaxByteCount(int charCount)
         {
             if (charCount < 0)
-                throw new ArgumentOutOfRangeException("charCount", SR.ArgumentOutOfRange_NeedNonNegNum);
-            Contract.EndContractBlock();
+                throw new ArgumentOutOfRangeException(nameof(charCount), SR.ArgumentOutOfRange_NeedNonNegNum);
 
             // Characters would be # of characters + 1 in case high surrogate is ? * max fallback
             long byteCount = (long)charCount + 1;
@@ -98,7 +101,7 @@ namespace System.Text
             byteCount *= 4;
 
             if (byteCount > 0x7fffffff)
-                throw new ArgumentOutOfRangeException("charCount", SR.ArgumentOutOfRange_GetByteCountOverflow);
+                throw new ArgumentOutOfRangeException(nameof(charCount), SR.ArgumentOutOfRange_GetByteCountOverflow);
 
             return (int)byteCount;
         }
@@ -108,8 +111,7 @@ namespace System.Text
         public override int GetMaxCharCount(int byteCount)
         {
             if (byteCount < 0)
-                throw new ArgumentOutOfRangeException("byteCount", SR.ArgumentOutOfRange_NeedNonNegNum);
-            Contract.EndContractBlock();
+                throw new ArgumentOutOfRangeException(nameof(byteCount), SR.ArgumentOutOfRange_NeedNonNegNum);
 
             // Our MaxCharCount is the same as the byteCount.  There are a few sequences
             // where 2 (or more) bytes could become 2 chars, but that's still 1 to 1.
@@ -121,13 +123,12 @@ namespace System.Text
                 charCount *= DecoderFallback.MaxCharCount;
 
             if (charCount > 0x7fffffff)
-                throw new ArgumentOutOfRangeException("byteCount", SR.ArgumentOutOfRange_GetCharCountOverflow);
+                throw new ArgumentOutOfRangeException(nameof(byteCount), SR.ArgumentOutOfRange_GetCharCountOverflow);
 
             return (int)charCount;
         }
 
         // Our workhorse version
-        [System.Security.SecurityCritical]  // auto-generated
         public override unsafe int GetByteCount(char* chars, int count, EncoderNLS baseEncoder)
         {
             // Use null pointer to ask GetBytes for count
@@ -135,7 +136,6 @@ namespace System.Text
         }
 
         // Workhorse
-        [System.Security.SecurityCritical]  // auto-generated
         public override unsafe int GetBytes(char* chars, int charCount, byte* bytes, int byteCount, EncoderNLS baseEncoder)
         {
             // Allow null bytes for counting
@@ -183,7 +183,7 @@ namespace System.Text
                     continue;
                 }
 
-                // See if its outside of the Indic script Range range
+                // See if its outside of the Indic script range
                 if ((ch < IndicBegin) || (ch > IndicEnd))
                 {
                     // See if its a ZWJ or ZWNJ and if we has bLastVirama;
@@ -311,7 +311,6 @@ namespace System.Text
         }
 
         // Workhorse
-        [System.Security.SecurityCritical]  // auto-generated
         public override unsafe int GetCharCount(byte* bytes, int count, DecoderNLS baseDecoder)
         {
             // Just call GetChars with null chars saying we want count
@@ -324,7 +323,6 @@ namespace System.Text
         // Devenagari F0, B8 -> \u0952
         // Devenagari F0, BF -> \u0970
         // Some characters followed by E9 become a different character instead.
-        [System.Security.SecurityCritical]  // auto-generated
         public override unsafe int GetChars(byte* bytes, int byteCount,
                                                 char* chars, int charCount, DecoderNLS baseDecoder)
         {
@@ -387,7 +385,7 @@ namespace System.Text
                     Debug.Assert(((bLastVirama ? 1 : 0) + (bLastATR ? 1 : 0) +
                                (bLastDevenagariStressAbbr ? 1 : 0) +
                                ((cLastCharForNextNukta > 0) ? 1 : 0)) == 1,
-                        String.Format(CultureInfo.InvariantCulture,
+                        string.Format(CultureInfo.InvariantCulture,
                             "[ISCIIEncoding.GetChars]Special cases require 1 and only 1 special case flag: LastATR {0} Dev. {1} Nukta {2}",
                             bLastATR, bLastDevenagariStressAbbr, cLastCharForNextNukta));
                     // If the last one was an ATR, then we'll have to do ATR stuff
@@ -615,7 +613,7 @@ namespace System.Text
 
                 // We must be the Devenagari special case for F0, B8 & F0, BF
                 Debug.Assert(currentCodePage == CodeDevanagari && b == DevenagariExt,
-                    String.Format(CultureInfo.InvariantCulture,
+                    string.Format(CultureInfo.InvariantCulture,
                         "[ISCIIEncoding.GetChars] Devenagari special case must {0} not {1} or in Devanagari code page {2} not {3}.",
                         DevenagariExt, b, CodeDevanagari, currentCodePage));
                 bLastDevenagariStressAbbr = bLastSpecial = true;

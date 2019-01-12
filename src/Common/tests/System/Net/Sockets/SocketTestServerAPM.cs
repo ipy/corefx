@@ -16,6 +16,7 @@ namespace System.Net.Sockets.Tests
         private volatile bool _disposed = false;
 
         protected sealed override int Port { get { return ((IPEndPoint)_socket.LocalEndPoint).Port; } }
+        public sealed override EndPoint EndPoint { get { return _socket.LocalEndPoint; } }
 
         public SocketTestServerAPM(int numConnections, int receiveBufferSize, EndPoint localEndPoint)
         {
@@ -154,7 +155,6 @@ namespace System.Net.Sockets.Tests
             }
         }
 
-        // TODO: Cache and reuse ServerSocketState objects.
         private class ServerSocketState
         {
             private Socket __socket;

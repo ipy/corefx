@@ -49,7 +49,7 @@ namespace System.Threading
         {
             if (initialCount < 0)
             {
-                throw new ArgumentOutOfRangeException("initialCount");
+                throw new ArgumentOutOfRangeException(nameof(initialCount));
             }
 
             _initialCount = initialCount;
@@ -219,7 +219,7 @@ namespace System.Threading
         {
             if (signalCount <= 0)
             {
-                throw new ArgumentOutOfRangeException("signalCount");
+                throw new ArgumentOutOfRangeException(nameof(signalCount));
             }
 
             ThrowIfDisposed();
@@ -247,7 +247,7 @@ namespace System.Threading
                 }
 
                 // The CAS failed.  Spin briefly and try again.
-                spin.SpinOnce();
+                spin.SpinOnce(sleep1Threshold: -1);
             }
 
             // If we were the last to signal, set the event.
@@ -330,7 +330,7 @@ namespace System.Threading
         {
             if (signalCount <= 0)
             {
-                throw new ArgumentOutOfRangeException("signalCount");
+                throw new ArgumentOutOfRangeException(nameof(signalCount));
             }
 
             ThrowIfDisposed();
@@ -346,7 +346,7 @@ namespace System.Threading
                 {
                     return false;
                 }
-                else if (observedCount > (Int32.MaxValue - signalCount))
+                else if (observedCount > (int.MaxValue - signalCount))
                 {
                     throw new InvalidOperationException(SR.CountdownEvent_Increment_AlreadyMax);
                 }
@@ -361,7 +361,7 @@ namespace System.Threading
                 }
 
                 // The CAS failed.  Spin briefly and try again.
-                spin.SpinOnce();
+                spin.SpinOnce(sleep1Threshold: -1);
             }
 
             return true;
@@ -375,7 +375,7 @@ namespace System.Threading
         /// thread-safe and may not be used concurrently with other members of this instance.
         /// </remarks>
         /// <exception cref="T:System.ObjectDisposedException">The current instance has already been
-        /// disposed..</exception>
+        /// disposed.</exception>
         public void Reset()
         {
             Reset(_initialCount);
@@ -392,14 +392,14 @@ namespace System.Threading
         /// </remarks>
         /// <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="count"/> is
         /// less than 0.</exception>
-        /// <exception cref="T:System.ObjectDisposedException">The current instance has alread been disposed.</exception>
+        /// <exception cref="T:System.ObjectDisposedException">The current instance has already been disposed.</exception>
         public void Reset(int count)
         {
             ThrowIfDisposed();
 
             if (count < 0)
             {
-                throw new ArgumentOutOfRangeException("count");
+                throw new ArgumentOutOfRangeException(nameof(count));
             }
 
             _currentCount = count;
@@ -471,7 +471,7 @@ namespace System.Threading
             long totalMilliseconds = (long)timeout.TotalMilliseconds;
             if (totalMilliseconds < -1 || totalMilliseconds > int.MaxValue)
             {
-                throw new ArgumentOutOfRangeException("timeout");
+                throw new ArgumentOutOfRangeException(nameof(timeout));
             }
 
             return Wait((int)totalMilliseconds, new CancellationToken());
@@ -501,7 +501,7 @@ namespace System.Threading
             long totalMilliseconds = (long)timeout.TotalMilliseconds;
             if (totalMilliseconds < -1 || totalMilliseconds > int.MaxValue)
             {
-                throw new ArgumentOutOfRangeException("timeout");
+                throw new ArgumentOutOfRangeException(nameof(timeout));
             }
 
             return Wait((int)totalMilliseconds, cancellationToken);
@@ -545,7 +545,7 @@ namespace System.Threading
         {
             if (millisecondsTimeout < -1)
             {
-                throw new ArgumentOutOfRangeException("millisecondsTimeout");
+                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
             }
 
             ThrowIfDisposed();

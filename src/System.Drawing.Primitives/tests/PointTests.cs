@@ -35,8 +35,8 @@ namespace System.Drawing.PrimitivesTests
         public void SingleIntConstructorTest(int x)
         {
             Point p1 = new Point(x);
-            Point p2 = new Point((short)(x & 0xFFFF), (short)((x >> 16) & 0xFFFF));
-            
+            Point p2 = new Point(unchecked((short)(x & 0xFFFF)), unchecked((short)((x >> 16) & 0xFFFF)));
+
             Assert.Equal(p1, p2);
         }
 
@@ -98,11 +98,14 @@ namespace System.Drawing.PrimitivesTests
         [InlineData(0, 0)]
         public void ArithmeticTest(int x, int y)
         {
-            Point p = new Point(x, y);
+            Point addExpected, subExpected, p = new Point(x, y);
             Size s = new Size(y, x);
 
-            Point addExpected = new Point(x + y, y + x);
-            Point subExpected = new Point(x - y, y - x);
+            unchecked
+            {
+                addExpected = new Point(x + y, y + x);
+                subExpected = new Point(x - y, y - x);
+            }
 
             Assert.Equal(addExpected, p + s);
             Assert.Equal(subExpected, p - s);
@@ -118,9 +121,14 @@ namespace System.Drawing.PrimitivesTests
         public void PointFMathematicalTest(float x, float y)
         {
             PointF pf = new PointF(x, y);
-            Point pCeiling = new Point((int)Math.Ceiling(x), (int)Math.Ceiling(y));
-            Point pTruncate = new Point((int)x, (int)y);
-            Point pRound = new Point((int)Math.Round(x), (int)Math.Round(y));
+            Point pCeiling, pTruncate, pRound;
+
+            unchecked
+            {
+                pCeiling = new Point((int)Math.Ceiling(x), (int)Math.Ceiling(y));
+                pTruncate = new Point((int)x, (int)y);
+                pRound = new Point((int)Math.Round(x), (int)Math.Round(y));
+            }
 
             Assert.Equal(pCeiling, Point.Ceiling(pf));
             Assert.Equal(pRound, Point.Round(pf));
@@ -139,7 +147,7 @@ namespace System.Drawing.PrimitivesTests
 
             p1.Offset(p2);
 
-            Assert.Equal(p2.X + p2.Y, p1.X);
+            Assert.Equal(unchecked(p2.X + p2.Y), p1.X);
             Assert.Equal(p1.X, p1.Y);
 
             p2.Offset(x, y);
@@ -165,13 +173,50 @@ namespace System.Drawing.PrimitivesTests
             Assert.False(p1.Equals(p2));
             Assert.False(p2.Equals(p3));
 
+            Assert.True(p1.Equals((object)p3));
+            Assert.False(p1.Equals((object)p2));
+            Assert.False(p2.Equals((object)p3));
+
             Assert.Equal(p1.GetHashCode(), p3.GetHashCode());
         }
 
         [Fact]
-        public void ToStringTest()
+        public static void EqualityTest_NotPoint()
         {
-            Point p = new Point(0, 0);
+            var point = new Point(0, 0);
+            Assert.False(point.Equals(null));
+            Assert.False(point.Equals(0));
+            Assert.False(point.Equals(new PointF(0, 0)));
+        }
+
+        [Fact]
+        public static void GetHashCodeTest()
+        {
+            var point = new Point(10, 10);
+            Assert.Equal(point.GetHashCode(), new Point(10, 10).GetHashCode());
+            Assert.NotEqual(point.GetHashCode(), new Point(20, 10).GetHashCode());
+            Assert.NotEqual(point.GetHashCode(), new Point(10, 20).GetHashCode());
+        }
+
+        [Theory]
+        [InlineData(0, 0, 0, 0)]
+        [InlineData(1, -2, 3, -4)]
+        public void ConversionTest(int x, int y, int width, int height)
+        {
+            Rectangle rect = new Rectangle(x, y, width, height);
+            RectangleF rectF = rect;
+            Assert.Equal(x, rectF.X);
+            Assert.Equal(y, rectF.Y);
+            Assert.Equal(width, rectF.Width);
+            Assert.Equal(height, rectF.Height);
+        }
+
+        [Theory]
+        [InlineData(0, 0)]
+        [InlineData(5, -5)]
+        public void ToStringTest(int x, int y)
+        {
+            Point p = new Point(x, y);
             Assert.Equal(string.Format(CultureInfo.CurrentCulture, "{{X={0},Y={1}}}", p.X, p.Y), p.ToString());
         }
     }

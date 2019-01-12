@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http.Headers;
+using System.Net.Test.Common;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,9 +14,9 @@ using Xunit;
 
 namespace System.Net.Http.Functional.Tests
 {
-    public class HttpRequestMessageTest
+    public class HttpRequestMessageTest : HttpClientHandlerTestBase
     {
-        Version _expectedRequestMessageVersion = new Version(1, 1);
+        Version _expectedRequestMessageVersion = !PlatformDetection.IsFullFramework ? new Version(2,0) : new Version(1, 1);
 
         [Fact]
         public void Ctor_Default_CorrectDefaults()
@@ -104,7 +106,7 @@ namespace System.Net.Http.Functional.Tests
         [Fact]
         public void Ctor_NonHttpUri_ThrowsArgumentException()
         {
-            Assert.Throws<ArgumentException>(() => new HttpRequestMessage(HttpMethod.Put, "ftp://example.com"));
+            AssertExtensions.Throws<ArgumentException>("requestUri", () => new HttpRequestMessage(HttpMethod.Put, "ftp://example.com"));
         }
 
         [Fact]
@@ -159,7 +161,7 @@ namespace System.Net.Http.Functional.Tests
         public void RequestUri_SetNonHttpUri_ThrowsArgumentException()
         {
             var rm = new HttpRequestMessage();
-            Assert.Throws<ArgumentException>(() => { rm.RequestUri = new Uri("ftp://example.com"); });
+            AssertExtensions.Throws<ArgumentException>("value", () => { rm.RequestUri = new Uri("ftp://example.com"); });
         }
 
         [Fact]
@@ -192,7 +194,7 @@ namespace System.Net.Http.Functional.Tests
             rm.Content = new StringContent("content");
 
             // Note that there is no Content-Length header: The reason is that the value for Content-Length header
-            // doesn't get set by StringContent..ctor, but ony if someone actually accesses the ContentLength property.
+            // doesn't get set by StringContent..ctor, but only if someone actually accesses the ContentLength property.
             Assert.Equal(
                 "Method: PUT, RequestUri: 'http://a.com/', Version: 1.0, Content: " + typeof(StringContent).ToString() + ", Headers:\r\n" +
                 "{\r\n" +
@@ -213,6 +215,39 @@ namespace System.Net.Http.Functional.Tests
                 "  Content-Type: text/plain; charset=utf-8\r\n" +
                 "  Custom-Content-Header: value2\r\n" +
                 "}", rm.ToString());
+        }
+
+        [Theory]
+        [InlineData("DELETE")]
+        [InlineData("OPTIONS")]
+        [InlineData("HEAD")]
+        public async Task HttpRequest_BodylessMethod_NoContentLength(string method)
+        {
+            if (IsWinHttpHandler || IsNetfxHandler || IsUapHandler)
+            {
+                // Some platform handlers differ but we don't take it as failure.
+                return;
+            }
+
+            using (HttpClient client = new HttpClient())
+            {
+                await LoopbackServer.CreateServerAsync(async (server, uri) =>
+                {
+                    var request = new HttpRequestMessage();
+                    request.RequestUri = uri;
+                    request.Method = new HttpMethod(method);
+
+                    Task<HttpResponseMessage> requestTask = client.SendAsync(request);
+                    await server.AcceptConnectionAsync(async connection =>
+                    {
+                        List<string> headers = await connection.ReadRequestHeaderAsync();
+                        Assert.DoesNotContain(headers, line => line.StartsWith("Content-length"));
+
+                        await connection.SendResponseAsync();
+                        await requestTask;
+                    });
+                });
+            }
         }
 
         #region Helper methods

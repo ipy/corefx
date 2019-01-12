@@ -48,8 +48,8 @@ namespace System
         //
         //
         // Assumption is the caller will check on the resulting name length
-        // Remarks:  MUST NOT be used unless all input indexes are are verified and trusted.
-        internal unsafe static bool IsValid(char* name, ushort start, ref int returnedEnd, bool notImplicitFile)
+        // Remarks:  MUST NOT be used unless all input indexes are verified and trusted.
+        internal static unsafe bool IsValid(char* name, ushort start, ref int returnedEnd, bool notImplicitFile)
         {
             ushort end = (ushort)returnedEnd;
 

@@ -2,15 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//-----------------------------------------------------------------------------
-//
-// Description:
-//  The package properties are a subset of the standard OLE property sets
-//  SummaryInformation and DocumentSummaryInformation, and include such properties
-//  as Title and Subject.
-//
-//-----------------------------------------------------------------------------
-
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -18,7 +9,7 @@ using System.IO.Packaging;
 using System.Collections;
 using System.Collections.Generic;
 using System.Xml;
-using System.Globalization;             // For CultureInfo
+using System.Globalization;
 
 namespace System.IO.Packaging
 {
@@ -33,12 +24,6 @@ namespace System.IO.Packaging
     /// </remarks>
     internal class PartBasedPackageProperties : PackageProperties
     {
-        //------------------------------------------------------
-        //
-        //  Constructors
-        //
-        //------------------------------------------------------
-
         #region Constructors
 
         internal PartBasedPackageProperties(Package package)
@@ -55,18 +40,6 @@ namespace System.IO.Packaging
         }
 
         #endregion Constructors
-
-        //------------------------------------------------------
-        //
-        //  Public Methods
-        //
-        //------------------------------------------------------
-
-        //------------------------------------------------------
-        //
-        //  Public Properties
-        //
-        //------------------------------------------------------
 
         #region Public Properties
 
@@ -328,13 +301,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Public Properties
-
-        //------------------------------------------------------
-        //
-        //  Internal Methods
-        //
-        //------------------------------------------------------
-
+        
         #region Internal Methods
 
         // Invoked from Package.Flush.
@@ -346,13 +313,16 @@ namespace System.IO.Packaging
 
             // Make sure there is a part to write to and that it contains
             // the expected start markup.
-            EnsureXmlWriter();
+            Stream zipStream = null;
+            EnsureXmlWriter(ref zipStream);
 
             // Write the property elements and clear _dirty.
             SerializeDirtyProperties();
 
             // add closing markup and close the writer.
             CloseXmlWriter();
+            Debug.Assert(_xmlWriter == null);
+            zipStream?.Dispose();
         }
 
         // Invoked from Package.Close.
@@ -362,19 +332,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Internal Methods
-
-        //------------------------------------------------------
-        //
-        //  Internal Properties
-        //
-        //------------------------------------------------------
-
-        //------------------------------------------------------
-        //
-        //  Private Methods
-        //
-        //------------------------------------------------------
-
+        
         #region Private Methods
 
         // The property store is implemented as a hash table of objects.
@@ -442,8 +400,8 @@ namespace System.IO.Packaging
                 // If the binding is an assignment rather than an initialization, set the dirty flag.
                 _dirty = !initializing;
             }
-            // Case of an initial value being set for a property.
-            else
+            // Case of an initial value being set for a property. If value is null, no need to do anything
+            else if (value != null)
             {
                 _propertyDictionary.Add(propertyenum, value);
                 // If the binding is an assignment rather than an initialization, set the dirty flag.
@@ -577,7 +535,7 @@ namespace System.IO.Packaging
                     // Property elements can occur in any order (xsd:all).
                     object localName = reader.LocalName;
                     PackageXmlEnum xmlStringIndex = PackageXmlStringTable.GetEnumOf(localName);
-                    String valueType = PackageXmlStringTable.GetValueType(xmlStringIndex);
+                    string valueType = PackageXmlStringTable.GetValueType(xmlStringIndex);
 
                     if (Array.IndexOf(s_validProperties, xmlStringIndex) == -1)  // An unexpected element is an error.
                     {
@@ -594,7 +552,7 @@ namespace System.IO.Packaging
                             null, ((IXmlLineInfo)reader).LineNumber, ((IXmlLineInfo)reader).LinePosition);
                     }
 
-                    if (String.CompareOrdinal(valueType, "String") == 0)
+                    if (string.CompareOrdinal(valueType, "String") == 0)
                     {
                         // The schema is closed and defines no attributes on this type of element.
                         if (attributesCount != 0)
@@ -605,7 +563,7 @@ namespace System.IO.Packaging
 
                         RecordNewBinding(xmlStringIndex, GetStringData(reader), true /*initializing*/, reader);
                     }
-                    else if (String.CompareOrdinal(valueType, "DateTime") == 0)
+                    else if (string.CompareOrdinal(valueType, "DateTime") == 0)
                     {
                         int allowedAttributeCount = (object)reader.NamespaceURI ==
                                                             PackageXmlStringTable.GetXmlStringAsObject(PackageXmlEnum.DublinCoreTermsNamespace)
@@ -636,13 +594,13 @@ namespace System.IO.Packaging
         }
 
         // This method validates xsi:type="dcterms:W3CDTF"
-        // The valude of xsi:type is a qualified name. It should have a prefix that matches
+        // The value of xsi:type is a qualified name. It should have a prefix that matches
         //  the xml namespace (ns) within the scope and the name that matches name
         // The comparisons should be case-sensitive comparisons
-        internal static void ValidateXsiType(XmlReader reader, Object ns, string name)
+        internal static void ValidateXsiType(XmlReader reader, object ns, string name)
         {
             // Get the value of xsi;type
-            String typeValue = reader.GetAttribute(PackageXmlStringTable.GetXmlString(PackageXmlEnum.Type),
+            string typeValue = reader.GetAttribute(PackageXmlStringTable.GetXmlString(PackageXmlEnum.Type),
                                 PackageXmlStringTable.GetXmlString(PackageXmlEnum.XmlSchemaInstanceNamespace));
 
             // Missing xsi:type
@@ -654,7 +612,7 @@ namespace System.IO.Packaging
 
             int index = typeValue.IndexOf(':');
 
-            // The valude of xsi:type is not a qualified name
+            // The value of xsi:type is not a qualified name
             if (index == -1)
             {
                 throw new XmlException(SR.Format(SR.UnknownDCDateTimeXsiType, reader.Name),
@@ -664,8 +622,8 @@ namespace System.IO.Packaging
             // Check the following conditions
             //  The namespace of the prefix (string before ":") matches "ns"
             //  The name (string after ":") matches "name"
-            if (!Object.ReferenceEquals(ns, reader.LookupNamespace(typeValue.Substring(0, index)))
-                    || String.CompareOrdinal(name, typeValue.Substring(index + 1, typeValue.Length - index - 1)) != 0)
+            if (!object.ReferenceEquals(ns, reader.LookupNamespace(typeValue.Substring(0, index)))
+                    || string.CompareOrdinal(name, typeValue.Substring(index + 1, typeValue.Length - index - 1)) != 0)
             {
                 throw new XmlException(SR.Format(SR.UnknownDCDateTimeXsiType, reader.Name),
                     null, ((IXmlLineInfo)reader).LineNumber, ((IXmlLineInfo)reader).LinePosition);
@@ -715,14 +673,15 @@ namespace System.IO.Packaging
 
         // Make sure there is a part to write to and that it contains
         // the expected start markup.
-        private void EnsureXmlWriter()
+        private void EnsureXmlWriter(ref Stream zipStream)
         {
             if (_xmlWriter != null)
                 return;
 
             EnsurePropertyPart(); // Should succeed or throw an exception.
 
-            Stream writerStream = new IgnoreFlushAndCloseStream(_propertyPart.GetStream(FileMode.Create, FileAccess.Write));
+            zipStream = _propertyPart.GetStream(FileMode.Create, FileAccess.Write);
+            Stream writerStream = new IgnoreFlushAndCloseStream(zipStream);
             _xmlWriter = XmlWriter.Create(writerStream, new XmlWriterSettings { Encoding = System.Text.Encoding.UTF8 });
             WriteXmlStartTagsForPackageProperties();
         }
@@ -801,7 +760,7 @@ namespace System.IO.Packaging
         private void SerializeDirtyProperties()
         {
             // Create a property element for each non-null entry.
-            foreach (KeyValuePair<PackageXmlEnum, Object> entry in _propertyDictionary)
+            foreach (KeyValuePair<PackageXmlEnum, object> entry in _propertyDictionary)
             {
                 Debug.Assert(entry.Value != null);
 
@@ -856,13 +815,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Private Methods
-
-        //------------------------------------------------------
-        //
-        //   Private fields
-        //
-        //------------------------------------------------------
-
+        
         #region Private Fields
 
         private Package _package;
@@ -872,7 +825,7 @@ namespace System.IO.Packaging
         // Table of objects from the closed set of literals defined below.
         // (Uses object comparison rather than string comparison.)
         private const int NumCoreProperties = 16;
-        private Dictionary<PackageXmlEnum, Object> _propertyDictionary = new Dictionary<PackageXmlEnum, Object>(NumCoreProperties);
+        private Dictionary<PackageXmlEnum, object> _propertyDictionary = new Dictionary<PackageXmlEnum, object>(NumCoreProperties);
         private bool _dirty = false;
 
         // This System.Xml.NameTable makes sure that we use the same references to strings

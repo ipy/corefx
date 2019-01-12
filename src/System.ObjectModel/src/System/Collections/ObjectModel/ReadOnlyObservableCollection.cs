@@ -15,8 +15,10 @@ namespace System.Collections.ObjectModel
     /// <summary>
     /// Read-only wrapper around an ObservableCollection.
     /// </summary>
+    [Serializable]
     [DebuggerTypeProxy(typeof(CollectionDebugView<>))]
     [DebuggerDisplay("Count = {Count}")]
+    [System.Runtime.CompilerServices.TypeForwardedFrom("WindowsBase, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35")]
     public class ReadOnlyObservableCollection<T> : ReadOnlyCollection<T>, INotifyCollectionChanged, INotifyPropertyChanged
     {
         #region Constructors
@@ -64,6 +66,7 @@ namespace System.Collections.ObjectModel
         /// <remarks>
         /// see <seealso cref="INotifyCollectionChanged"/>
         /// </remarks>
+        [field: NonSerialized]
         protected virtual event NotifyCollectionChangedEventHandler CollectionChanged;
 
         /// <summary>
@@ -96,6 +99,7 @@ namespace System.Collections.ObjectModel
         /// <remarks>
         /// see <seealso cref="INotifyPropertyChanged"/>
         /// </remarks>
+        [field: NonSerialized]
         protected virtual event PropertyChangedEventHandler PropertyChanged;
 
         /// <summary>
@@ -133,16 +137,6 @@ namespace System.Collections.ObjectModel
             OnPropertyChanged(e);
         }
         #endregion Private Methods
-
-        #region Private Fields
-
-        //------------------------------------------------------
-        //
-        //  Private Fields
-        //
-        //------------------------------------------------------
-
-        #endregion Private Fields
     }
 }
 

@@ -9,21 +9,17 @@
 // that each of these derive from a different class, it can't be helped.
 // 
 
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-
 using Internal.Cryptography;
+using Internal.NativeCrypto;
 
 namespace System.Security.Cryptography
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5350")] // We are providing the implementation for 3DES not consuming it
     public sealed class TripleDESCng : TripleDES, ICngSymmetricAlgorithm
     {
-        private const string s_Algorithm = Interop.NCrypt.NCRYPT_3DES_ALGORITHM;
-
         public TripleDESCng()
         {
-            _core = new CngSymmetricAlgorithmCore(s_Algorithm, this);
+            _core = new CngSymmetricAlgorithmCore(this);
         }
 
         public TripleDESCng(string keyName)
@@ -38,7 +34,7 @@ namespace System.Security.Cryptography
 
         public TripleDESCng(string keyName, CngProvider provider, CngKeyOpenOptions openOptions)
         {
-            _core = new CngSymmetricAlgorithmCore(s_Algorithm, this, keyName, provider, openOptions);
+            _core = new CngSymmetricAlgorithmCore(this, keyName, provider, openOptions);
         }
 
         public override byte[] Key
@@ -98,15 +94,6 @@ namespace System.Security.Cryptography
             _core.GenerateIV();
         }
 
-        public override KeySizes[] LegalKeySizes
-        {
-            get
-            {
-                // CNG does not support 128-bit keys.
-                return new KeySizes[] { new KeySizes(minSize: 3 * 64, maxSize: 3 * 64, skipSize: 0) };
-            }
-        }
-
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
@@ -118,6 +105,31 @@ namespace System.Security.Cryptography
         bool ICngSymmetricAlgorithm.IsWeakKey(byte[] key)
         {
             return TripleDES.IsWeakKey(key);
+        }
+
+        SafeAlgorithmHandle ICngSymmetricAlgorithm.GetEphemeralModeHandle()
+        {
+            return TripleDesBCryptModes.GetSharedHandle(Mode);
+        }
+
+        string ICngSymmetricAlgorithm.GetNCryptAlgorithmIdentifier()
+        {
+            return Interop.NCrypt.NCRYPT_3DES_ALGORITHM;
+        }
+
+        byte[] ICngSymmetricAlgorithm.PreprocessKey(byte[] key)
+        {
+            if (key.Length == 16)
+            {
+                // Cng does not support Two-Key Triple DES, so manually support it here for consistency with System.Security.Cryptography.Algorithms.
+                // Two-Key Triple DES contains two 8-byte keys {K1}{K2} with {K1} appended to make {K1}{K2}{K1}.
+                byte[] newkey = new byte[24];
+                Array.Copy(key, 0, newkey, 0, 16);
+                Array.Copy(key, 0, newkey, 16, 8);
+                return newkey;
+            }
+
+            return key;
         }
 
         private CngSymmetricAlgorithmCore _core;

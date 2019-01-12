@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-
 namespace System.Composition.Hosting
 {
     /// <summary>
@@ -17,7 +15,7 @@ namespace System.Composition.Hosting
         /// Construct a <see cref="CompositionFailedException"/> with the default message.
         /// </summary>
         public CompositionFailedException()
-            : base(Properties.Resources.CompositionFailedDefaultExceptionMessage)
+            : base(SR.CompositionFailedDefaultExceptionMessage)
         { }
 
         /// <summary>

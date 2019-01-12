@@ -25,7 +25,7 @@ namespace System.Diagnostics
             }
             set
             {
-                throw new PlatformNotSupportedException();
+                throw new PlatformNotSupportedException(); // We can find no API to set this on Linux 
             }
         }
 
@@ -45,7 +45,7 @@ namespace System.Diagnostics
         /// <summary>Returns the time the associated thread was started.</summary>
         public DateTime StartTime
         {
-            get { return Process.BootTimeToDateTime(GetStat().starttime); }
+            get { return Process.BootTimeToDateTime(Process.TicksToTimeSpan(GetStat().starttime)); }
         }
 
         /// <summary>
@@ -84,7 +84,7 @@ namespace System.Diagnostics
             Interop.procfs.ParsedStat stat;
             if (!Interop.procfs.TryReadStatFile(pid: _processId, tid: Id, result: out stat, reusableReader: new ReusableTextReader(Encoding.UTF8)))
             {
-                throw new Win32Exception(SR.ProcessInformationUnavailable);
+                throw new InvalidOperationException(SR.Format(SR.ThreadExited, Id));
             }
             return stat;
         }

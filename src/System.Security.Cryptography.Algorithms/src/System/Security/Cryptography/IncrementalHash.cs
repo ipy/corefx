@@ -19,7 +19,6 @@ namespace System.Security.Cryptography
 
         private IncrementalHash(HashAlgorithmName name, HashProvider hash)
         {
-            Debug.Assert(name != null);
             Debug.Assert(!string.IsNullOrEmpty(name.Name));
             Debug.Assert(hash != null);
 
@@ -29,7 +28,6 @@ namespace System.Security.Cryptography
 
         private IncrementalHash(HashAlgorithmName name, HMACCommon hmac)
         {
-            Debug.Assert(name != null);
             Debug.Assert(!string.IsNullOrEmpty(name.Name));
             Debug.Assert(hmac != null);
 
@@ -40,10 +38,7 @@ namespace System.Security.Cryptography
         /// <summary>
         /// Get the name of the algorithm being performed.
         /// </summary>
-        public HashAlgorithmName AlgorithmName
-        {
-            get { return _algorithmName; }
-        }
+        public HashAlgorithmName AlgorithmName => _algorithmName;
 
         /// <summary>
         /// Append the entire contents of <paramref name="data"/> to the data already processed in the hash or HMAC.
@@ -54,7 +49,7 @@ namespace System.Security.Cryptography
         public void AppendData(byte[] data)
         {
             if (data == null)
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
 
             AppendData(data, 0, data.Length);
         }
@@ -82,24 +77,34 @@ namespace System.Security.Cryptography
         public void AppendData(byte[] data, int offset, int count)
         {
             if (data == null)
-                throw new ArgumentNullException("data");
+                throw new ArgumentNullException(nameof(data));
             if (offset < 0)
-                throw new ArgumentOutOfRangeException("offset", SR.ArgumentOutOfRange_NeedNonNegNum);
+                throw new ArgumentOutOfRangeException(nameof(offset), SR.ArgumentOutOfRange_NeedNonNegNum);
             if (count < 0 || (count > data.Length))
-                throw new ArgumentOutOfRangeException("count");
+                throw new ArgumentOutOfRangeException(nameof(count));
             if ((data.Length - count) < offset)
                 throw new ArgumentException(SR.Argument_InvalidOffLen);
             if (_disposed)
                 throw new ObjectDisposedException(typeof(IncrementalHash).Name);
 
+            AppendData(new ReadOnlySpan<byte>(data, offset, count));
+        }
+
+        public void AppendData(ReadOnlySpan<byte> data)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(typeof(IncrementalHash).Name);
+            }
+
+            Debug.Assert((_hash != null) ^ (_hmac != null));
             if (_hash != null)
             {
-                _hash.AppendHashDataCore(data, offset, count);
+                _hash.AppendHashData(data);
             }
             else
             {
-                Debug.Assert(_hmac != null, "Both _hash and _hmac were null");
-                _hmac.AppendHashData(data, offset, count);
+                _hmac.AppendHashData(data);
             }
         }
 
@@ -113,21 +118,27 @@ namespace System.Security.Cryptography
         public byte[] GetHashAndReset()
         {
             if (_disposed)
+            {
                 throw new ObjectDisposedException(typeof(IncrementalHash).Name);
-
-            byte[] hashValue;
-
-            if (_hash != null)
-            {
-                hashValue = _hash.FinalizeHashAndReset();
-            }
-            else
-            {
-                Debug.Assert(_hmac != null, "Both _hash and _hmac were null");
-                hashValue = _hmac.FinalizeHashAndReset();
             }
 
-            return hashValue;
+            Debug.Assert((_hash != null) ^ (_hmac != null));
+            return _hash != null ?
+                _hash.FinalizeHashAndReset() :
+                _hmac.FinalizeHashAndReset();
+        }
+
+        public bool TryGetHashAndReset(Span<byte> destination, out int bytesWritten)
+        {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(typeof(IncrementalHash).Name);
+            }
+
+            Debug.Assert((_hash != null) ^ (_hmac != null));
+            return _hash != null ?
+                _hash.TryFinalizeHashAndReset(destination, out bytesWritten) :
+                _hmac.TryFinalizeHashAndReset(destination, out bytesWritten);
         }
 
         /// <summary>
@@ -167,7 +178,7 @@ namespace System.Security.Cryptography
         public static IncrementalHash CreateHash(HashAlgorithmName hashAlgorithm)
         {
             if (string.IsNullOrEmpty(hashAlgorithm.Name))
-                throw new ArgumentException(SR.Cryptography_HashAlgorithmNameNullOrEmpty, "hashAlgorithm");
+                throw new ArgumentException(SR.Cryptography_HashAlgorithmNameNullOrEmpty, nameof(hashAlgorithm));
 
             return new IncrementalHash(hashAlgorithm, HashProviderDispenser.CreateHashProvider(hashAlgorithm.Name));
         }
@@ -197,9 +208,9 @@ namespace System.Security.Cryptography
         public static IncrementalHash CreateHMAC(HashAlgorithmName hashAlgorithm, byte[] key)
         {
             if (key == null)
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             if (string.IsNullOrEmpty(hashAlgorithm.Name))
-                throw new ArgumentException(SR.Cryptography_HashAlgorithmNameNullOrEmpty, "hashAlgorithm");
+                throw new ArgumentException(SR.Cryptography_HashAlgorithmNameNullOrEmpty, nameof(hashAlgorithm));
 
             return new IncrementalHash(hashAlgorithm, new HMACCommon(hashAlgorithm.Name, key, -1));
         }

@@ -11,10 +11,9 @@ namespace System.IO.MemoryMappedFiles
     {
         /// <summary>
         /// Used by the 2 Create factory method groups.  A null fileHandle specifies that the 
-        /// memory mapped file should not be associated with an existing file on disk (ie start
+        /// memory mapped file should not be associated with an existing file on disk (i.e. start
         /// out empty).
         /// </summary>
-        [SecurityCritical]
         private static unsafe SafeMemoryMappedFileHandle CreateCore(
             FileStream fileStream, string mapName, 
             HandleInheritability inheritability, MemoryMappedFileAccess access, 
@@ -70,6 +69,12 @@ namespace System.IO.MemoryMappedFiles
                 {
                     ownsFileStream = true;
                     fileStream = CreateSharedBackingObject(protections, capacity);
+
+                    // If the MMF handle should not be inherited, mark the backing object fd as O_CLOEXEC.
+                    if (inheritability == HandleInheritability.None)
+                    {
+                        Interop.CheckIo(Interop.Sys.Fcntl.SetCloseOnExec(fileStream.SafeFileHandle));
+                    }
                 }
             }
 
@@ -79,7 +84,6 @@ namespace System.IO.MemoryMappedFiles
         /// <summary>
         /// Used by the CreateOrOpen factory method groups.
         /// </summary>
-        [SecurityCritical]
         private static SafeMemoryMappedFileHandle CreateOrOpenCore(
             string mapName, 
             HandleInheritability inheritability, MemoryMappedFileAccess access,
@@ -95,7 +99,6 @@ namespace System.IO.MemoryMappedFiles
         /// We'll throw an ArgumentException if the file mapping object didn't exist and the
         /// caller used CreateOrOpen since Create isn't valid with Write access
         /// </summary>
-        [SecurityCritical]
         private static SafeMemoryMappedFileHandle OpenCore(
             string mapName, HandleInheritability inheritability, MemoryMappedFileAccess access, bool createOrOpen)
         {
@@ -107,7 +110,6 @@ namespace System.IO.MemoryMappedFiles
         /// We'll throw an ArgumentException if the file mapping object didn't exist and the
         /// caller used CreateOrOpen since Create isn't valid with Write access
         /// </summary>
-        [SecurityCritical]
         private static SafeMemoryMappedFileHandle OpenCore(
             string mapName, HandleInheritability inheritability, MemoryMappedFileRights rights, bool createOrOpen)
         {
@@ -182,7 +184,7 @@ namespace System.IO.MemoryMappedFiles
 
             try
             {
-                // Unlink the shared memory object immediatley so that it'll go away once all handles 
+                // Unlink the shared memory object immediately so that it'll go away once all handles 
                 // to it are closed (as with opened then unlinked files, it'll remain usable via
                 // the open handles even though it's unlinked and can't be opened anew via its name).
                 Interop.CheckIo(Interop.Sys.ShmUnlink(mapName));
@@ -203,13 +205,11 @@ namespace System.IO.MemoryMappedFiles
             }
         }
 
-        private static string s_tempMapsDirectory;
-
         private static FileStream CreateSharedBackingObjectUsingFile(Interop.Sys.MemoryMappedProtections protections, long capacity)
         {
-            string tempMapsDirectory = s_tempMapsDirectory ?? (s_tempMapsDirectory = PersistedFiles.GetTempFeatureDirectory("maps"));
-            Directory.CreateDirectory(tempMapsDirectory);
-            string path = Path.Combine(tempMapsDirectory, Guid.NewGuid().ToString("N"));
+            // We create a temporary backing file in TMPDIR.  We don't bother putting it into subdirectories as the file exists
+            // extremely briefly: it's opened/created and then immediately unlinked.
+            string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
 
             FileAccess access =
                 (protections & (Interop.Sys.MemoryMappedProtections.PROT_READ | Interop.Sys.MemoryMappedProtections.PROT_WRITE)) != 0 ? FileAccess.ReadWrite :

@@ -18,7 +18,7 @@ namespace System.ComponentModel.DataAnnotations.Schema
         {
             if (!(Enum.IsDefined(typeof(DatabaseGeneratedOption), databaseGeneratedOption)))
             {
-                throw new ArgumentOutOfRangeException("databaseGeneratedOption");
+                throw new ArgumentOutOfRangeException(nameof(databaseGeneratedOption));
             }
 
             DatabaseGeneratedOption = databaseGeneratedOption;
@@ -27,6 +27,6 @@ namespace System.ComponentModel.DataAnnotations.Schema
         /// <summary>
         ///     The pattern used to generate values for the property in the database.
         /// </summary>
-        public DatabaseGeneratedOption DatabaseGeneratedOption { get; private set; }
+        public DatabaseGeneratedOption DatabaseGeneratedOption { get; }
     }
 }

@@ -27,11 +27,12 @@ namespace System.IO.Packaging
     /// </summary>
     internal class InternalRelationshipCollection : IEnumerable<PackageRelationship>
     {
-        //------------------------------------------------------
-        //
-        //  Public Methods
-        //
-        //------------------------------------------------------
+        // Mono will parse a URI starting with '/' as an absolute URI, while .NET Core and
+        // .NET Framework will parse this as relative. This will break internal relationships
+        // in packaging. For more information, see
+        // http://www.mono-project.com/docs/faq/known-issues/urikind-relativeorabsolute/
+        private static readonly UriKind DotNetRelativeOrAbsolute = Type.GetType ("Mono.Runtime") == null ? UriKind.RelativeOrAbsolute : (UriKind)300;
+
         #region IEnumerable
         /// <summary>
         /// Returns an enumerator over all the relationships for a Package or a PackagePart
@@ -43,7 +44,7 @@ namespace System.IO.Packaging
         }
 
         /// <summary>
-        /// Returns an enumertor over all the relationships for a Package or a PackagePart
+        /// Returns an enumerator over all the relationships for a Package or a PackagePart
         /// </summary>
         /// <returns></returns>
         IEnumerator<PackageRelationship> IEnumerable<PackageRelationship>.GetEnumerator()
@@ -52,7 +53,7 @@ namespace System.IO.Packaging
         }
 
         /// <summary>
-        /// Returns an enumertor over all the relationships for a Package or a PackagePart
+        /// Returns an enumerator over all the relationships for a Package or a PackagePart
         /// </summary>
         /// <returns></returns>
         public List<PackageRelationship>.Enumerator GetEnumerator()
@@ -61,12 +62,7 @@ namespace System.IO.Packaging
         }
 
         #endregion
-
-        //------------------------------------------------------
-        //
-        //  Internal Methods
-        //
-        //------------------------------------------------------
+        
         #region Internal Methods
         /// <summary>
         /// Constructor
@@ -112,7 +108,7 @@ namespace System.IO.Packaging
         /// Delete relationship with ID 'id'
         /// </summary>
         /// <param name="id">ID of the relationship to remove</param>
-        internal void Delete(String id)
+        internal void Delete(string id)
         {
             int index = GetRelationshipIndex(id);
             if (index == -1)
@@ -165,7 +161,7 @@ namespace System.IO.Packaging
         internal static void ThrowIfInvalidRelationshipType(string relationshipType)
         {
             // Look for empty string or string with just spaces
-            if (relationshipType.Trim() == String.Empty)
+            if (relationshipType.Trim() == string.Empty)
                 throw new ArgumentException(SR.InvalidRelationshipType);
         }
 
@@ -189,11 +185,6 @@ namespace System.IO.Packaging
 
         #endregion Internal Methods
 
-        //------------------------------------------------------
-        //
-        //  Private Methods
-        //
-        //------------------------------------------------------
         #region Private Methods
         /// <summary>
         /// Constructor
@@ -274,8 +265,8 @@ namespace System.IO.Packaging
                         // Make sure that the current node read is an Element 
                         if (reader.NodeType == XmlNodeType.Element
                             && (reader.Depth == 0)
-                            && (String.CompareOrdinal(s_relationshipsTagName, reader.LocalName) == 0)
-                            && (String.CompareOrdinal(PackagingUtilities.RelationshipNamespaceUri, reader.NamespaceURI) == 0))
+                            && (string.CompareOrdinal(s_relationshipsTagName, reader.LocalName) == 0)
+                            && (string.CompareOrdinal(PackagingUtilities.RelationshipNamespaceUri, reader.NamespaceURI) == 0))
                         {
                             ThrowIfXmlBaseAttributeIsPresent(reader);
 
@@ -298,8 +289,8 @@ namespace System.IO.Packaging
 
                                 if (reader.NodeType == XmlNodeType.Element
                                     && (reader.Depth == 1)
-                                    && (String.CompareOrdinal(s_relationshipTagName, reader.LocalName) == 0)
-                                    && (String.CompareOrdinal(PackagingUtilities.RelationshipNamespaceUri, reader.NamespaceURI) == 0))
+                                    && (string.CompareOrdinal(s_relationshipTagName, reader.LocalName) == 0)
+                                    && (string.CompareOrdinal(PackagingUtilities.RelationshipNamespaceUri, reader.NamespaceURI) == 0))
                                 {
                                     ThrowIfXmlBaseAttributeIsPresent(reader);
 
@@ -325,7 +316,7 @@ namespace System.IO.Packaging
                                     }
                                 }
                                 else
-                                    if (!(String.CompareOrdinal(s_relationshipsTagName, reader.LocalName) == 0 && (reader.NodeType == XmlNodeType.EndElement)))
+                                    if (!(string.CompareOrdinal(s_relationshipsTagName, reader.LocalName) == 0 && (reader.NodeType == XmlNodeType.EndElement)))
                                     throw new XmlException(SR.UnknownTagEncountered, null, reader.LineNumber, reader.LinePosition);
                             }
                         }
@@ -369,7 +360,7 @@ namespace System.IO.Packaging
             if (string.IsNullOrEmpty(targetAttributeValue))
                 throw new XmlException(SR.Format(SR.RequiredRelationshipAttributeMissing, s_targetAttributeName), null, reader.LineNumber, reader.LinePosition);
 
-            Uri targetUri = new Uri(targetAttributeValue, UriKind.RelativeOrAbsolute);
+            Uri targetUri = new Uri(targetAttributeValue, DotNetRelativeOrAbsolute);
 
             // Attribute : Type
             string typeAttributeValue = reader.GetAttribute(s_typeAttributeName);
@@ -396,7 +387,7 @@ namespace System.IO.Packaging
             //Skips over the following - ProcessingInstruction, DocumentType, Comment, Whitespace, or SignificantWhitespace
             reader.MoveToContent();
 
-            if (reader.NodeType == XmlNodeType.EndElement && String.CompareOrdinal(s_relationshipTagName, reader.LocalName) == 0)
+            if (reader.NodeType == XmlNodeType.EndElement && string.CompareOrdinal(s_relationshipTagName, reader.LocalName) == 0)
                 return;
             else
                 throw new XmlException(SR.Format(SR.ElementIsNotEmptyElement, s_relationshipTagName), null, reader.LineNumber, reader.LinePosition);
@@ -416,20 +407,20 @@ namespace System.IO.Packaging
         private PackageRelationship Add(Uri targetUri, TargetMode targetMode, string relationshipType, string id, bool parsing)
         {
             if (targetUri == null)
-                throw new ArgumentNullException("targetUri");
+                throw new ArgumentNullException(nameof(targetUri));
 
             if (relationshipType == null)
-                throw new ArgumentNullException("relationshipType");
+                throw new ArgumentNullException(nameof(relationshipType));
 
             ThrowIfInvalidRelationshipType(relationshipType);
 
             //Verify if the Enum value is valid
             if (targetMode < TargetMode.Internal || targetMode > TargetMode.External)
-                throw new ArgumentOutOfRangeException("targetMode");
+                throw new ArgumentOutOfRangeException(nameof(targetMode));
 
             // don't accept absolute Uri's if targetMode is Internal.
             if (targetMode == TargetMode.Internal && targetUri.IsAbsoluteUri)
-                throw new ArgumentException(SR.RelationshipTargetMustBeRelative, "targetUri");
+                throw new ArgumentException(SR.RelationshipTargetMustBeRelative, nameof(targetUri));
 
             // don't allow relationships to relationships
             //  This check should be made for following cases
@@ -447,7 +438,7 @@ namespace System.IO.Packaging
                 if (resolvedUri != null)
                 {
                     if (PackUriHelper.IsRelationshipPartUri(resolvedUri))
-                        throw new ArgumentException(SR.RelationshipToRelationshipIllegal, "targetUri");
+                        throw new ArgumentException(SR.RelationshipToRelationshipIllegal, nameof(targetUri));
                 }
             }
 
@@ -477,7 +468,8 @@ namespace System.IO.Packaging
         /// <param name="part">part to persist to</param>
         private void WriteRelationshipPart(PackagePart part)
         {
-            using (IgnoreFlushAndCloseStream s = new IgnoreFlushAndCloseStream(part.GetStream()))
+            using (Stream partStream = part.GetStream())
+            using (IgnoreFlushAndCloseStream s = new IgnoreFlushAndCloseStream(partStream))
             {
                 s.SetLength(0);    // truncate to resolve PS 954048
 
@@ -522,7 +514,7 @@ namespace System.IO.Packaging
                 // We would like to persist the uri as passed in by the user and so we use the
                 // OriginalString property. This makes the persisting behavior consistent
                 // for relative and absolute Uris. 
-                // Since we accpeted the Uri as a string, we are at the minimum guaranteed that
+                // Since we accepted the Uri as a string, we are at the minimum guaranteed that
                 // the string can be converted to a valid Uri. 
                 // Also, we are just using it here to persist the information and we are not
                 // resolving or fetching a resource based on this Uri.
@@ -572,27 +564,13 @@ namespace System.IO.Packaging
         /// <returns>Resolved Uri</returns>
         private Uri GetResolvedTargetUri(Uri target, TargetMode targetMode)
         {
-            if (targetMode == TargetMode.Internal)
-            {
-                Debug.Assert(!target.IsAbsoluteUri, "Uri should be relative at this stage");
+            Debug.Assert(targetMode == TargetMode.Internal);
+            Debug.Assert(!target.IsAbsoluteUri, "Uri should be relative at this stage");
 
-                if (_sourcePart == null) //indicates that the source is the package root
-                    return PackUriHelper.ResolvePartUri(PackUriHelper.PackageRootUri, target);
-                else
-                    return PackUriHelper.ResolvePartUri(_sourcePart.Uri, target);
-            }
+            if (_sourcePart == null) //indicates that the source is the package root
+                return PackUriHelper.ResolvePartUri(PackUriHelper.PackageRootUri, target);
             else
-            {
-                if (target.IsAbsoluteUri)
-                {
-                    if (string.Equals(target.Scheme, PackUriHelper.UriSchemePack))
-                        return PackUriHelper.GetPartUri(target);
-                }
-                else
-                    Debug.Fail("Uri should not be relative at this stage");
-            }
-            // relative to the location of the package.
-            return target;
+                return PackUriHelper.ResolvePartUri(_sourcePart.Uri, target);
         }
 
         //Throws an exception if the relationship part does not have the correct content type
@@ -612,7 +590,7 @@ namespace System.IO.Packaging
         }
 
         //Throws an XML exception if the attribute value is invalid
-        private void ThrowForInvalidAttributeValue(XmlCompatibilityReader reader, String attributeName, Exception ex)
+        private void ThrowForInvalidAttributeValue(XmlCompatibilityReader reader, string attributeName, Exception ex)
         {
             throw new XmlException(SR.Format(SR.InvalidValueForTheAttribute, attributeName), ex, reader.LineNumber, reader.LinePosition);
         }
@@ -633,7 +611,7 @@ namespace System.IO.Packaging
         private string GenerateRelationshipId()
         {
             // The timestamp consists of the first 8 hex octets of the GUID.
-            return String.Concat("R", Guid.NewGuid().ToString("N").Substring(0, s_timestampLength));
+            return string.Concat("R", Guid.NewGuid().ToString("N").Substring(0, s_timestampLength));
         }
 
         // If 'id' is not of the xsd type ID or is not unique for this collection, throw an exception.
@@ -665,11 +643,6 @@ namespace System.IO.Packaging
 
         #endregion Private Properties
 
-        //------------------------------------------------------
-        //
-        //  Private Members
-        //
-        //------------------------------------------------------
         #region Private Members
         private List<PackageRelationship> _relationships;
         private bool _dirty;    // true if we have uncommitted changes to _relationships

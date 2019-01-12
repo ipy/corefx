@@ -8,9 +8,21 @@ using System.Text;
 
 namespace System.Reflection.Metadata.Decoding.Tests
 {
-    // Test implementation of ISignatureTypeProvider<TType> that uses strings in ilasm syntax as TType.
+    internal class DisassemblingGenericContext
+    {
+        public DisassemblingGenericContext(ImmutableArray<string> typeParameters, ImmutableArray<string> methodParameters)
+        {
+            MethodParameters = methodParameters;
+            TypeParameters = typeParameters;
+        }
+
+        public ImmutableArray<string> MethodParameters { get; }
+        public ImmutableArray<string> TypeParameters { get; }
+    }
+
+    // Test implementation of ISignatureTypeProvider<TType, TGenericContext> that uses strings in ilasm syntax as TType.
     // A real provider in any sort of perf constraints would not want to allocate strings freely like this, but it keeps test code simple.
-    public class DisassemblingTypeProvider : ISignatureTypeProvider<string>
+    internal class DisassemblingTypeProvider : ISignatureTypeProvider<string, DisassemblingGenericContext>
     {
         public virtual string GetPrimitiveType(PrimitiveTypeCode typeCode)
         {
@@ -72,11 +84,11 @@ namespace System.Reflection.Metadata.Decoding.Tests
 
                 default:
                     Debug.Assert(false);
-                    throw new ArgumentOutOfRangeException("typeCode");
+                    throw new ArgumentOutOfRangeException(nameof(typeCode));
             }
         }
 
-        public virtual string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, SignatureTypeHandleCode code = SignatureTypeHandleCode.Unresolved)
+        public virtual string GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind = 0)
         {
             TypeDefinition definition = reader.GetTypeDefinition(handle);
 
@@ -87,13 +99,13 @@ namespace System.Reflection.Metadata.Decoding.Tests
             if (definition.Attributes.IsNested())
             {
                 TypeDefinitionHandle declaringTypeHandle = definition.GetDeclaringType();
-                return GetTypeFromDefinition(reader, declaringTypeHandle, SignatureTypeHandleCode.Unresolved) + "/" + name;
+                return GetTypeFromDefinition(reader, declaringTypeHandle, 0) + "/" + name;
             }
 
             return name;
         }
 
-        public virtual string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, SignatureTypeHandleCode code = SignatureTypeHandleCode.Unresolved)
+        public virtual string GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind = 0)
         {
             TypeReference reference = reader.GetTypeReference(handle);
             Handle scope = reference.ResolutionScope;
@@ -113,7 +125,7 @@ namespace System.Reflection.Metadata.Decoding.Tests
                     return "[" + reader.GetString(assemblyReference.Name) + "]" + name;
 
                 case HandleKind.TypeReference:
-                    return GetTypeFromReference(reader, (TypeReferenceHandle)scope, code) + "/" + name;
+                    return GetTypeFromReference(reader, (TypeReferenceHandle)scope) + "/" + name;
 
                 default:
                     // rare cases:  ModuleDefinition means search within defs of current module (used by WinMDs for projections)
@@ -124,9 +136,9 @@ namespace System.Reflection.Metadata.Decoding.Tests
             }
         }
 
-        public virtual string GetTypeFromSpecification(MetadataReader reader, TypeSpecificationHandle handle, SignatureTypeHandleCode code = SignatureTypeHandleCode.Unresolved)
+        public virtual string GetTypeFromSpecification(MetadataReader reader, DisassemblingGenericContext genericContext, TypeSpecificationHandle handle, byte rawTypeKind = 0)
         {
-            return reader.GetTypeSpecification(handle).DecodeSignature(this);
+            return reader.GetTypeSpecification(handle).DecodeSignature(this, genericContext);
         }
 
         public virtual string GetSZArrayType(string elementType)
@@ -144,14 +156,14 @@ namespace System.Reflection.Metadata.Decoding.Tests
             return elementType + "&";
         }
 
-        public virtual string GetGenericMethodParameter(int index)
+        public virtual string GetGenericMethodParameter(DisassemblingGenericContext genericContext, int index)
         {
-            return "!!" + index;
+            return "!!" + genericContext.MethodParameters[index];
         }
 
-        public virtual string GetGenericTypeParameter(int index)
+        public virtual string GetGenericTypeParameter(DisassemblingGenericContext genericContext, int index)
         {
-            return "!" + index;
+            return "!" + genericContext.TypeParameters[index];
         }
 
         public virtual string GetPinnedType(string elementType)
@@ -159,9 +171,9 @@ namespace System.Reflection.Metadata.Decoding.Tests
             return elementType + " pinned";
         }
 
-        public virtual string GetGenericInstance(string genericType, ImmutableArray<string> typeArguments)
+        public virtual string GetGenericInstantiation(string genericType, ImmutableArray<string> typeArguments)
         {
-            return genericType + "<" + String.Join(",", typeArguments) + ">";
+            return genericType + "<" + string.Join(",", typeArguments) + ">";
         }
 
         public virtual string GetArrayType(string elementType, ArrayShape shape)
@@ -198,7 +210,7 @@ namespace System.Reflection.Metadata.Decoding.Tests
             return builder.ToString();
         }
 
-        public virtual string GetTypeFromHandle(MetadataReader reader, EntityHandle handle)
+        public virtual string GetTypeFromHandle(MetadataReader reader, DisassemblingGenericContext genericContext, EntityHandle handle)
         {
             switch (handle.Kind)
             {
@@ -209,14 +221,14 @@ namespace System.Reflection.Metadata.Decoding.Tests
                     return GetTypeFromReference(reader, (TypeReferenceHandle)handle);
 
                 case HandleKind.TypeSpecification:
-                    return GetTypeFromSpecification(reader, (TypeSpecificationHandle)handle);
+                    return GetTypeFromSpecification(reader, genericContext, (TypeSpecificationHandle)handle);
 
                 default:
-                    throw new ArgumentOutOfRangeException("handle");
+                    throw new ArgumentOutOfRangeException(nameof(handle));
             }
         }
 
-        public virtual string GetModifiedType(MetadataReader reader, bool isRequired, string modifierType, string unmodifiedType)
+        public virtual string GetModifiedType(string modifierType, string unmodifiedType, bool isRequired)
         {
             return unmodifiedType + (isRequired ? " modreq(" : " modopt(") + modifierType + ")";
         }

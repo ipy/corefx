@@ -6,7 +6,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Security.Principal;
-using System.Diagnostics.Contracts;
 
 namespace System.Security.AccessControl
 {
@@ -32,7 +31,7 @@ namespace System.Security.AccessControl
 
         #region Constructors
 
-        internal protected AuthorizationRule(
+        protected internal AuthorizationRule(
             IdentityReference identity,
             int accessMask,
             bool isInherited,
@@ -41,36 +40,35 @@ namespace System.Security.AccessControl
         {
             if ( identity == null )
             {
-                throw new ArgumentNullException( "identity" );
+                throw new ArgumentNullException( nameof(identity));
             }
 
             if ( accessMask == 0 )
             {
                 throw new ArgumentException(
                     SR.Argument_ArgumentZero,
-                    "accessMask" );
+nameof(accessMask));
             }
 
             if ( inheritanceFlags < InheritanceFlags.None || inheritanceFlags > (InheritanceFlags.ObjectInherit | InheritanceFlags.ContainerInherit) )
             {
                 throw new ArgumentOutOfRangeException(
-                    "inheritanceFlags",
+nameof(inheritanceFlags),
                     SR.Format( SR.Argument_InvalidEnumValue, inheritanceFlags, "InheritanceFlags" ));
             }
 
             if ( propagationFlags < PropagationFlags.None || propagationFlags > (PropagationFlags.NoPropagateInherit | PropagationFlags.InheritOnly) )
             {
                 throw new ArgumentOutOfRangeException(
-                    "propagationFlags",
+nameof(propagationFlags),
                     SR.Format(SR.Argument_InvalidEnumValue, inheritanceFlags, "PropagationFlags"));
             }
-            Contract.EndContractBlock();
 
             if (identity.IsValidTargetType(typeof(SecurityIdentifier)) == false)
             {
                 throw new ArgumentException(
                     SR.Arg_MustBeIdentityReferenceType,
-                    "identity");
+nameof(identity));
             }
 
             _identity = identity;
@@ -97,7 +95,7 @@ namespace System.Security.AccessControl
             get { return _identity; }
         }
 
-        internal protected int AccessMask
+        protected internal int AccessMask
         {
             get { return _accessMask; }
         }
@@ -144,24 +142,23 @@ namespace System.Security.AccessControl
                 type != AccessControlType.Deny )
             {
                 throw new ArgumentOutOfRangeException(
-                    "type",
+nameof(type),
                      SR.ArgumentOutOfRange_Enum );
             }
 
             if ( inheritanceFlags < InheritanceFlags.None || inheritanceFlags > (InheritanceFlags.ObjectInherit | InheritanceFlags.ContainerInherit) )
             {
                 throw new ArgumentOutOfRangeException(
-                    "inheritanceFlags",
+nameof(inheritanceFlags),
                     SR.Format(SR.Argument_InvalidEnumValue, inheritanceFlags, "InheritanceFlags"));
             }
 
             if ( propagationFlags < PropagationFlags.None || propagationFlags > (PropagationFlags.NoPropagateInherit | PropagationFlags.InheritOnly) )
             {
                 throw new ArgumentOutOfRangeException(
-                    "propagationFlags",
+nameof(propagationFlags),
                     SR.Format(SR.Argument_InvalidEnumValue, inheritanceFlags, "PropagationFlags"));
             }
-            Contract.EndContractBlock();
 
             _type = type;
         }
@@ -261,12 +258,12 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                      SR.Arg_EnumAtLeastOneFlag ,
-                    "auditFlags" );
+nameof(auditFlags));
             }
             else if (( auditFlags & ~( AuditFlags.Success | AuditFlags.Failure )) != 0 )
             {
                 throw new ArgumentOutOfRangeException(
-                    "auditFlags",
+nameof(auditFlags),
                      SR.ArgumentOutOfRange_Enum );
             }
 
@@ -347,56 +344,8 @@ namespace System.Security.AccessControl
     }
 
 
-    public sealed class AuthorizationRuleCollection : ICollection, IEnumerable // TODO: Is this right? Was previously ReadOnlyCollectionBase
+    public sealed class AuthorizationRuleCollection : ReadOnlyCollectionBase
     {
-        #region ReadOnlyCollectionBase APIs
-        // Goo to translate this from ReadOnlyCollectionBase to ICollection
-        Object _syncRoot;
-        List<AuthorizationRule> list;
-
-        List<AuthorizationRule> InnerList
-        {
-            get
-            {
-                if (list == null)
-                    list = new List<AuthorizationRule>();
-                return list;
-            }
-        }
-
-        public int Count
-        {
-            get { return InnerList.Count; }
-        }
-
-        bool ICollection.IsSynchronized
-        {
-            get { return false; }
-        }
-
-        object ICollection.SyncRoot
-        {
-            get
-            {
-                if (_syncRoot == null)
-                {
-                    System.Threading.Interlocked.CompareExchange<Object>(ref _syncRoot, new Object(), null);
-                }
-                return _syncRoot;
-            }
-        }
-
-        void ICollection.CopyTo(Array array, int index)
-        {
-            InnerList.CopyTo((AuthorizationRule[])array, index);
-        }
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return InnerList.GetEnumerator();
-        }
-        #endregion
-
         #region Constructors
 
         public AuthorizationRuleCollection()

@@ -2,21 +2,24 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Serialization;
 
 namespace System.Collections.Generic
 {
     [DebuggerTypeProxy(typeof(IDictionaryDebugView<,>))]
     [DebuggerDisplay("Count = {Count}")]
+    [Serializable]
+    [System.Runtime.CompilerServices.TypeForwardedFrom("System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
     public class SortedDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>
     {
+        [NonSerialized]
         private KeyCollection _keys;
-
+        [NonSerialized]
         private ValueCollection _values;
 
-        private TreeSet<KeyValuePair<TKey, TValue>> _set;
+        private TreeSet<KeyValuePair<TKey, TValue>> _set; // Do not rename (binary serialization)
 
         public SortedDictionary() : this((IComparer<TKey>)null)
         {
@@ -30,7 +33,7 @@ namespace System.Collections.Generic
         {
             if (dictionary == null)
             {
-                throw new ArgumentNullException("dictionary");
+                throw new ArgumentNullException(nameof(dictionary));
             }
 
             _set = new TreeSet<KeyValuePair<TKey, TValue>>(new KeyValuePairComparer(comparer));
@@ -99,13 +102,13 @@ namespace System.Collections.Generic
             {
                 if (key == null)
                 {
-                    throw new ArgumentNullException("key");
+                    throw new ArgumentNullException(nameof(key));
                 }
 
                 TreeSet<KeyValuePair<TKey, TValue>>.Node node = _set.FindNode(new KeyValuePair<TKey, TValue>(key, default(TValue)));
                 if (node == null)
                 {
-                    throw new KeyNotFoundException();
+                    throw new KeyNotFoundException(SR.Format(SR.Arg_KeyNotFoundWithKey, key.ToString()));
                 }
 
                 return node.Item.Value;
@@ -114,7 +117,7 @@ namespace System.Collections.Generic
             {
                 if (key == null)
                 {
-                    throw new ArgumentNullException("key");
+                    throw new ArgumentNullException(nameof(key));
                 }
 
                 TreeSet<KeyValuePair<TKey, TValue>>.Node node = _set.FindNode(new KeyValuePair<TKey, TValue>(key, default(TValue)));
@@ -200,7 +203,7 @@ namespace System.Collections.Generic
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
             _set.Add(new KeyValuePair<TKey, TValue>(key, value));
         }
@@ -214,7 +217,7 @@ namespace System.Collections.Generic
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
 
             return _set.Contains(new KeyValuePair<TKey, TValue>(key, default(TValue)));
@@ -270,7 +273,7 @@ namespace System.Collections.Generic
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
 
             return _set.Remove(new KeyValuePair<TKey, TValue>(key, default(TValue)));
@@ -280,7 +283,7 @@ namespace System.Collections.Generic
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
 
             TreeSet<KeyValuePair<TKey, TValue>>.Node node = _set.FindNode(new KeyValuePair<TKey, TValue>(key, default(TValue)));
@@ -337,11 +340,11 @@ namespace System.Collections.Generic
             {
                 if (key == null)
                 {
-                    throw new ArgumentNullException("key");
+                    throw new ArgumentNullException(nameof(key));
                 }
 
                 if (value == null && !(default(TValue) == null))
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
 
                 try
                 {
@@ -352,12 +355,12 @@ namespace System.Collections.Generic
                     }
                     catch (InvalidCastException)
                     {
-                        throw new ArgumentException(SR.Format(SR.Arg_WrongType, value, typeof(TValue)), "value");
+                        throw new ArgumentException(SR.Format(SR.Arg_WrongType, value, typeof(TValue)), nameof(value));
                     }
                 }
                 catch (InvalidCastException)
                 {
-                    throw new ArgumentException(SR.Format(SR.Arg_WrongType, key, typeof(TKey)), "key");
+                    throw new ArgumentException(SR.Format(SR.Arg_WrongType, key, typeof(TKey)), nameof(key));
                 }
             }
         }
@@ -366,11 +369,11 @@ namespace System.Collections.Generic
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
 
             if (value == null && !(default(TValue) == null))
-                throw new ArgumentNullException("value");
+                throw new ArgumentNullException(nameof(value));
 
             try
             {
@@ -382,12 +385,12 @@ namespace System.Collections.Generic
                 }
                 catch (InvalidCastException)
                 {
-                    throw new ArgumentException(SR.Format(SR.Arg_WrongType, value, typeof(TValue)), "value");
+                    throw new ArgumentException(SR.Format(SR.Arg_WrongType, value, typeof(TValue)), nameof(value));
                 }
             }
             catch (InvalidCastException)
             {
-                throw new ArgumentException(SR.Format(SR.Arg_WrongType, key, typeof(TKey)), "key");
+                throw new ArgumentException(SR.Format(SR.Arg_WrongType, key, typeof(TKey)), nameof(key));
             }
         }
 
@@ -404,7 +407,7 @@ namespace System.Collections.Generic
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
 
             return (key is TKey);
@@ -560,7 +563,7 @@ namespace System.Collections.Generic
             {
                 if (dictionary == null)
                 {
-                    throw new ArgumentNullException("dictionary");
+                    throw new ArgumentNullException(nameof(dictionary));
                 }
                 _dictionary = dictionary;
             }
@@ -584,12 +587,12 @@ namespace System.Collections.Generic
             {
                 if (array == null)
                 {
-                    throw new ArgumentNullException("array");
+                    throw new ArgumentNullException(nameof(array));
                 }
 
                 if (index < 0)
                 {
-                    throw new ArgumentOutOfRangeException("index");
+                    throw new ArgumentOutOfRangeException(nameof(index), index, SR.ArgumentOutOfRange_NeedNonNegNum);
                 }
 
                 if (array.Length - index < Count)
@@ -604,22 +607,22 @@ namespace System.Collections.Generic
             {
                 if (array == null)
                 {
-                    throw new ArgumentNullException("array");
+                    throw new ArgumentNullException(nameof(array));
                 }
 
                 if (array.Rank != 1)
                 {
-                    throw new ArgumentException(SR.Arg_RankMultiDimNotSupported);
+                    throw new ArgumentException(SR.Arg_RankMultiDimNotSupported, nameof(array));
                 }
 
                 if (array.GetLowerBound(0) != 0)
                 {
-                    throw new ArgumentException(SR.Arg_NonZeroLowerBound);
+                    throw new ArgumentException(SR.Arg_NonZeroLowerBound, nameof(array));
                 }
 
                 if (index < 0)
                 {
-                    throw new ArgumentOutOfRangeException("arrayIndex", SR.ArgumentOutOfRange_NeedNonNegNum);
+                    throw new ArgumentOutOfRangeException(nameof(index), index, SR.ArgumentOutOfRange_NeedNonNegNum);
                 }
 
                 if (array.Length - index < _dictionary.Count)
@@ -634,19 +637,14 @@ namespace System.Collections.Generic
                 }
                 else
                 {
-                    object[] objects = (object[])array;
-                    if (objects == null)
-                    {
-                        throw new ArgumentException(SR.Argument_InvalidArrayType);
-                    }
-
                     try
                     {
+                        object[] objects = (object[])array;
                         _dictionary._set.InOrderTreeWalk(delegate (TreeSet<KeyValuePair<TKey, TValue>>.Node node) { objects[index++] = node.Item.Key; return true; });
                     }
                     catch (ArrayTypeMismatchException)
                     {
-                        throw new ArgumentException(SR.Argument_InvalidArrayType);
+                        throw new ArgumentException(SR.Argument_InvalidArrayType, nameof(array));
                     }
                 }
             }
@@ -686,7 +684,7 @@ namespace System.Collections.Generic
                 get { return false; }
             }
 
-            Object ICollection.SyncRoot
+            object ICollection.SyncRoot
             {
                 get { return ((ICollection)_dictionary).SyncRoot; }
             }
@@ -749,7 +747,7 @@ namespace System.Collections.Generic
             {
                 if (dictionary == null)
                 {
-                    throw new ArgumentNullException("dictionary");
+                    throw new ArgumentNullException(nameof(dictionary));
                 }
                 _dictionary = dictionary;
             }
@@ -773,12 +771,12 @@ namespace System.Collections.Generic
             {
                 if (array == null)
                 {
-                    throw new ArgumentNullException("array");
+                    throw new ArgumentNullException(nameof(array));
                 }
 
                 if (index < 0)
                 {
-                    throw new ArgumentOutOfRangeException("index");
+                    throw new ArgumentOutOfRangeException(nameof(index), index, SR.ArgumentOutOfRange_NeedNonNegNum);
                 }
 
                 if (array.Length - index < Count)
@@ -793,22 +791,22 @@ namespace System.Collections.Generic
             {
                 if (array == null)
                 {
-                    throw new ArgumentNullException("array");
+                    throw new ArgumentNullException(nameof(array));
                 }
 
                 if (array.Rank != 1)
                 {
-                    throw new ArgumentException(SR.Arg_RankMultiDimNotSupported);
+                    throw new ArgumentException(SR.Arg_RankMultiDimNotSupported, nameof(array));
                 }
 
                 if (array.GetLowerBound(0) != 0)
                 {
-                    throw new ArgumentException(SR.Arg_NonZeroLowerBound);
+                    throw new ArgumentException(SR.Arg_NonZeroLowerBound, nameof(array));
                 }
 
                 if (index < 0)
                 {
-                    throw new ArgumentOutOfRangeException("arrayIndex", SR.ArgumentOutOfRange_NeedNonNegNum);
+                    throw new ArgumentOutOfRangeException(nameof(index), index, SR.ArgumentOutOfRange_NeedNonNegNum);
                 }
 
                 if (array.Length - index < _dictionary.Count)
@@ -823,19 +821,14 @@ namespace System.Collections.Generic
                 }
                 else
                 {
-                    object[] objects = (object[])array;
-                    if (objects == null)
-                    {
-                        throw new ArgumentException(SR.Argument_InvalidArrayType);
-                    }
-
                     try
                     {
+                        object[] objects = (object[])array;
                         _dictionary._set.InOrderTreeWalk(delegate (TreeSet<KeyValuePair<TKey, TValue>>.Node node) { objects[index++] = node.Item.Value; return true; });
                     }
                     catch (ArrayTypeMismatchException)
                     {
-                        throw new ArgumentException(SR.Argument_InvalidArrayType);
+                        throw new ArgumentException(SR.Argument_InvalidArrayType, nameof(array));
                     }
                 }
             }
@@ -875,7 +868,7 @@ namespace System.Collections.Generic
                 get { return false; }
             }
 
-            Object ICollection.SyncRoot
+            object ICollection.SyncRoot
             {
                 get { return ((ICollection)_dictionary).SyncRoot; }
             }
@@ -928,9 +921,10 @@ namespace System.Collections.Generic
             }
         }
 
-        internal sealed class KeyValuePairComparer : Comparer<KeyValuePair<TKey, TValue>>
+        [Serializable]
+        public sealed class KeyValuePairComparer : Comparer<KeyValuePair<TKey, TValue>>
         {
-            internal IComparer<TKey> keyComparer;
+            internal IComparer<TKey> keyComparer; // Do not rename (binary serialization)
 
             public KeyValuePairComparer(IComparer<TKey> keyComparer)
             {
@@ -953,7 +947,7 @@ namespace System.Collections.Generic
 
     /// <summary>
     /// This class is intended as a helper for backwards compatibility with existing SortedDictionaries.
-    /// TreeSet has been converted into SortedSet<T>, which will be exposed publicly. SortedDictionaries
+    /// TreeSet has been converted into SortedSet{T}, which will be exposed publicly. SortedDictionaries
     /// have the problem where they have already been serialized to disk as having a backing class named
     /// TreeSet. To ensure that we can read back anything that has already been written to disk, we need to
     /// make sure that we have a class named TreeSet that does everything the way it used to.
@@ -961,7 +955,9 @@ namespace System.Collections.Generic
     /// The only thing that makes it different from SortedSet is that it throws on duplicates
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    internal sealed class TreeSet<T> : SortedSet<T>
+    [Serializable]
+    [System.Runtime.CompilerServices.TypeForwardedFrom("System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
+    public sealed class TreeSet<T> : SortedSet<T>
     {
         public TreeSet()
             : base()
@@ -969,9 +965,7 @@ namespace System.Collections.Generic
 
         public TreeSet(IComparer<T> comparer) : base(comparer) { }
 
-        public TreeSet(ICollection<T> collection) : base(collection) { }
-
-        public TreeSet(ICollection<T> collection, IComparer<T> comparer) : base(collection, comparer) { }
+        private TreeSet(SerializationInfo siInfo, StreamingContext context) : base(siInfo, context) { }
 
         internal override bool AddIfNotPresent(T item)
         {

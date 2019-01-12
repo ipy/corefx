@@ -13,15 +13,15 @@ namespace System.Text.Tests
     {
         public static IEnumerable<object[]> EncodingSizeData()
         {
-            int[] sizes = new int[] { 10000, 1000000 };
-            string[] encs = new string[] { "utf-8", "ascii" };
+            int[] sizes = new int[] { 16, 32, 64, 128, 256, 512, 10000, 1000000 };
+            string[] encs = new string[] { "utf-8", "ascii", "unicode" };
             foreach (int size in sizes)
                 foreach (string enc in encs)
                     yield return new object[] { size, enc };
         }
 
         [Benchmark]
-        [MemberData("EncodingSizeData")]
+        [MemberData(nameof(EncodingSizeData))]
         public void GetBytes(int size, string encName)
         {
             const int innerIterations = 100;
@@ -39,7 +39,7 @@ namespace System.Text.Tests
         }
 
         [Benchmark]
-        [MemberData("EncodingSizeData")]
+        [MemberData(nameof(EncodingSizeData))]
         public void GetString(int size, string encName)
         {
             const int innerIterations = 100;
@@ -57,7 +57,7 @@ namespace System.Text.Tests
         }
 
         [Benchmark]
-        [MemberData("EncodingSizeData")]
+        [MemberData(nameof(EncodingSizeData))]
         public void GetChars(int size, string encName)
         {
             const int innerIterations = 100;
@@ -75,7 +75,7 @@ namespace System.Text.Tests
         }
 
         [Benchmark]
-        [MemberData("EncodingSizeData")]
+        [MemberData(nameof(EncodingSizeData))]
         public void GetEncoder(int size, string encName)
         {
             const int innerIterations = 10000;
@@ -91,7 +91,7 @@ namespace System.Text.Tests
         }
 
         [Benchmark]
-        [MemberData("EncodingSizeData")]
+        [MemberData(nameof(EncodingSizeData))]
         public void GetByteCount(int size, string encName)
         {
             const int innerIterations = 100;

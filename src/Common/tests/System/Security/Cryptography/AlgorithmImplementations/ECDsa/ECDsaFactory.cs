@@ -8,6 +8,11 @@ namespace System.Security.Cryptography.EcDsa.Tests
     {
         ECDsa Create();
         ECDsa Create(int keySize);
+#if netcoreapp
+        ECDsa Create(ECCurve curve);
+#endif
+        bool IsCurveValid(Oid oid);
+        bool ExplicitCurvesSupported { get; }
     }
 
     public static partial class ECDsaFactory
@@ -21,5 +26,19 @@ namespace System.Security.Cryptography.EcDsa.Tests
         {
             return s_provider.Create(keySize);
         }
+
+#if netcoreapp
+        public static ECDsa Create(ECCurve curve)
+        {
+            return s_provider.Create(curve);
+        }
+#endif
+
+        public static bool IsCurveValid(Oid oid)
+        {
+            return s_provider.IsCurveValid(oid);
+        }
+
+        public static bool ExplicitCurvesSupported => s_provider.ExplicitCurvesSupported;
     }
 }

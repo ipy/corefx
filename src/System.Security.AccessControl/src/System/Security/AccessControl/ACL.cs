@@ -9,14 +9,14 @@
 **
 ===========================================================*/
 
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Security.Principal;
+
 namespace System.Security.AccessControl
 {
-    using System;
-    using System.Collections;
-    using System.Collections.Generic;
-    using System.Security.Principal;
-    using System.Diagnostics.Contracts;
-
     public sealed class AceEnumerator : IEnumerator
     {
         #region Private Members
@@ -41,9 +41,8 @@ namespace System.Security.AccessControl
         {
             if ( collection == null )
             {
-                throw new ArgumentNullException( "collection" );
+                throw new ArgumentNullException( nameof(collection));
             }
-            Contract.EndContractBlock();
 
             _acl = collection;
             Reset();
@@ -172,25 +171,24 @@ namespace System.Security.AccessControl
         {
             if ( array == null )
             {
-                throw new ArgumentNullException( "array" );
+                throw new ArgumentNullException( nameof(array));
             }
 
             if ( array.Rank != 1 )
             {
                 throw new RankException( SR.Rank_MultiDimNotSupported );
             }
-            Contract.EndContractBlock();
 
             if ( index < 0 )
             {
                 throw new ArgumentOutOfRangeException(
-                    "index",
+nameof(index),
                     SR.ArgumentOutOfRange_NeedNonNegNum );
             }
             else if ( array.Length - index < Count )
             {
                 throw new ArgumentOutOfRangeException(
-                    "array",
+nameof(array),
                     SR.ArgumentOutOfRange_ArrayTooSmall );
             }
 
@@ -250,9 +248,8 @@ namespace System.Security.AccessControl
         {
             if ( binaryForm == null )
             {
-                throw new ArgumentNullException( "binaryForm" );
+                throw new ArgumentNullException( nameof(binaryForm));
             }
-            Contract.EndContractBlock();
 
             if ( offset < 0 )
             {
@@ -261,7 +258,7 @@ namespace System.Security.AccessControl
                 //
 
                 throw new ArgumentOutOfRangeException(
-                    "offset",
+nameof(offset),
                     SR.ArgumentOutOfRange_NeedNonNegNum );
             }
 
@@ -293,7 +290,7 @@ namespace System.Security.AccessControl
         InvalidParameter:
 
             throw new ArgumentOutOfRangeException(
-                "binaryForm",
+nameof(binaryForm),
                 SR.ArgumentOutOfRange_ArrayTooSmall );
         }
 
@@ -301,12 +298,12 @@ namespace System.Security.AccessControl
         {
             if ( binaryForm == null )
             {
-                throw new ArgumentNullException( "binaryForm" );
+                throw new ArgumentNullException( nameof(binaryForm));
             }
             else if ( offset < 0 )
             {
                 throw new ArgumentOutOfRangeException(
-                    "offset",
+nameof(offset),
                     SR.ArgumentOutOfRange_NeedNonNegNum );
             }
             else if ( BinaryLength > MaxBinaryLength )
@@ -316,15 +313,15 @@ namespace System.Security.AccessControl
             else if ( binaryForm.Length - offset < BinaryLength )
             {
                 throw new ArgumentOutOfRangeException(
-                    "binaryForm",
+nameof(binaryForm),
                     SR.ArgumentOutOfRange_ArrayTooSmall );
             }
 
             binaryForm[offset + 0] = Revision;
             binaryForm[offset + 1] = 0;
-            binaryForm[offset + 2] = ( byte )( BinaryLength >> 0 );
+            binaryForm[offset + 2] = unchecked(( byte )( BinaryLength >> 0 ));
             binaryForm[offset + 3] = ( byte )( BinaryLength >> 8 );
-            binaryForm[offset + 4] = ( byte )( Count >> 0 );
+            binaryForm[offset + 4] = unchecked(( byte )( Count >> 0 ));
             binaryForm[offset + 5] = ( byte )( Count >> 8 );
             binaryForm[offset + 6] = 0;
             binaryForm[offset + 7] = 0;
@@ -365,7 +362,7 @@ namespace System.Security.AccessControl
 
                     throw new ArgumentException(
                         SR.ArgumentException_InvalidAclBinaryForm ,
-                        "binaryForm" );
+nameof(binaryForm));
                 }
 
                 _aces.Add( ace );
@@ -377,7 +374,7 @@ namespace System.Security.AccessControl
                     // Binary length of an ace must ALWAYS be divisible by 4.
                     //
 
-                    Contract.Assert( false, "aceLength % 4 != 0" );
+                    Debug.Assert( false, "aceLength % 4 != 0" );
                     // Replacing SystemException with InvalidOperationException. This code path 
                     // indicates a bad ACE, but I don't know of a great exception to represent that. 
                     // InvalidOperation seems to be the closest, though it's definitely not exactly 
@@ -418,7 +415,7 @@ namespace System.Security.AccessControl
 
             throw new ArgumentException(
                 SR.ArgumentException_InvalidAclBinaryForm ,
-                "binaryForm" );
+nameof(binaryForm));
         }
 
         #endregion
@@ -520,7 +517,7 @@ namespace System.Security.AccessControl
                     // Binary length of an ace must ALWAYS be divisible by 4.
                     //
 
-                    Contract.Assert( false, "aceLength % 4 != 0" );
+                    Debug.Assert( false, "aceLength % 4 != 0" );
                     // Replacing SystemException with InvalidOperationException. This code path 
                     // indicates a bad ACE, but I don't know of a great exception to represent that. 
                     // InvalidOperation seems to be the closest, though it's definitely not exactly 
@@ -549,9 +546,8 @@ namespace System.Security.AccessControl
             {
                 if ( value == null )
                 {
-                    throw new ArgumentNullException( "value" );
+                    throw new ArgumentNullException( nameof(value));
                 }
-                Contract.EndContractBlock();
 
                 if ( value.BinaryLength % 4 != 0 )
                 {
@@ -560,7 +556,7 @@ namespace System.Security.AccessControl
                     // Binary length of an ace must ALWAYS be divisible by 4.
                     //
 
-                    Contract.Assert( false, "aceLength % 4 != 0" );
+                    Debug.Assert( false, "aceLength % 4 != 0" );
                     // Replacing SystemException with InvalidOperationException. This code path 
                     // indicates a bad ACE, but I don't know of a great exception to represent that. 
                     // InvalidOperation seems to be the closest, though it's definitely not exactly 
@@ -587,9 +583,8 @@ namespace System.Security.AccessControl
         {
             if ( ace == null )
             {
-                throw new ArgumentNullException( "ace" );
+                throw new ArgumentNullException( nameof(ace));
             }
-            Contract.EndContractBlock();
 
             if ( BinaryLength + ace.BinaryLength > MaxBinaryLength )
             {
@@ -638,16 +633,16 @@ namespace System.Security.AccessControl
             Invalid   = GO,      // not a valid combination of flags
         }
 
-        private static PM[] AFtoPM;    // AceFlags-to-Propagation conversion matrix
-        private static AF[] PMtoAF;    // Propagation-to-AceFlags conversion matrix
+        private static readonly PM[] s_AFtoPM = CreateAFtoPMConversionMatrix();    // AceFlags-to-Propagation conversion matrix
+        private static readonly AF[] s_PMtoAF = CreatePMtoAFConversionMatrix();    // Propagation-to-AceFlags conversion matrix
 
-        static CommonAcl()
+        private static PM[] CreateAFtoPMConversionMatrix()
         {
-            AFtoPM = new PM[16];
+            var afToPm = new PM[16];
 
-            for ( int i = 0; i < AFtoPM.Length; i++ )
+            for ( int i = 0; i < afToPm.Length; i++ )
             {
-                AFtoPM[i] = PM.Invalid;
+                afToPm[i] = PM.Invalid;
             }
 
             //
@@ -656,25 +651,30 @@ namespace System.Security.AccessControl
             // Important: Not all combinations of inheritance bits are valid
             //
 
-            AFtoPM[( int )(   0   |   0   |   0   |   0   )] = PM.F |   0   |   0   |   0   |   0   ;
-            AFtoPM[( int )(   0   | AF.OI |   0   |   0   )] = PM.F |   0   | PM.CO |   0   | PM.GO ;
-            AFtoPM[( int )(   0   | AF.OI |   0   | AF.NP )] = PM.F |   0   | PM.CO |   0   |   0   ;
-            AFtoPM[( int )(   0   | AF.OI | AF.IO |   0   )] =   0  |   0   | PM.CO |   0   | PM.GO ;
-            AFtoPM[( int )(   0   | AF.OI | AF.IO | AF.NP )] =   0  |   0   | PM.CO |   0   |   0   ;
-            AFtoPM[( int )( AF.CI |   0   |   0   |   0   )] = PM.F | PM.CF |   0   | PM.GF |   0   ;
-            AFtoPM[( int )( AF.CI |   0   |   0   | AF.NP )] = PM.F | PM.CF |   0   |   0   |   0   ;
-            AFtoPM[( int )( AF.CI |   0   | AF.IO |   0   )] =   0  | PM.CF |   0   | PM.GF |   0   ;
-            AFtoPM[( int )( AF.CI |   0   | AF.IO | AF.NP )] =   0  | PM.CF |   0   |   0   |   0   ;
-            AFtoPM[( int )( AF.CI | AF.OI |   0   |   0   )] = PM.F | PM.CF | PM.CO | PM.GF | PM.GO ;
-            AFtoPM[( int )( AF.CI | AF.OI |   0   | AF.NP )] = PM.F | PM.CF | PM.CO |   0   |   0   ;
-            AFtoPM[( int )( AF.CI | AF.OI | AF.IO |   0   )] =   0  | PM.CF | PM.CO | PM.GF | PM.GO ;
-            AFtoPM[( int )( AF.CI | AF.OI | AF.IO | AF.NP )] =   0  | PM.CF | PM.CO |   0   |   0   ;
+            afToPm[( int )(   0   |   0   |   0   |   0   )] = PM.F |   0   |   0   |   0   |   0   ;
+            afToPm[( int )(   0   | AF.OI |   0   |   0   )] = PM.F |   0   | PM.CO |   0   | PM.GO ;
+            afToPm[( int )(   0   | AF.OI |   0   | AF.NP )] = PM.F |   0   | PM.CO |   0   |   0   ;
+            afToPm[( int )(   0   | AF.OI | AF.IO |   0   )] =   0  |   0   | PM.CO |   0   | PM.GO ;
+            afToPm[( int )(   0   | AF.OI | AF.IO | AF.NP )] =   0  |   0   | PM.CO |   0   |   0   ;
+            afToPm[( int )( AF.CI |   0   |   0   |   0   )] = PM.F | PM.CF |   0   | PM.GF |   0   ;
+            afToPm[( int )( AF.CI |   0   |   0   | AF.NP )] = PM.F | PM.CF |   0   |   0   |   0   ;
+            afToPm[( int )( AF.CI |   0   | AF.IO |   0   )] =   0  | PM.CF |   0   | PM.GF |   0   ;
+            afToPm[( int )( AF.CI |   0   | AF.IO | AF.NP )] =   0  | PM.CF |   0   |   0   |   0   ;
+            afToPm[( int )( AF.CI | AF.OI |   0   |   0   )] = PM.F | PM.CF | PM.CO | PM.GF | PM.GO ;
+            afToPm[( int )( AF.CI | AF.OI |   0   | AF.NP )] = PM.F | PM.CF | PM.CO |   0   |   0   ;
+            afToPm[( int )( AF.CI | AF.OI | AF.IO |   0   )] =   0  | PM.CF | PM.CO | PM.GF | PM.GO ;
+            afToPm[( int )( AF.CI | AF.OI | AF.IO | AF.NP )] =   0  | PM.CF | PM.CO |   0   |   0   ;
 
-            PMtoAF = new AF[32];
+            return afToPm;
+        }
 
-            for ( int i = 0; i < PMtoAF.Length; i++ )
+        private static AF[] CreatePMtoAFConversionMatrix()
+        {
+            var pmToAf = new AF[32];
+
+            for ( int i = 0; i < pmToAf.Length; i++ )
             {
-                PMtoAF[i] = AF.Invalid;
+                pmToAf[i] = AF.Invalid;
             }
 
             //
@@ -684,19 +684,21 @@ namespace System.Security.AccessControl
             // the four ACE inheritance bits
             //
 
-            PMtoAF[( int )( PM.F |   0   |   0   |   0   |   0   )] =    0   |   0   |   0   |   0   ;
-            PMtoAF[( int )( PM.F |   0   | PM.CO |   0   | PM.GO )] =    0   | AF.OI |   0   |   0   ;
-            PMtoAF[( int )( PM.F |   0   | PM.CO |   0   |   0   )] =    0   | AF.OI |   0   | AF.NP ;
-            PMtoAF[( int )(   0  |   0   | PM.CO |   0   | PM.GO )] =    0   | AF.OI | AF.IO |   0   ;
-            PMtoAF[( int )(   0  |   0   | PM.CO |   0   |   0   )] =    0   | AF.OI | AF.IO | AF.NP ;
-            PMtoAF[( int )( PM.F | PM.CF |   0   | PM.GF |   0   )] =  AF.CI |   0   |   0   |   0   ;
-            PMtoAF[( int )( PM.F | PM.CF |   0   |   0   |   0   )] =  AF.CI |   0   |   0   | AF.NP ;
-            PMtoAF[( int )(   0  | PM.CF |   0   | PM.GF |   0   )] =  AF.CI |   0   | AF.IO |   0   ;
-            PMtoAF[( int )(   0  | PM.CF |   0   |   0   |   0   )] =  AF.CI |   0   | AF.IO | AF.NP ;
-            PMtoAF[( int )( PM.F | PM.CF | PM.CO | PM.GF | PM.GO )] =  AF.CI | AF.OI |   0   |   0   ;
-            PMtoAF[( int )( PM.F | PM.CF | PM.CO |   0   |   0   )] =  AF.CI | AF.OI |   0   | AF.NP ;
-            PMtoAF[( int )(   0  | PM.CF | PM.CO | PM.GF | PM.GO )] =  AF.CI | AF.OI | AF.IO |   0   ;
-            PMtoAF[( int )(   0  | PM.CF | PM.CO |   0   |   0   )] =  AF.CI | AF.OI | AF.IO | AF.NP ;
+            pmToAf[( int )( PM.F |   0   |   0   |   0   |   0   )] =    0   |   0   |   0   |   0   ;
+            pmToAf[( int )( PM.F |   0   | PM.CO |   0   | PM.GO )] =    0   | AF.OI |   0   |   0   ;
+            pmToAf[( int )( PM.F |   0   | PM.CO |   0   |   0   )] =    0   | AF.OI |   0   | AF.NP ;
+            pmToAf[( int )(   0  |   0   | PM.CO |   0   | PM.GO )] =    0   | AF.OI | AF.IO |   0   ;
+            pmToAf[( int )(   0  |   0   | PM.CO |   0   |   0   )] =    0   | AF.OI | AF.IO | AF.NP ;
+            pmToAf[( int )( PM.F | PM.CF |   0   | PM.GF |   0   )] =  AF.CI |   0   |   0   |   0   ;
+            pmToAf[( int )( PM.F | PM.CF |   0   |   0   |   0   )] =  AF.CI |   0   |   0   | AF.NP ;
+            pmToAf[( int )(   0  | PM.CF |   0   | PM.GF |   0   )] =  AF.CI |   0   | AF.IO |   0   ;
+            pmToAf[( int )(   0  | PM.CF |   0   |   0   |   0   )] =  AF.CI |   0   | AF.IO | AF.NP ;
+            pmToAf[( int )( PM.F | PM.CF | PM.CO | PM.GF | PM.GO )] =  AF.CI | AF.OI |   0   |   0   ;
+            pmToAf[( int )( PM.F | PM.CF | PM.CO |   0   |   0   )] =  AF.CI | AF.OI |   0   | AF.NP ;
+            pmToAf[( int )(   0  | PM.CF | PM.CO | PM.GF | PM.GO )] =  AF.CI | AF.OI | AF.IO |   0   ;
+            pmToAf[( int )(   0  | PM.CF | PM.CO |   0   |   0   )] =  AF.CI | AF.OI | AF.IO | AF.NP ;
+
+            return pmToAf;
         }
 
         //
@@ -780,8 +782,8 @@ namespace System.Security.AccessControl
             AF leftAF = AFFromAceFlags( left, isDS );
             AF rightAF = AFFromAceFlags( right, isDS );
 
-            PM leftPM = AFtoPM[(int)leftAF];
-            PM rightPM = AFtoPM[(int)rightAF];
+            PM leftPM = s_AFtoPM[(int)leftAF];
+            PM rightPM = s_AFtoPM[(int)rightAF];
 
             if ( leftPM == PM.Invalid || rightPM == PM.Invalid )
             {
@@ -789,7 +791,7 @@ namespace System.Security.AccessControl
             }
 
             PM resultPM = leftPM | rightPM;
-            AF resultAF = PMtoAF[( int )resultPM];
+            AF resultAF = s_PMtoAF[( int )resultPM];
 
             if ( resultAF == AF.Invalid )
             {
@@ -810,8 +812,8 @@ namespace System.Security.AccessControl
             AF leftAF = AFFromAceFlags( existing, isDS );
             AF rightAF = AFFromAceFlags( remove, isDS );
 
-            PM leftPM = AFtoPM[( int )leftAF];
-            PM rightPM = AFtoPM[( int )rightAF];
+            PM leftPM = s_AFtoPM[( int )leftAF];
+            PM rightPM = s_AFtoPM[( int )rightAF];
 
             if ( leftPM == PM.Invalid || rightPM == PM.Invalid )
             {
@@ -832,7 +834,7 @@ namespace System.Security.AccessControl
                 return true;
             }
 
-            AF resultAF = PMtoAF[( int )resultPM];
+            AF resultAF = s_PMtoAF[( int )resultPM];
 
             if ( resultAF == AF.Invalid )
             {
@@ -1374,7 +1376,7 @@ namespace System.Security.AccessControl
                 // This method is called only when the access masks of the two aces are already confirmed to be exact matches
                 // therefore the second condition of case 2 is already verified
                 //
-                Contract.Assert(( ace.AccessMask & newAce.AccessMask) ==  newAce.AccessMask, "AceFlagsAreMergeable:: AccessMask of existing ace does not contain all access bits of new ace.");
+                Debug.Assert(( ace.AccessMask & newAce.AccessMask) ==  newAce.AccessMask, "AceFlagsAreMergeable:: AccessMask of existing ace does not contain all access bits of new ace.");
                 return true;
             }
 
@@ -1494,7 +1496,7 @@ namespace System.Security.AccessControl
 
         }
 
-        static private bool AceOpaquesMatch( QualifiedAce ace, QualifiedAce newAce )
+        private static bool AceOpaquesMatch( QualifiedAce ace, QualifiedAce newAce )
         {
             byte[] aceOpaque = ace.GetOpaque();
             byte[] newAceOpaque = newAce.GetOpaque();
@@ -1520,7 +1522,7 @@ namespace System.Security.AccessControl
             return true;
         }
 
-        static private bool AcesAreMergeable( QualifiedAce ace, QualifiedAce newAce )
+        private static bool AcesAreMergeable( QualifiedAce ace, QualifiedAce newAce )
         {
             //
             // Only interested in ACEs with the specified type
@@ -1704,7 +1706,6 @@ namespace System.Security.AccessControl
                 const int AccessDenied = 0;
                 const int AccessAllowed = 1;
                 const int Inherited = 2;
-                const int Unknown = 3;
 
                 int currentStage = AccessDenied;
 
@@ -1716,7 +1717,7 @@ namespace System.Security.AccessControl
 
                 for ( int i = 0; i < _acl.Count; i++ )
                 {
-                    int aceStage = Unknown;
+                    int aceStage;
 
                     GenericAce ace = _acl[i];
 
@@ -1751,14 +1752,9 @@ namespace System.Security.AccessControl
                             // Only allow and deny ACEs are allowed here
                             //
 
-                            Contract.Assert( false, "Audit and alarm ACEs must have been stripped by remove-meaningless logic" );
+                            Debug.Assert( false, "Audit and alarm ACEs must have been stripped by remove-meaningless logic" );
                             return false;
                         }
-                    }
-
-                    if ( aceStage == Unknown )
-                    {
-                        continue;
                     }
 
                     if ( aceStage > currentStage )
@@ -1780,7 +1776,6 @@ namespace System.Security.AccessControl
 
                 const int Explicit = 0;
                 const int Inherited = 1;
-                const int Unknown = 2;
 
                 int currentStage = Explicit;
 
@@ -1792,7 +1787,7 @@ namespace System.Security.AccessControl
 
                 for ( int i = 0; i < _acl.Count; i++ )
                 {
-                    int aceStage = Unknown;
+                    int aceStage;
 
                     GenericAce ace = _acl[i];
 
@@ -1803,7 +1798,7 @@ namespace System.Security.AccessControl
                         // for fear of destabilization, so adding an assert instead
                         //
 
-                        Contract.Assert( ace != null, "How did a null ACE end up in a SACL?" );
+                        Debug.Assert( ace != null, "How did a null ACE end up in a SACL?" );
                         continue;
                     }
 
@@ -1835,7 +1830,7 @@ namespace System.Security.AccessControl
                             // Only audit and alarm ACEs are allowed here
                             //
 
-                            Contract.Assert( false, "Allow and deny ACEs must have been stripped by remove-meaningless logic" );
+                            Debug.Assert( false, "Allow and deny ACEs must have been stripped by remove-meaningless logic" );
                             return false;
                         }
                     }
@@ -1854,7 +1849,6 @@ namespace System.Security.AccessControl
             return true;
         }
 
-        [Pure]
         private void ThrowIfNotCanonical()
         {
             if ( !_isCanonical )
@@ -1893,9 +1887,8 @@ namespace System.Security.AccessControl
         {
             if ( rawAcl == null )
             {
-                throw new ArgumentNullException( "rawAcl" );
+                throw new ArgumentNullException( nameof(rawAcl));
             }
-            Contract.EndContractBlock();
 
             _isContainer = isContainer;
             _isDS = isDS;
@@ -1976,7 +1969,7 @@ namespace System.Security.AccessControl
                 accessType != AccessControlType.Deny )
             {
                 throw new ArgumentOutOfRangeException(
-                    "accessType",
+nameof(accessType),
                     SR.ArgumentOutOfRange_Enum );
             }
         }
@@ -1994,20 +1987,20 @@ namespace System.Security.AccessControl
                 {
                     throw new ArgumentException(
                         SR.Argument_InvalidAnyFlag,
-                        "propagationFlags" );
+nameof(propagationFlags));
                 }
             }
             else if ( inheritanceFlags != InheritanceFlags.None )
             {
                 throw new ArgumentException(
                     SR.Argument_InvalidAnyFlag,
-                    "inheritanceFlags" );
+nameof(inheritanceFlags));
             }
             else if ( propagationFlags != PropagationFlags.None )
             {
                 throw new ArgumentException(
                     SR.Argument_InvalidAnyFlag,
-                    "propagationFlags" );
+nameof(propagationFlags));
             }
 
             return;
@@ -2021,9 +2014,8 @@ namespace System.Security.AccessControl
         {
             if ( sid == null )
             {
-                throw new ArgumentNullException( "sid" );
+                throw new ArgumentNullException( nameof(sid));
             }
-            Contract.EndContractBlock();
 
             ThrowIfNotCanonical();
 
@@ -2034,14 +2026,14 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                     SR.Arg_EnumAtLeastOneFlag,
-                    "flags" );
+nameof(flags));
             }
 
             if ( accessMask == 0 )
             {
                 throw new ArgumentException(
                     SR.Argument_ArgumentZero,
-                    "accessMask" );
+nameof(accessMask));
             }
 
             GenericAce newAce;
@@ -2105,7 +2097,7 @@ namespace System.Security.AccessControl
         {
             if ( sid == null )
             {
-                throw new ArgumentNullException( "sid" );
+                throw new ArgumentNullException( nameof(sid));
             }
 
             if ( qualifier == AceQualifier.SystemAudit &&
@@ -2113,16 +2105,16 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                     SR.Arg_EnumAtLeastOneFlag,
-                    "flags" );
+nameof(flags));
             }
 
             if ( accessMask == 0 )
             {
                 throw new ArgumentException(
                     SR.Argument_ArgumentZero,
-                    "accessMask" );
+nameof(accessMask));
             }
-            Contract.EndContractBlock();
+
             ThrowIfNotCanonical();
 
             GenericAce newAce;
@@ -2218,7 +2210,7 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                     SR.Argument_ArgumentZero,
-                    "accessMask" );
+nameof(accessMask));
             }
 
             if ( qualifier == AceQualifier.SystemAudit &&
@@ -2226,14 +2218,14 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                     SR.Arg_EnumAtLeastOneFlag,
-                    "flags" );
+nameof(flags));
             }
 
             if ( sid == null )
             {
-                throw new ArgumentNullException( "sid" );
+                throw new ArgumentNullException( nameof(sid));
             }
-            Contract.EndContractBlock();
+
             ThrowIfNotCanonical();
 
 
@@ -2663,7 +2655,7 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                     SR.Argument_ArgumentZero,
-                    "accessMask" );
+nameof(accessMask));
             }
 
             if ( qualifier == AceQualifier.SystemAudit &&
@@ -2671,14 +2663,14 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                     SR.Arg_EnumAtLeastOneFlag,
-                    "flags" );
+nameof(flags));
             }
         
             if ( sid == null )
             {
-                throw new ArgumentNullException( "sid" );
+                throw new ArgumentNullException( nameof(sid));
             }
-            Contract.EndContractBlock();
+
             ThrowIfNotCanonical();
 
             for ( int i = 0; i < Count; i++ )
@@ -2896,9 +2888,9 @@ namespace System.Security.AccessControl
         {
             if ( sid == null )
             {
-                throw new ArgumentNullException( "sid" );
+                throw new ArgumentNullException( nameof(sid));
             }
-            Contract.EndContractBlock();
+
             ThrowIfNotCanonical();
             
             for ( int i = Count - 1; i >= 0; i-- )
@@ -3018,7 +3010,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             CheckFlags( inheritanceFlags, propagationFlags );
             AddQualifiedAce(sid, AceQualifier.SystemAudit, accessMask, GenericAce.AceFlagsFromAuditFlags(auditFlags) | GenericAce.AceFlagsFromInheritanceFlags(inheritanceFlags, propagationFlags), objectFlags, objectType, inheritedObjectType);
@@ -3039,7 +3030,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             CheckFlags( inheritanceFlags, propagationFlags );
             SetQualifiedAce(sid, AceQualifier.SystemAudit, accessMask, GenericAce.AceFlagsFromAuditFlags(auditFlags) | GenericAce.AceFlagsFromInheritanceFlags(inheritanceFlags, propagationFlags), objectFlags, objectType, inheritedObjectType);
@@ -3060,7 +3050,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             return RemoveQualifiedAces(sid, AceQualifier.SystemAudit, accessMask, GenericAce.AceFlagsFromAuditFlags(auditFlags) | GenericAce.AceFlagsFromInheritanceFlags(inheritanceFlags, propagationFlags), true, objectFlags, objectType, inheritedObjectType);
         }
@@ -3080,7 +3069,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             RemoveQualifiedAcesSpecific(sid, AceQualifier.SystemAudit, accessMask, GenericAce.AceFlagsFromAuditFlags(auditFlags) | GenericAce.AceFlagsFromInheritanceFlags(inheritanceFlags, propagationFlags), objectFlags, objectType, inheritedObjectType);
         }
@@ -3092,7 +3080,7 @@ namespace System.Security.AccessControl
     public sealed class DiscretionaryAcl : CommonAcl
     {
         #region
-        static private SecurityIdentifier _sidEveryone = new SecurityIdentifier( WellKnownSidType.WorldSid, null );
+        private static SecurityIdentifier _sidEveryone = new SecurityIdentifier( WellKnownSidType.WorldSid, null );
         private bool everyOneFullAccessForNullDacl = false;
         #endregion
 
@@ -3181,7 +3169,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             CheckAccessType( accessType );
             CheckFlags( inheritanceFlags, propagationFlags );
@@ -3204,7 +3191,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             CheckAccessType( accessType );
             CheckFlags( inheritanceFlags, propagationFlags );
@@ -3227,7 +3213,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             CheckAccessType( accessType );
             everyOneFullAccessForNullDacl = false;
@@ -3249,7 +3234,6 @@ namespace System.Security.AccessControl
                 throw new InvalidOperationException(
                     SR.InvalidOperation_OnlyValidForDS );
             }
-            Contract.EndContractBlock();
 
             CheckAccessType( accessType );
             everyOneFullAccessForNullDacl = false;
@@ -3289,7 +3273,7 @@ namespace System.Security.AccessControl
         /// <returns>The single ACE DACL</returns>
         /// Note: This method is created to get the best behavior for using "allow everyone full access"
         /// single ACE DACL to replace null DACL from CommonSecurityObject. 
-        static internal DiscretionaryAcl CreateAllowEveryoneFullAccess(bool isDS, bool isContainer)
+        internal static DiscretionaryAcl CreateAllowEveryoneFullAccess(bool isDS, bool isContainer)
         {
             DiscretionaryAcl dcl = new DiscretionaryAcl( isContainer, isDS, 1 );
             dcl.AddAccess(

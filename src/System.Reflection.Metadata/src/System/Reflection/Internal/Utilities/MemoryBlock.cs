@@ -6,13 +6,12 @@ using System.Diagnostics;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace System.Reflection.Internal
 {
     [DebuggerDisplay("{GetDebuggerDisplay(),nq}")]
-    internal unsafe struct MemoryBlock
+    internal unsafe readonly struct MemoryBlock
     {
         internal readonly byte* Pointer;
         internal readonly int Length;
@@ -28,18 +27,12 @@ namespace System.Reflection.Internal
         {
             if (length < 0)
             {
-                throw new ArgumentOutOfRangeException("length");
+                throw new ArgumentOutOfRangeException(nameof(length));
             }
 
             if (buffer == null && length != 0)
             {
-                throw new ArgumentNullException("buffer");
-            }
-
-            // the reader performs little-endian specific operations
-            if (!BitConverter.IsLittleEndian)
-            {
-                throw new PlatformNotSupportedException(SR.LitteEndianArchitectureRequired);
+                throw new ArgumentNullException(nameof(buffer));
             }
 
             return new MemoryBlock(buffer, length);
@@ -52,12 +45,6 @@ namespace System.Reflection.Internal
             {
                 Throw.OutOfBounds();
             }
-        }
-
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        internal static void ThrowValueOverflow()
-        {
-            throw new BadImageFormatException(SR.ValueTooLarge);
         }
 
         internal byte[] ToArray()
@@ -130,16 +117,22 @@ namespace System.Reflection.Internal
             uint result = PeekUInt32(offset);
             if (unchecked((int)result != result))
             {
-                ThrowValueOverflow();
+                Throw.ValueOverflow();
             }
 
             return (int)result;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal uint PeekUInt32(int offset)
         {
             CheckBounds(offset, sizeof(uint));
-            return *(uint*)(Pointer + offset);
+
+            unchecked
+            {
+                byte* ptr = Pointer + offset;
+                return (uint)(ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24));
+            }
         }
 
         /// <summary>
@@ -191,10 +184,16 @@ namespace System.Reflection.Internal
             return BlobReader.InvalidCompressedInteger;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal ushort PeekUInt16(int offset)
         {
             CheckBounds(offset, sizeof(ushort));
-            return *(ushort*)(Pointer + offset);
+
+            unchecked
+            {
+                byte* ptr = Pointer + offset;
+                return (ushort)(ptr[0] | (ptr[1] << 8));
+            }
         }
 
         // When reference has tag bits.
@@ -249,15 +248,39 @@ namespace System.Reflection.Internal
         internal Guid PeekGuid(int offset)
         {
             CheckBounds(offset, sizeof(Guid));
-            return *(Guid*)(Pointer + offset);
+
+            byte* ptr = Pointer + offset;
+            if (BitConverter.IsLittleEndian)
+            {
+                return *(Guid*)ptr;
+            }
+            else
+            {
+                unchecked
+                {
+                    return new Guid(
+                        (int)(ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | (ptr[3] << 24)),
+                        (short)(ptr[4] | (ptr[5] << 8)),
+                        (short)(ptr[6] | (ptr[7] << 8)),
+                        ptr[8], ptr[9], ptr[10], ptr[11], ptr[12], ptr[13], ptr[14], ptr[15]);
+                }
+            }
         }
 
         internal string PeekUtf16(int offset, int byteCount)
         {
             CheckBounds(offset, byteCount);
 
-            // doesn't allocate a new string if byteCount == 0
-            return new string((char*)(Pointer + offset), 0, byteCount / sizeof(char));
+            byte* ptr = Pointer + offset;
+            if (BitConverter.IsLittleEndian)
+            {
+                // doesn't allocate a new string if byteCount == 0
+                return new string((char*)ptr, 0, byteCount / sizeof(char));
+            }
+            else
+            {
+                return Encoding.Unicode.GetString(ptr, byteCount);
+            }
         }
 
         internal string PeekUtf8(int offset, int byteCount)
@@ -516,21 +539,17 @@ namespace System.Reflection.Internal
         internal byte[] PeekBytes(int offset, int byteCount)
         {
             CheckBounds(offset, byteCount);
-
-            if (byteCount == 0)
-            {
-                return EmptyArray<byte>.Instance;
-            }
-
-            byte[] result = new byte[byteCount];
-            Marshal.Copy((IntPtr)(Pointer + offset), result, 0, byteCount);
-            return result;
+            return BlobUtilities.ReadBytes(Pointer + offset, byteCount);
         }
 
         internal int IndexOf(byte b, int start)
         {
             CheckBounds(start, 0);
+            return IndexOfUnchecked(b, start);
+        }
 
+        internal int IndexOfUnchecked(byte b, int start)
+        {
             byte* p = Pointer + start;
             byte* end = Pointer + Length;
             while (p < end)
@@ -578,7 +597,7 @@ namespace System.Reflection.Internal
 
         /// <summary>
         /// In a table that specifies children via a list field (e.g. TypeDef.FieldList, TypeDef.MethodList), 
-        /// seaches for the parent given a reference to a child.
+        /// searches for the parent given a reference to a child.
         /// </summary>
         /// <returns>Returns row number [0..RowCount).</returns>
         internal int BinarySearchForSlot(
@@ -636,7 +655,7 @@ namespace System.Reflection.Internal
         }
 
         /// <summary>
-        /// In a table ordered by a column containing entity references seaches for a row with the specified reference.
+        /// In a table ordered by a column containing entity references searches for a row with the specified reference.
         /// </summary>
         /// <returns>Returns row number [0..RowCount) or -1 if not found.</returns>
         internal int BinarySearchReference(

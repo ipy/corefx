@@ -2,13 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-using System.Diagnostics;
-using System.Diagnostics.Contracts;
-
-using Microsoft.Win32.SafeHandles;
-
 using Internal.Cryptography;
+using Microsoft.Win32.SafeHandles;
 
 using ErrorCode = Interop.NCrypt.ErrorCode;
 using NCRYPT_UI_POLICY = Interop.NCrypt.NCRYPT_UI_POLICY;
@@ -37,7 +32,7 @@ namespace System.Security.Cryptography
         public static CngKey Create(CngAlgorithm algorithm, string keyName, CngKeyCreationParameters creationParameters)
         {
             if (algorithm == null)
-                throw new ArgumentNullException("algorithm");
+                throw new ArgumentNullException(nameof(algorithm));
 
             if (creationParameters == null)
                 creationParameters = new CngKeyCreationParameters();
@@ -46,13 +41,19 @@ namespace System.Security.Cryptography
             SafeNCryptKeyHandle keyHandle;
             ErrorCode errorCode = Interop.NCrypt.NCryptCreatePersistedKey(providerHandle, out keyHandle, algorithm.Algorithm, keyName, 0, creationParameters.KeyCreationOptions);
             if (errorCode != ErrorCode.ERROR_SUCCESS)
+            {
+                // For ecc, the exception may be caught and re-thrown as PlatformNotSupportedException
                 throw errorCode.ToCryptographicException();
+            }
 
             InitializeKeyProperties(keyHandle, creationParameters);
 
             errorCode = Interop.NCrypt.NCryptFinalizeKey(keyHandle, 0);
             if (errorCode != ErrorCode.ERROR_SUCCESS)
+            {
+                // For ecc, the exception may be caught and re-thrown as PlatformNotSupportedException
                 throw errorCode.ToCryptographicException();
+            }
 
             CngKey key = new CngKey(providerHandle, keyHandle);
 
@@ -122,7 +123,7 @@ namespace System.Security.Cryptography
         {
             unsafe
             {
-                fixed (char* pinnedCreationTitle = uiPolicy.CreationTitle, 
+                fixed (char* pinnedCreationTitle = uiPolicy.CreationTitle,
                              pinnedFriendlyName = uiPolicy.FriendlyName,
                              pinnedDescription = uiPolicy.Description)
                 {
@@ -155,4 +156,3 @@ namespace System.Security.Cryptography
         }
     }
 }
-

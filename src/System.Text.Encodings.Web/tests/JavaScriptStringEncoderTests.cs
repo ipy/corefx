@@ -14,6 +14,17 @@ namespace Microsoft.Framework.WebEncoders
     public class JavaScriptStringEncoderTests
     {
         [Fact]
+        public void TestSurrogate()
+        {
+            Assert.Equal("\\uD83D\\uDCA9", System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode("\U0001f4a9"));
+            using (var writer = new StringWriter())
+            {
+                System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(writer, "\U0001f4a9");
+                Assert.Equal("\\uD83D\\uDCA9", writer.GetStringBuilder().ToString());
+            }
+        }
+
+        [Fact]
         public void Ctor_WithTextEncoderSettings()
         {
             // Arrange
@@ -65,11 +76,11 @@ namespace Microsoft.Framework.WebEncoders
             JavaScriptStringEncoder testEncoder = JavaScriptStringEncoder.Default;
 
             // Act & assert
-            for (int i = 0; i <= Char.MaxValue; i++)
+            for (int i = 0; i <= char.MaxValue; i++)
             {
                 if (!IsSurrogateCodePoint(i))
                 {
-                    string input = new String((char)i, 1);
+                    string input = new string((char)i, 1);
                     Assert.Equal(controlEncoder.JavaScriptStringEncode(input), testEncoder.JavaScriptStringEncode(input));
                 }
             }
@@ -78,7 +89,7 @@ namespace Microsoft.Framework.WebEncoders
         [Fact]
         public void JavaScriptStringEncode_AllRangesAllowed_StillEncodesForbiddenChars_Simple_Escaping() {
             // The following two calls could be simply InlineData to the Theory below
-            // Unfortunatelly, the xUnit logger fails to escape the inputs when logging the test results,
+            // Unfortunately, the xUnit logger fails to escape the inputs when logging the test results,
             // and so the suite fails despite all tests passing. 
             // TODO: I will try to fix it in xUnit, but for now this is a workaround to enable these tests.
             JavaScriptStringEncode_AllRangesAllowed_StillEncodesForbiddenChars_Simple("\b", @"\b");
@@ -118,7 +129,7 @@ namespace Microsoft.Framework.WebEncoders
             // Act & assert - BMP chars
             for (int i = 0; i <= 0xFFFF; i++)
             {
-                string input = new String((char)i, 1);
+                string input = new string((char)i, 1);
                 string expected;
                 if (IsSurrogateCodePoint(i))
                 {
@@ -133,6 +144,7 @@ namespace Microsoft.Framework.WebEncoders
                     else if (input == "\r") { expected = @"\r"; }
                     else if (input == "\\") { expected = @"\\"; }
                     else if (input == "/") { expected = @"\/"; }
+                    else if (input == "`") { expected = @"\u0060"; }
                     else
                     {
                         bool mustEncode = false;
@@ -159,7 +171,7 @@ namespace Microsoft.Framework.WebEncoders
 
                         if (mustEncode)
                         {
-                            expected = String.Format(CultureInfo.InvariantCulture, @"\u{0:X4}", i);
+                            expected = string.Format(CultureInfo.InvariantCulture, @"\u{0:X4}", i);
                         }
                         else
                         {
@@ -175,8 +187,8 @@ namespace Microsoft.Framework.WebEncoders
             // Act & assert - astral chars
             for (int i = 0x10000; i <= 0x10FFFF; i++)
             {
-                string input = Char.ConvertFromUtf32(i);
-                string expected = String.Format(CultureInfo.InvariantCulture, @"\u{0:X4}\u{1:X4}", (uint)input[0], (uint)input[1]);
+                string input = char.ConvertFromUtf32(i);
+                string expected = string.Format(CultureInfo.InvariantCulture, @"\u{0:X4}\u{1:X4}", (uint)input[0], (uint)input[1]);
                 string retVal = encoder.JavaScriptStringEncode(input);
                 Assert.Equal(expected, retVal);
             }
@@ -319,7 +331,7 @@ namespace Microsoft.Framework.WebEncoders
                     continue; // surrogates don't matter here
                 }
 
-                string javaScriptStringEncoded = javaScriptStringEncoder.JavaScriptStringEncode(Char.ConvertFromUtf32(i));
+                string javaScriptStringEncoded = javaScriptStringEncoder.JavaScriptStringEncode(char.ConvertFromUtf32(i));
                 string thenHtmlEncoded = htmlEncoder.HtmlEncode(javaScriptStringEncoded);
                 Assert.Equal(javaScriptStringEncoded, thenHtmlEncoded); // should have contained no HTML-sensitive characters
             }

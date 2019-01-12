@@ -56,12 +56,6 @@ namespace System.IO.Packaging
     /// </summary>
     internal sealed class ContentType
     {
-        //------------------------------------------------------
-        //
-        //  Internal Constructors
-        //
-        //------------------------------------------------------
-
         #region Internal Constructors
 
         /// <summary>
@@ -79,11 +73,11 @@ namespace System.IO.Packaging
         internal ContentType(string contentType)
         {
             if (contentType == null)
-                throw new ArgumentNullException("contentType");
+                throw new ArgumentNullException(nameof(contentType));
 
             if (contentType.Length == 0)
             {
-                _contentType = String.Empty;
+                _contentType = string.Empty;
             }
             else
             {
@@ -121,12 +115,6 @@ namespace System.IO.Packaging
 
         #endregion Internal Constructors
 
-        //------------------------------------------------------
-        //
-        //  Internal Methods
-        //
-        //------------------------------------------------------
-
         #region Internal Properties
 
         /// <summary>
@@ -159,7 +147,7 @@ namespace System.IO.Packaging
         /// ReadOnly
         /// Consider following Content type - 
         /// type/subtype ; param1=value1 ; param2=value2 ; param3="value3"
-        /// This will return a enumerator over a dictionary of the parameter/value pairs. 
+        /// This will return an enumerator over a dictionary of the parameter/value pairs. 
         /// </summary>
         internal Dictionary<string, string>.Enumerator ParameterValuePairs
         {
@@ -170,13 +158,7 @@ namespace System.IO.Packaging
             }
         }
         #endregion Internal Properties
-
-        //------------------------------------------------------
-        //
-        //  Internal Methods
-        //
-        //------------------------------------------------------
-
+        
         #region Internal Methods
 
         /// <summary>
@@ -195,7 +177,7 @@ namespace System.IO.Packaging
         /// This method does a weak comparison of the content types. We only compare the
         /// type and subType values in an ASCII case-insensitive manner.
         /// Parameter and value pairs are not used for the comparison. 
-        /// If you wish to compare the paramters too, then you must get the ParameterValuePairs from
+        /// If you wish to compare the parameters too, then you must get the ParameterValuePairs from
         /// both the ContentType objects and compare each parameter entry.
         /// The allowParameterValuePairs parameter is used to indicate whether the 
         /// comparison is tolerant to parameters being present or no.
@@ -232,8 +214,8 @@ namespace System.IO.Packaging
                 // safe comparison because the _type and _subType strings have been restricted to
                 // ASCII characters, digits, and a small set of symbols.  This is not a safe comparison
                 // for the broader set of strings that have not been restricted in the same way.
-                result = (String.Equals(_type, contentType.TypeComponent, StringComparison.OrdinalIgnoreCase) &&
-                          String.Equals(_subType, contentType.SubTypeComponent, StringComparison.OrdinalIgnoreCase));
+                result = (string.Equals(_type, contentType.TypeComponent, StringComparison.OrdinalIgnoreCase) &&
+                          string.Equals(_subType, contentType.SubTypeComponent, StringComparison.OrdinalIgnoreCase));
             }
             return result;
         }
@@ -249,10 +231,10 @@ namespace System.IO.Packaging
                 //This is needed so that while debugging we get the correct 
                 //string
                 if (!_isInitialized)
-                    return String.Empty;
+                    return string.Empty;
 
-                Debug.Assert(String.CompareOrdinal(_type, String.Empty) != 0
-                   || String.CompareOrdinal(_subType, String.Empty) != 0);
+                Debug.Assert(string.CompareOrdinal(_type, string.Empty) != 0
+                   || string.CompareOrdinal(_subType, string.Empty) != 0);
 
                 StringBuilder stringBuilder = new StringBuilder(_type);
                 stringBuilder.Append(PackUriHelper.ForwardSlashChar);
@@ -278,12 +260,6 @@ namespace System.IO.Packaging
         }
 
         #endregion Internal Methods
-
-        //------------------------------------------------------
-        //
-        //  Private Methods
-        //
-        //------------------------------------------------------
 
         #region Private Methods
 
@@ -359,7 +335,7 @@ namespace System.IO.Packaging
                 //Removing the leading ; from the string
                 parameterAndValue = parameterAndValue.Substring(1);
 
-                //okay to trim start as there can be spaces before the begining
+                //okay to trim start as there can be spaces before the beginning
                 //of the parameter name.
                 parameterAndValue = parameterAndValue.TrimStart(s_linearWhiteSpaceChars);
 
@@ -413,7 +389,7 @@ namespace System.IO.Packaging
                 else
                     length = semicolonIndex;
 
-                //If there is no linear white space found we treat the entire remaining string as 
+                //If there is no linear whitespace found we treat the entire remaining string as 
                 //parameter value.
                 if (length == -1)
                     length = s.Length;
@@ -453,14 +429,14 @@ namespace System.IO.Packaging
         /// <exception cref="ArgumentException">If the token is Empty</exception>
         private static string ValidateToken(string token)
         {
-            if (String.IsNullOrEmpty(token))
-                throw new ArgumentException(SR.InvalidToken);
+            if (string.IsNullOrEmpty(token))
+                throw new ArgumentException(SR.InvalidToken_ContentType);
 
             for (int i = 0; i < token.Length; i++)
             {
                 if (!IsAsciiLetterOrDigit(token[i]) && !IsAllowedCharacter(token[i]))
                 {
-                    throw new ArgumentException(SR.InvalidToken);
+                    throw new ArgumentException(SR.InvalidToken_ContentType);
                 }
             }
 
@@ -471,12 +447,12 @@ namespace System.IO.Packaging
         /// Validating if the value of a parameter is either a valid token or a 
         /// valid quoted string
         /// </summary>
-        /// <param name="parameterValue">paramter value string</param>
+        /// <param name="parameterValue">parameter value string</param>
         /// <returns>validate parameter value string</returns>
-        /// <exception cref="ArgumentException">If the paramter value is empty</exception>
+        /// <exception cref="ArgumentException">If the parameter value is empty</exception>
         private static string ValidateQuotedStringOrToken(string parameterValue)
         {
-            if (String.IsNullOrEmpty(parameterValue))
+            if (string.IsNullOrEmpty(parameterValue))
                 throw new ArgumentException(SR.InvalidParameterValue);
 
             if (parameterValue.Length >= 2 &&
@@ -577,16 +553,11 @@ namespace System.IO.Packaging
 
         #endregion Private Methods
 
-        //------------------------------------------------------
-        //
-        //  Private Members
-        //
-        //------------------------------------------------------
         #region Private Members
 
         private string _contentType = null;
-        private string _type = String.Empty;
-        private string _subType = String.Empty;
+        private string _type = string.Empty;
+        private string _subType = string.Empty;
         private string _originalString;
         private Dictionary<string, string> _parameterDictionary = null;
         private bool _isInitialized = false;

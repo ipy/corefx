@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Text;
 
 namespace OLEDB.Test.ModuleCore
 {
@@ -71,11 +72,24 @@ namespace OLEDB.Test.ModuleCore
         public CTestException(int result, string message, object actual, object expected, Exception inner)
             : base(message, inner)
         {
-            //Note: iResult is the variation result (ie: TEST_PASS, TEST_FAIL, etc...)
+            //Note: iResult is the variation result (i.e.: TEST_PASS, TEST_FAIL, etc...)
             //Setup the exception
             Result = result;
             Actual = actual;
             Expected = expected;
+        }
+
+        public override string Message
+        {
+            get
+            {
+                StringBuilder text = new StringBuilder();
+                text.AppendLine(base.Message);
+                text.AppendLine($"Expected: `{Expected.ToString()}`");
+                text.AppendLine($"Actual: `{Actual.ToString()}`");
+                text.AppendLine($"Result: {Result}");
+                return text.ToString();
+            }
         }
     }
 }

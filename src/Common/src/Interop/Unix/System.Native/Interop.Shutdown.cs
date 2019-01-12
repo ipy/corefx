@@ -11,6 +11,9 @@ internal static partial class Interop
     internal static partial class Sys
     {
         [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_Shutdown")]
-        internal static extern Error Shutdown(int socket, SocketShutdown how);
+        internal static extern Error Shutdown(SafeHandle socket, SocketShutdown how);
+
+        [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_Shutdown")]
+        internal static extern Error Shutdown(IntPtr socket, SocketShutdown how);
     }
 }

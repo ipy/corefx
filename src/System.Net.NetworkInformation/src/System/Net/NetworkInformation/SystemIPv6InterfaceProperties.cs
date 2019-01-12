@@ -31,7 +31,7 @@ namespace System.Net.NetworkInformation
         {
             get
             {
-                return (int)_mtu;
+                return unchecked((int)_mtu);
             }
         }
 
@@ -39,7 +39,7 @@ namespace System.Net.NetworkInformation
         {
             if ((scopeLevel < 0) || ((int)scopeLevel >= _zoneIndices.Length))
             {
-                throw new ArgumentOutOfRangeException("scopeLevel");
+                throw new ArgumentOutOfRangeException(nameof(scopeLevel));
             }
 
             return _zoneIndices[(int)scopeLevel];

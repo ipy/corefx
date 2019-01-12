@@ -47,13 +47,13 @@ namespace Windows.UI.Xaml
 
         public GridLength(double value, GridUnitType type)
         {
-            if (Double.IsNaN(value) || Double.IsInfinity(value) || value < 0.0)
+            if (!double.IsFinite(value) || value < 0.0)
             {
-                throw new ArgumentException(SR.DirectUI_InvalidArgument, "value");
+                throw new ArgumentException(SR.DirectUI_InvalidArgument, nameof(value));
             }
             if (type != GridUnitType.Auto && type != GridUnitType.Pixel && type != GridUnitType.Star)
             {
-                throw new ArgumentException(SR.DirectUI_InvalidArgument, "type");
+                throw new ArgumentException(SR.DirectUI_InvalidArgument, nameof(type));
             }
 
             _unitValue = (type == GridUnitType.Auto) ? Default : value;

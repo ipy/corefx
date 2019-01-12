@@ -6,8 +6,6 @@ using System;
 using System.Diagnostics;
 using System.Security.Cryptography;
 
-using Internal.NativeCrypto;
-
 namespace Internal.Cryptography
 {
     //
@@ -15,12 +13,12 @@ namespace Internal.Cryptography
     //
     internal static partial class HashProviderDispenser
     {
-        public static HashProvider CreateHashProvider(String hashAlgorithmId)
+        public static HashProvider CreateHashProvider(string hashAlgorithmId)
         {
             return new HashProviderCng(hashAlgorithmId, null);
         }
 
-        public static HashProvider CreateMacProvider(String hashAlgorithmId, byte[] key)
+        public static HashProvider CreateMacProvider(string hashAlgorithmId, byte[] key)
         {
             return new HashProviderCng(hashAlgorithmId, key);
         }

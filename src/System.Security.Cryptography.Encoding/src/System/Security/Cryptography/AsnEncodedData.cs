@@ -23,7 +23,7 @@ namespace System.Security.Cryptography
         public AsnEncodedData(AsnEncodedData asnEncodedData)
         {
             if (asnEncodedData == null)
-                throw new ArgumentNullException("asnEncodedData");
+                throw new ArgumentNullException(nameof(asnEncodedData));
             Reset(asnEncodedData._oid, asnEncodedData._rawData);
         }
 
@@ -32,7 +32,7 @@ namespace System.Security.Cryptography
             Reset(oid, rawData);
         }
 
-        public AsnEncodedData(String oid, byte[] rawData)
+        public AsnEncodedData(string oid, byte[] rawData)
         {
             Reset(new Oid(oid), rawData);
         }
@@ -61,7 +61,7 @@ namespace System.Security.Cryptography
             set
             {
                 if (value == null)
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 _rawData = value.CloneByteArray();
             }
         }
@@ -69,15 +69,15 @@ namespace System.Security.Cryptography
         public virtual void CopyFrom(AsnEncodedData asnEncodedData)
         {
             if (asnEncodedData == null)
-                throw new ArgumentNullException("asnEncodedData");
+                throw new ArgumentNullException(nameof(asnEncodedData));
             Reset(asnEncodedData._oid, asnEncodedData._rawData);
         }
 
-        public virtual String Format(bool multiLine)
+        public virtual string Format(bool multiLine)
         {
             // Return empty string if no data to format.
             if (_rawData == null || _rawData.Length == 0)
-                return String.Empty;
+                return string.Empty;
 
             return AsnFormatter.Instance.Format(_oid, _rawData, multiLine);
         }

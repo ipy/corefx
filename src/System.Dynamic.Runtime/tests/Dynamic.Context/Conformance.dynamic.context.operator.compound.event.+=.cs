@@ -6,16 +6,14 @@ using Xunit;
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dlgate001.dlgate001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dlgate001.dlgate001;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is delegate creation expression;
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -53,16 +51,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dlgate002.dlgate002
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dlgate002.dlgate002;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is delegate creation expression; (no event accessor declaration)
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -100,16 +96,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic001.dynamic001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic001.dynamic001;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is dynamic runtime delegate: with event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -149,16 +143,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic002.dynamic002
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic002.dynamic002;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is dynamic runtime delegate: without event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -198,16 +190,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic003.dynamic003
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic003.dynamic003;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // lhs is static typed and rhs is dynamic runtime delegate: with event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -248,16 +238,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic004.dynamic004
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.dynamic004.dynamic004;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // lhs is static typed and rhs is dynamic runtime delegate: without event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -298,16 +286,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.fieldproperty001.fieldproperty001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.fieldproperty001.fieldproperty001;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is field/property of delegate type : with event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -370,16 +356,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.fieldproperty002.fieldproperty002
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.fieldproperty002.fieldproperty002;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is field/property of delegate type : without event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -442,16 +426,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.null001.null001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.null001.null001;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
-    // Negtive: rhs is null literal : lhs is not null
+    // Negative: rhs is null literal : lhs is not null
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -488,16 +470,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.null002.null002
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.null002.null002;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
-    // Negtive: rhs is null literal : lhs is  null
+    // Negative: rhs is null literal : lhs is  null
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -544,16 +524,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.return001.return001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.return001.return001;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is delegate invocation return delegate : with event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C
@@ -597,16 +575,14 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compoun
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.return002.return002
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.context.operate.compound.evnt.pluseql.return002.return002;
     // <Area> Dynamic -- compound operator</Area>
-    // <Title> compund operator +=/-= on event </Title>
+    // <Title> compound operator +=/-= on event </Title>
     // <Description>
     // rhs is delegate invocation return delegate : without event accessor
     // </Description>
     // <RelatedBugs></RelatedBugs>
     // <Expects Status=success></Expects>
     // <Code>
-    using System;
 
     public delegate int Dele(int i);
     public class C

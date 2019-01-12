@@ -65,7 +65,7 @@ namespace System.Threading.Tasks.Dataflow
         public WriteOnceBlock(Func<T, T> cloningFunction, DataflowBlockOptions dataflowBlockOptions)
         {
             // Validate arguments
-            if (dataflowBlockOptions == null) throw new ArgumentNullException("dataflowBlockOptions");
+            if (dataflowBlockOptions == null) throw new ArgumentNullException(nameof(dataflowBlockOptions));
             Contract.EndContractBlock();
 
             // Store the option
@@ -115,8 +115,8 @@ namespace System.Threading.Tasks.Dataflow
         [SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope")]
         private void CompleteBlockAsync(IList<Exception> exceptions)
         {
-            Contract.Requires(_decliningPermanently, "We may get here only after we have started to decline permanently.");
-            Contract.Requires(_completionReserved, "We may get here only after we have reserved completion.");
+            Debug.Assert(_decliningPermanently, "We may get here only after we have started to decline permanently.");
+            Debug.Assert(_completionReserved, "We may get here only after we have reserved completion.");
             Common.ContractAssertMonitorStatus(ValueLock, held: false);
 
             // If there is no exceptions list, we offer the message around, and then complete.
@@ -176,7 +176,7 @@ namespace System.Threading.Tasks.Dataflow
             // has not been initialized yet and we may have to complete normally, because that would defeat the 
             // sole purpose of the TCS being lazily initialized.
 
-            Contract.Requires(_lazyCompletionTaskSource == null || !_lazyCompletionTaskSource.Task.IsCompleted, "The task completion source must not be completed. This must be the only thread that ever completes the block.");
+            Debug.Assert(_lazyCompletionTaskSource == null || !_lazyCompletionTaskSource.Task.IsCompleted, "The task completion source must not be completed. This must be the only thread that ever completes the block.");
 
             // Save the linked list of targets so that it could be traversed later to propagate completion
             TargetRegistry<T>.LinkedTargetInfo linkedTargets = _targetRegistry.ClearEntryPoints();
@@ -216,7 +216,7 @@ namespace System.Threading.Tasks.Dataflow
         /// <include file='XmlDocs/CommonXmlDocComments.xml' path='CommonXmlDocComments/Blocks/Member[@name="Fault"]/*' />
         void IDataflowBlock.Fault(Exception exception)
         {
-            if (exception == null) throw new ArgumentNullException("exception");
+            if (exception == null) throw new ArgumentNullException(nameof(exception));
             Contract.EndContractBlock();
 
             CompleteCore(exception, storeExceptionEvenIfAlreadyCompleting: false);
@@ -230,7 +230,7 @@ namespace System.Threading.Tasks.Dataflow
 
         private void CompleteCore(Exception exception, bool storeExceptionEvenIfAlreadyCompleting)
         {
-            Contract.Requires(exception != null || !storeExceptionEvenIfAlreadyCompleting,
+            Debug.Assert(exception != null || !storeExceptionEvenIfAlreadyCompleting,
                             "When storeExceptionEvenIfAlreadyCompleting is set to true, an exception must be provided.");
             Contract.EndContractBlock();
 
@@ -266,7 +266,7 @@ namespace System.Threading.Tasks.Dataflow
         }
 
         /// <include file='XmlDocs/CommonXmlDocComments.xml' path='CommonXmlDocComments/Sources/Member[@name="TryReceive"]/*' />
-        public Boolean TryReceive(Predicate<T> filter, out T item)
+        public bool TryReceive(Predicate<T> filter, out T item)
         {
             // No need to take the outgoing lock, as we don't need to synchronize with other
             // targets, and _value only ever goes from null to non-null, not the other way around.
@@ -288,7 +288,7 @@ namespace System.Threading.Tasks.Dataflow
         }
 
         /// <include file='XmlDocs/CommonXmlDocComments.xml' path='CommonXmlDocComments/Sources/Member[@name="TryReceiveAll"]/*' />
-        Boolean IReceivableSourceBlock<T>.TryReceiveAll(out IList<T> items)
+        bool IReceivableSourceBlock<T>.TryReceiveAll(out IList<T> items)
         {
             // Try to receive the one item this block may have.
             // If we can, give back an array of one item. Otherwise,
@@ -311,8 +311,8 @@ namespace System.Threading.Tasks.Dataflow
         public IDisposable LinkTo(ITargetBlock<T> target, DataflowLinkOptions linkOptions)
         {
             // Validate arguments
-            if (target == null) throw new ArgumentNullException("target");
-            if (linkOptions == null) throw new ArgumentNullException("linkOptions");
+            if (target == null) throw new ArgumentNullException(nameof(target));
+            if (linkOptions == null) throw new ArgumentNullException(nameof(linkOptions));
             Contract.EndContractBlock();
 
             bool hasValue;
@@ -348,11 +348,11 @@ namespace System.Threading.Tasks.Dataflow
         public Task Completion { get { return CompletionTaskSource.Task; } }
 
         /// <include file='XmlDocs/CommonXmlDocComments.xml' path='CommonXmlDocComments/Targets/Member[@name="OfferMessage"]/*' />
-        DataflowMessageStatus ITargetBlock<T>.OfferMessage(DataflowMessageHeader messageHeader, T messageValue, ISourceBlock<T> source, Boolean consumeToAccept)
+        DataflowMessageStatus ITargetBlock<T>.OfferMessage(DataflowMessageHeader messageHeader, T messageValue, ISourceBlock<T> source, bool consumeToAccept)
         {
             // Validate arguments
-            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, "messageHeader");
-            if (source == null && consumeToAccept) throw new ArgumentException(SR.Argument_CantConsumeFromANullSource, "consumeToAccept");
+            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, nameof(messageHeader));
+            if (source == null && consumeToAccept) throw new ArgumentException(SR.Argument_CantConsumeFromANullSource, nameof(consumeToAccept));
             Contract.EndContractBlock();
 
             bool thisThreadReservedCompletion = false;
@@ -389,11 +389,11 @@ namespace System.Threading.Tasks.Dataflow
         }
 
         /// <include file='XmlDocs/CommonXmlDocComments.xml' path='CommonXmlDocComments/Sources/Member[@name="ConsumeMessage"]/*' />
-        T ISourceBlock<T>.ConsumeMessage(DataflowMessageHeader messageHeader, ITargetBlock<T> target, out Boolean messageConsumed)
+        T ISourceBlock<T>.ConsumeMessage(DataflowMessageHeader messageHeader, ITargetBlock<T> target, out bool messageConsumed)
         {
             // Validate arguments
-            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, "messageHeader");
-            if (target == null) throw new ArgumentNullException("target");
+            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, nameof(messageHeader));
+            if (target == null) throw new ArgumentNullException(nameof(target));
             Contract.EndContractBlock();
 
             // As long as the message being requested is the one we have, allow it to be consumed,
@@ -411,11 +411,11 @@ namespace System.Threading.Tasks.Dataflow
         }
 
         /// <include file='XmlDocs/CommonXmlDocComments.xml' path='CommonXmlDocComments/Sources/Member[@name="ReserveMessage"]/*' />
-        Boolean ISourceBlock<T>.ReserveMessage(DataflowMessageHeader messageHeader, ITargetBlock<T> target)
+        bool ISourceBlock<T>.ReserveMessage(DataflowMessageHeader messageHeader, ITargetBlock<T> target)
         {
             // Validate arguments
-            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, "messageHeader");
-            if (target == null) throw new ArgumentNullException("target");
+            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, nameof(messageHeader));
+            if (target == null) throw new ArgumentNullException(nameof(target));
             Contract.EndContractBlock();
 
             // As long as the message is the one we have, it can be "reserved."
@@ -428,8 +428,8 @@ namespace System.Threading.Tasks.Dataflow
         void ISourceBlock<T>.ReleaseReservation(DataflowMessageHeader messageHeader, ITargetBlock<T> target)
         {
             // Validate arguments
-            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, "messageHeader");
-            if (target == null) throw new ArgumentNullException("target");
+            if (!messageHeader.IsValid) throw new ArgumentException(SR.Argument_InvalidMessageHeader, nameof(messageHeader));
+            if (target == null) throw new ArgumentNullException(nameof(target));
             Contract.EndContractBlock();
 
             // As long as the message is the one we have, everything's fine.
@@ -546,7 +546,7 @@ namespace System.Threading.Tasks.Dataflow
             /// <param name="writeOnceBlock">The WriteOnceBlock to view.</param>
             public DebugView(WriteOnceBlock<T> writeOnceBlock)
             {
-                Contract.Requires(writeOnceBlock != null, "Need a block with which to construct the debug view.");
+                Debug.Assert(writeOnceBlock != null, "Need a block with which to construct the debug view.");
                 _writeOnceBlock = writeOnceBlock;
             }
 

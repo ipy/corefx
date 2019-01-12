@@ -12,9 +12,9 @@
 using Microsoft.Win32;
 using System;
 using System.Collections;
-using System.Security.Principal;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
+using System.Security.Principal;
 
 namespace System.Security.AccessControl
 {
@@ -64,7 +64,7 @@ namespace System.Security.AccessControl
                 {
                     throw new ArgumentException(
                         SR.Arg_MustBeIdentityReferenceType,
-                        "targetType");
+nameof(targetType));
                 }
 
                 CommonAcl acl = null;
@@ -226,9 +226,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
             try
@@ -276,7 +275,7 @@ namespace System.Security.AccessControl
                             result = _securityDescriptor.DiscretionaryAcl.RemoveAccess(AccessControlType.Allow, sid, -1, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, 0);
                             if (result == false)
                             {
-                                Contract.Assert(false, "Invalid operation");
+                                Debug.Assert(false, "Invalid operation");
                                 throw new InvalidOperationException();
                             }
 
@@ -288,7 +287,7 @@ namespace System.Security.AccessControl
 
                         default:
                             throw new ArgumentOutOfRangeException(
-                                "modification",
+nameof(modification),
                                 SR.ArgumentOutOfRange_Enum);
                     }
                 }
@@ -317,7 +316,7 @@ namespace System.Security.AccessControl
                             result = _securityDescriptor.DiscretionaryAcl.RemoveAccess(AccessControlType.Deny, sid, -1, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, 0);
                             if (result == false)
                             {
-                                Contract.Assert(false, "Invalid operation");
+                                Debug.Assert(false, "Invalid operation");
                                 throw new InvalidOperationException();
                             }
 
@@ -329,13 +328,13 @@ namespace System.Security.AccessControl
 
                         default:
                             throw new ArgumentOutOfRangeException(
-                                "modification",
+nameof(modification),
                                 SR.ArgumentOutOfRange_Enum);
                     }
                 }
                 else
                 {
-                    Contract.Assert(false, "rule.AccessControlType unrecognized");
+                    Debug.Assert(false, "rule.AccessControlType unrecognized");
                     throw new ArgumentException(SR.Format(SR.Arg_EnumIllegalVal, (int)rule.AccessControlType), "rule.AccessControlType");
                 }
 
@@ -357,9 +356,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
             try
@@ -415,7 +413,7 @@ namespace System.Security.AccessControl
 
                     default:
                         throw new ArgumentOutOfRangeException(
-                            "modification",
+nameof(modification),
                             SR.ArgumentOutOfRange_Enum);
                 }
 
@@ -441,9 +439,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -462,9 +459,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -483,9 +479,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -506,9 +501,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -532,9 +526,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -560,9 +553,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -586,9 +578,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -607,9 +598,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -628,9 +618,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -649,9 +638,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 
@@ -670,9 +658,8 @@ namespace System.Security.AccessControl
         {
             if (rule == null)
             {
-                throw new ArgumentNullException("rule");
+                throw new ArgumentNullException(nameof(rule));
             }
-            Contract.EndContractBlock();
 
             WriteLock();
 

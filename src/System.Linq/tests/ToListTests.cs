@@ -67,6 +67,11 @@ namespace System.Linq.Tests
                 });
         }
 
+        [Fact]
+        public void RunOnce()
+        {
+            Assert.Equal(Enumerable.Range(3, 9), Enumerable.Range(3, 9).RunOnce().ToList());
+        }
 
         [Fact]
         public void ToList_TouchCountWithICollection()
@@ -83,13 +88,11 @@ namespace System.Linq.Tests
         public void ToList_ThrowArgumentNullExceptionWhenSourceIsNull()
         {
             int[] source = null;
-            Assert.Throws<ArgumentNullException>("source", () => source.ToList());
+            AssertExtensions.Throws<ArgumentNullException>("source", () => source.ToList());
         }
 
-
-        // Later this behaviour can be changed
+        // Generally the optimal approach. Anything that breaks this should be confirmed as not harming performance.
         [Fact]
-        [ActiveIssue(1561)]
         public void ToList_UseCopyToWithICollection()
         {
             TestCollection<int> source = new TestCollection<int>(new int[] { 1, 2, 3, 4 });
@@ -97,21 +100,6 @@ namespace System.Linq.Tests
 
             Assert.Equal(source, resultList);
             Assert.Equal(1, source.CopyToTouched);
-        }
-
-
-        [Fact]
-        [ActiveIssue(1561)]
-        public void ToList_WorkWhenCountChangedAsynchronously()
-        {
-            GrowingAfterCountReadCollection source = new GrowingAfterCountReadCollection(new int[] { 1, 2, 3, 4 });
-            var resultList = source.ToList();
-
-            Assert.True(resultList.Count >= 4);
-            Assert.Equal(1, resultList[0]);
-            Assert.Equal(2, resultList[0]);
-            Assert.Equal(3, resultList[0]);
-            Assert.Equal(4, resultList[0]);
         }
 
         [Theory]
@@ -190,7 +178,7 @@ namespace System.Linq.Tests
         public void SameResultsRepeatCallsFromWhereOnIntQuery()
         {
             var q = from x in new[] { 9999, 0, 888, -1, 66, -777, 1, 2, -12345 }
-                    where x > Int32.MinValue
+                    where x > int.MinValue
                     select x;
 
             Assert.Equal(q.ToList(), q.ToList());
@@ -199,8 +187,8 @@ namespace System.Linq.Tests
         [Fact]
         public void SameResultsRepeatCallsFromWhereOnStringQuery()
         {
-            var q = from x in new[] { "!@#$%^", "C", "AAA", "", "Calling Twice", "SoS", String.Empty }
-                        where !String.IsNullOrEmpty(x)
+            var q = from x in new[] { "!@#$%^", "C", "AAA", "", "Calling Twice", "SoS", string.Empty }
+                        where !string.IsNullOrEmpty(x)
                         select x;
 
             Assert.Equal(q.ToList(), q.ToList());
@@ -256,6 +244,62 @@ namespace System.Linq.Tests
             Assert.Null(source as ICollection<int>);
     
             Assert.Equal(expected, source.ToList());
+        }
+
+        [Fact]
+        public void ConstantTimeCountPartitionSelectSameTypeToList()
+        {
+            var source = Enumerable.Range(0, 100).Select(i => i * 2).Skip(1).Take(5);
+            Assert.Equal(new[] { 2, 4, 6, 8, 10 }, source.ToList());
+        }
+
+        [Fact]
+        public void ConstantTimeCountPartitionSelectDiffTypeToList()
+        {
+            var source = Enumerable.Range(0, 100).Select(i => i.ToString()).Skip(1).Take(5);
+            Assert.Equal(new[] { "1", "2", "3", "4", "5" }, source.ToList());
+        }
+
+        [Fact]
+        public void ConstantTimeCountEmptyPartitionSelectSameTypeToList()
+        {
+            var source = Enumerable.Range(0, 100).Select(i => i * 2).Skip(1000);
+            Assert.Empty(source.ToList());
+        }
+
+        [Fact]
+        public void ConstantTimeCountEmptyPartitionSelectDiffTypeToList()
+        {
+            var source = Enumerable.Range(0, 100).Select(i => i.ToString()).Skip(1000);
+            Assert.Empty(source.ToList());
+        }
+
+        [Fact]
+        public void NonConstantTimeCountPartitionSelectSameTypeToList()
+        {
+            var source = NumberRangeGuaranteedNotCollectionType(0, 100).OrderBy(i => i).Select(i => i * 2).Skip(1).Take(5);
+            Assert.Equal(new[] { 2, 4, 6, 8, 10 }, source.ToList());
+        }
+
+        [Fact]
+        public void NonConstantTimeCountPartitionSelectDiffTypeToList()
+        {
+            var source = NumberRangeGuaranteedNotCollectionType(0, 100).OrderBy(i => i).Select(i => i.ToString()).Skip(1).Take(5);
+            Assert.Equal(new[] { "1", "2", "3", "4", "5" }, source.ToList());
+        }
+
+        [Fact]
+        public void NonConstantTimeCountEmptyPartitionSelectSameTypeToList()
+        {
+            var source = NumberRangeGuaranteedNotCollectionType(0, 100).OrderBy(i => i).Select(i => i * 2).Skip(1000);
+            Assert.Empty(source.ToList());
+        }
+
+        [Fact]
+        public void NonConstantTimeCountEmptyPartitionSelectDiffTypeToList()
+        {
+            var source = NumberRangeGuaranteedNotCollectionType(0, 100).OrderBy(i => i).Select(i => i.ToString()).Skip(1000);
+            Assert.Empty(source.ToList());
         }
     }
 }

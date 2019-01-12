@@ -2,12 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Collections.Generic;
 using System.Composition.Convention;
 using System.Composition.Hosting;
 using System.Composition.Hosting.Core;
-using System.Composition.Runtime;
 using System.Composition.TypedParts.ActivationFeatures;
 using System.Linq;
 using System.Reflection;
@@ -112,7 +110,8 @@ namespace System.Composition.TypedParts.Discovery
                 var ema = attribute as ExportMetadataAttribute;
                 if (ema != null)
                 {
-                    AddMetadata(metadata, ema.Name, ema.Value);
+                    var valueType = ema.Value?.GetType() ?? typeof(object);
+                    AddMetadata(metadata, ema.Name, valueType, ema.Value);
                 }
                 else
                 {
@@ -121,7 +120,7 @@ namespace System.Composition.TypedParts.Discovery
             }
         }
 
-        private void AddMetadata(IDictionary<string, object> metadata, string name, object value)
+        private void AddMetadata(IDictionary<string, object> metadata, string name, Type valueType, object value)
         {
             object existingValue;
             if (!metadata.TryGetValue(name, out existingValue))
@@ -130,18 +129,17 @@ namespace System.Composition.TypedParts.Discovery
                 return;
             }
 
-            var valueType = existingValue.GetType();
-            if (valueType.IsArray)
+            var existingArray = existingValue as Array;
+            if (existingArray != null)
             {
-                var existingArray = (Array)existingValue;
-                var newArray = Array.CreateInstance(value.GetType(), existingArray.Length + 1);
+                var newArray = Array.CreateInstance(valueType, existingArray.Length + 1);
                 Array.Copy(existingArray, newArray, existingArray.Length);
                 newArray.SetValue(value, existingArray.Length);
                 metadata[name] = newArray;
             }
             else
             {
-                var newArray = Array.CreateInstance(value.GetType(), 2);
+                var newArray = Array.CreateInstance(valueType, 2);
                 newArray.SetValue(existingValue, 0);
                 newArray.SetValue(value, 1);
                 metadata[name] = newArray;
@@ -160,7 +158,7 @@ namespace System.Composition.TypedParts.Discovery
                 .GetRuntimeProperties()
                 .Where(p => p.DeclaringType == attrType && p.CanRead))
             {
-                AddMetadata(metadata, prop.Name, prop.GetValue(attribute, null));
+                AddMetadata(metadata, prop.Name, prop.PropertyType, prop.GetValue(attribute, null));
             }
         }
 
@@ -172,7 +170,7 @@ namespace System.Composition.TypedParts.Discovery
             }
             else if (!contractType.IsAssignableFrom(property.PropertyType.GetTypeInfo()))
             {
-                var message = string.Format(Properties.Resources.TypeInspector_ExportedContractTypeNotAssignable,
+                string message = SR.Format(SR.TypeInspector_ExportedContractTypeNotAssignable,
                                                 contractType.Name, property.Name, partType.Name);
                 throw new CompositionFailedException(message);
             }
@@ -182,7 +180,7 @@ namespace System.Composition.TypedParts.Discovery
         {
             if (!contractType.IsGenericTypeDefinition)
             {
-                var message = string.Format(Properties.Resources.TypeInspector_NoExportNonGenericContract, partType.Name, contractType.Name);
+                string message = SR.Format(SR.TypeInspector_NoExportNonGenericContract, partType.Name, contractType.Name);
                 throw new CompositionFailedException(message);
             }
 
@@ -195,7 +193,7 @@ namespace System.Composition.TypedParts.Discovery
                     var mappedType = ifce;
                     if (!(mappedType == partType || mappedType.GenericTypeArguments.SequenceEqual(partType.GenericTypeParameters)))
                     {
-                        var message = string.Format(Properties.Resources.TypeInspector_ArgumentMissmatch, contractType.Name, partType.Name);
+                        string message = SR.Format(SR.TypeInspector_ArgumentMissmatch, contractType.Name, partType.Name);
                         throw new CompositionFailedException(message);
                     }
 
@@ -206,7 +204,7 @@ namespace System.Composition.TypedParts.Discovery
 
             if (!compatible)
             {
-                var message = string.Format(Properties.Resources.TypeInspector_ExportNotCompatible, exportingMemberType.Name, partType.Name, contractType.Name);
+                string message = SR.Format(SR.TypeInspector_ExportNotCompatible, exportingMemberType.Name, partType.Name, contractType.Name);
                 throw new CompositionFailedException(message);
             }
         }
@@ -220,7 +218,7 @@ namespace System.Composition.TypedParts.Discovery
             while (b != null)
             {
                 yield return b;
-                b = b.BaseType.GetTypeInfo();
+                b = b.BaseType?.GetTypeInfo();
             }
         }
 
@@ -232,7 +230,7 @@ namespace System.Composition.TypedParts.Discovery
             }
             else if (!contractType.IsAssignableFrom(partType))
             {
-                var message = string.Format(Properties.Resources.TypeInspector_ContractNotAssignable, contractType.Name, partType.Name);
+                string message = string.Format(SR.TypeInspector_ContractNotAssignable, contractType.Name, partType.Name);
                 throw new CompositionFailedException(message);
             }
         }

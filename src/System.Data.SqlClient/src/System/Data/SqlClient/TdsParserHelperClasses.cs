@@ -7,13 +7,13 @@
 //------------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Data.Common;
 using System.Data.SqlTypes;
 using System.Diagnostics;
+using System.Security;
 using System.Text;
-
-using Res = System.SR;
-
+using Microsoft.SqlServer.Server;
 
 namespace System.Data.SqlClient
 {
@@ -46,6 +46,7 @@ namespace System.Data.SqlClient
         THREADID,
         MARS,
         TRACEID,
+        FEDAUTHREQUIRED,
         NUMOPT,
         LASTOPT = 255
     }
@@ -64,6 +65,16 @@ namespace System.Data.SqlClient
         OpenNotLoggedIn,
         OpenLoggedIn,
         Broken,
+    }
+
+    /// <summary>
+    /// Struct encapsulating the data to be sent to the server as part of Federated Authentication Feature Extension.
+    /// </summary>
+    internal struct FederatedAuthenticationFeatureExtensionData
+    {
+        internal TdsEnums.FedAuthLibrary libraryType;
+        internal bool fedAuthRequiredPreLoginResponse;
+        internal byte[] accessToken;
     }
 
     sealed internal class SqlCollation
@@ -177,7 +188,7 @@ namespace System.Data.SqlClient
             }
             set
             {
-                Debug.Assert((value & SqlString.x_iValidSqlCompareOptionMask) == value, "invalid set_SqlCompareOptions value");
+                Debug.Assert((value & SqlTypeWorkarounds.SqlStringValidSqlCompareOptionMask) == value, "invalid set_SqlCompareOptions value");
                 uint tmp = 0;
                 if (0 != (value & SqlCompareOptions.IgnoreCase))
                     tmp |= IgnoreCase;
@@ -194,7 +205,7 @@ namespace System.Data.SqlClient
         }
 
 
-        static internal bool AreSame(SqlCollation a, SqlCollation b)
+        internal static bool AreSame(SqlCollation a, SqlCollation b)
         {
             if (a == null || b == null)
             {
@@ -210,10 +221,10 @@ namespace System.Data.SqlClient
     internal class RoutingInfo
     {
         internal byte Protocol { get; private set; }
-        internal UInt16 Port { get; private set; }
+        internal ushort Port { get; private set; }
         internal string ServerName { get; private set; }
 
-        internal RoutingInfo(byte protocol, UInt16 port, string servername)
+        internal RoutingInfo(byte protocol, ushort port, string servername)
         {
             Protocol = protocol;
             Port = port;
@@ -251,9 +262,12 @@ namespace System.Data.SqlClient
         internal string database = "";                                      // initial database
         internal string attachDBFilename = "";                                      // DB filename to be attached
         internal bool useReplication = false;                                   // user login for replication
+        internal string newPassword = "";                                   // new password for reset password
         internal bool useSSPI = false;                                   // use integrated security
         internal int packetSize = SqlConnectionString.DEFAULT.Packet_Size; // packet size
         internal bool readOnlyIntent = false;                                   // read-only intent
+        internal SqlCredential credential;                                      // user id and password in SecureString
+        internal SecureString newSecurePassword;
     }
 
     sealed internal class SqlLoginAck
@@ -261,20 +275,26 @@ namespace System.Data.SqlClient
         internal byte majorVersion;
         internal byte minorVersion;
         internal short buildNum;
-        internal UInt32 tdsVersion;
+        internal uint tdsVersion;
     }
 
     sealed internal class _SqlMetaData : SqlMetaDataPriv
     {
         internal string column;
+        internal string baseColumn;
         internal MultiPartTableName multiPartTableName;
         internal readonly int ordinal;
         internal byte updatability;     // two bit field (0 is read only, 1 is updatable, 2 is updatability unknown)
+        internal byte tableNum;
         internal bool isDifferentName;
         internal bool isKey;
         internal bool isHidden;
         internal bool isExpression;
         internal bool isIdentity;
+        internal bool isColumnSet;
+        internal byte op;        // for altrow-columns only
+        internal ushort operand; // for altrow-columns only
+
         internal _SqlMetaData(int ordinal) : base()
         {
             this.ordinal = ordinal;
@@ -301,7 +321,6 @@ namespace System.Data.SqlClient
                 return multiPartTableName.SchemaName;
             }
         }
-
         internal string tableName
         {
             get
@@ -322,7 +341,7 @@ namespace System.Data.SqlClient
         {
             get
             {
-                return type == SqlDbType.Udt && length == Int32.MaxValue;
+                return type == SqlDbType.Udt && length == int.MaxValue;
             }
         }
 
@@ -331,11 +350,18 @@ namespace System.Data.SqlClient
             _SqlMetaData result = new _SqlMetaData(ordinal);
             result.CopyFrom(this);
             result.column = column;
+            result.baseColumn = baseColumn;
             result.multiPartTableName = multiPartTableName;
             result.updatability = updatability;
+            result.tableNum = tableNum;
+            result.isDifferentName = isDifferentName;
             result.isKey = isKey;
             result.isHidden = isHidden;
+            result.isExpression = isExpression;
             result.isIdentity = isIdentity;
+            result.isColumnSet = isColumnSet;
+            result.op = op;
+            result.operand = operand;
             return result;
         }
     }
@@ -345,7 +371,9 @@ namespace System.Data.SqlClient
         internal ushort id;             // for altrow-columns only
         internal int[] indexMap;
         internal int visibleColumns;
+        internal DataTable schemaTable;
         private readonly _SqlMetaData[] _metaDataArray;
+        internal ReadOnlyCollection<DbColumn> dbColumnSchema;
 
         internal _SqlMetaDataSet(int count)
         {
@@ -362,6 +390,7 @@ namespace System.Data.SqlClient
             // although indexMap is not immutable, in practice it is initialized once and then passed around
             this.indexMap = original.indexMap;
             this.visibleColumns = original.visibleColumns;
+            this.dbColumnSchema = original.dbColumnSchema;
             if (original._metaDataArray == null)
             {
                 _metaDataArray = null;
@@ -467,6 +496,18 @@ namespace System.Data.SqlClient
         internal int codePage;
         internal Encoding encoding;
         internal bool isNullable;
+        internal bool isMultiValued = false;
+
+        // UDT specific metadata
+        // server metadata info
+        // additional temporary UDT meta data
+        internal string udtDatabaseName;
+        internal string udtSchemaName;
+        internal string udtTypeName;
+        internal string udtAssemblyQualifiedName;
+
+        // on demand
+        internal Type udtType;
 
         // Xml specific metadata
         internal string xmlSchemaCollectionDatabase;
@@ -474,6 +515,11 @@ namespace System.Data.SqlClient
         internal string xmlSchemaCollectionName;
         internal MetaType metaType; // cached metaType
 
+        // Structured type-specific metadata
+        internal string structuredTypeDatabaseName;
+        internal string structuredTypeSchemaName;
+        internal string structuredTypeName;
+        internal IList<SmiMetaData> structuredFields;
 
         internal SqlMetaDataPriv()
         {
@@ -490,10 +536,21 @@ namespace System.Data.SqlClient
             this.codePage = original.codePage;
             this.encoding = original.encoding;
             this.isNullable = original.isNullable;
+            this.isMultiValued = original.isMultiValued;
+            this.udtDatabaseName = original.udtDatabaseName;
+            this.udtSchemaName = original.udtSchemaName;
+            this.udtTypeName = original.udtTypeName;
+            this.udtAssemblyQualifiedName = original.udtAssemblyQualifiedName;
+            this.udtType = original.udtType;
             this.xmlSchemaCollectionDatabase = original.xmlSchemaCollectionDatabase;
             this.xmlSchemaCollectionOwningSchema = original.xmlSchemaCollectionOwningSchema;
             this.xmlSchemaCollectionName = original.xmlSchemaCollectionName;
             this.metaType = original.metaType;
+
+            this.structuredTypeDatabaseName = original.structuredTypeDatabaseName;
+            this.structuredTypeSchemaName = original.structuredTypeSchemaName;
+            this.structuredTypeName = original.structuredTypeName;
+            this.structuredFields = original.structuredFields;
         }
     }
 
@@ -504,6 +561,30 @@ namespace System.Data.SqlClient
         internal ushort options;
         internal SqlParameter[] parameters;
         internal byte[] paramoptions;
+
+        internal int? recordsAffected;
+        internal int cumulativeRecordsAffected;
+
+        internal int errorsIndexStart;
+        internal int errorsIndexEnd;
+        internal SqlErrorCollection errors;
+
+        internal int warningsIndexStart;
+        internal int warningsIndexEnd;
+        internal SqlErrorCollection warnings;
+
+        internal string GetCommandTextOrRpcName()
+        {
+            if (TdsEnums.RPC_PROCID_EXECUTESQL == ProcID)
+            {
+                // Param 0 is the actual sql executing
+                return (string)parameters[0].Value;
+            }
+            else
+            {
+                return rpcName;
+            }
+        }
     }
 
     sealed internal class SqlReturnValue : SqlMetaDataPriv
@@ -584,7 +665,7 @@ namespace System.Data.SqlClient
         {
             if (null != _multipartName)
             {
-                string[] parts = MultipartIdentifier.ParseMultipartIdentifier(_multipartName, "[\"", "]\"", Res.SQL_TDSParserTableName, false);
+                string[] parts = MultipartIdentifier.ParseMultipartIdentifier(_multipartName, "[\"", "]\"", SR.SQL_TDSParserTableName, false);
                 _serverName = parts[0];
                 _catalogName = parts[1];
                 _schemaName = parts[2];

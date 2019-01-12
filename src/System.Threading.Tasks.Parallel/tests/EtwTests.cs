@@ -5,16 +5,18 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Tracing;
 using System.Linq;
+
 using Xunit;
 
 namespace System.Threading.Tasks.Tests
 {
-    public class EtwTests
+    public static class EtwTests
     {
         [Fact]
-        public void TestEtw()
+        public static void TestEtw()
         {
-            using (var listener = new TestEventListener("System.Threading.Tasks.Parallel.EventSource", EventLevel.Verbose))
+            var eventSourceName = PlatformDetection.IsFullFramework ? "System.Threading.Tasks.TplEventSource" : "System.Threading.Tasks.Parallel.EventSource";
+            using (var listener = new TestEventListener(eventSourceName, EventLevel.Verbose))
             {
                 var events = new ConcurrentQueue<int>();
                 listener.RunWithCallback(ev => events.Enqueue(ev.EventId), () => {

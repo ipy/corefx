@@ -2,11 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Runtime.InteropServices;
 using Xunit;
 
-namespace System.Runtime.Extensions.Tests
+namespace System.Tests
 {
     public class Environment_MachineName
     {
@@ -19,16 +18,13 @@ namespace System.Runtime.Extensions.Tests
 
         internal static string GetComputerName()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
+#if !Unix
                 return Environment.GetEnvironmentVariable("COMPUTERNAME");
-            }
-            else
-            {
+#else
                 string temp = Interop.Sys.GetNodeName();
                 int index = temp.IndexOf('.');
                 return index < 0 ? temp : temp.Substring(0, index);
-            }
+#endif
         }
     }
 }

@@ -32,14 +32,37 @@ internal static partial class Interop
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509Destroy")]
         internal static extern void X509Destroy(IntPtr a);
 
+        /// <summary>
+        /// Clone the input certificate into a new object.
+        /// </summary>
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509Duplicate")]
         internal static extern SafeX509Handle X509Duplicate(IntPtr handle);
 
+        /// <summary>
+        /// Clone the input certificate into a new object.
+        /// </summary>
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509Duplicate")]
         internal static extern SafeX509Handle X509Duplicate(SafeX509Handle handle);
 
+        /// <summary>
+        /// Increment the native reference count of the certificate to protect against
+        /// a free from another pointer-holder.
+        /// </summary>
+        [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509UpRef")]
+        internal static extern SafeX509Handle X509UpRef(IntPtr handle);
+
+        /// <summary>
+        /// Increment the native reference count of the certificate to protect against
+        /// a free from another pointer-holder.
+        /// </summary>
+        [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509UpRef")]
+        internal static extern SafeX509Handle X509UpRef(SafeX509Handle handle);
+
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_PemReadX509FromBio")]
         internal static extern SafeX509Handle PemReadX509FromBio(SafeBioHandle bio);
+
+        [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_PemReadX509FromBioAux")]
+        internal static extern SafeX509Handle PemReadX509FromBioAux(SafeBioHandle bio);
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509GetSerialNumber")]
         private static extern SafeSharedAsn1IntegerHandle X509GetSerialNumber_private(SafeX509Handle x);
@@ -109,7 +132,11 @@ internal static partial class Interop
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509StoreCtxInit")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        internal static extern bool X509StoreCtxInit(SafeX509StoreCtxHandle ctx, SafeX509StoreHandle store, SafeX509Handle x509);
+        internal static extern bool X509StoreCtxInit(
+            SafeX509StoreCtxHandle ctx,
+            SafeX509StoreHandle store,
+            SafeX509Handle x509,
+            SafeX509StackHandle extraCerts);
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_X509VerifyCert")]
         internal static extern int X509VerifyCert(SafeX509StoreCtxHandle ctx);
@@ -152,6 +179,7 @@ internal static partial class Interop
             X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT = 2,
             X509_V_ERR_UNABLE_TO_GET_CRL = 3,
             X509_V_ERR_UNABLE_TO_DECRYPT_CRL_SIGNATURE = 5,
+            X509_V_ERR_UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY = 6,
             X509_V_ERR_CERT_SIGNATURE_FAILURE = 7,
             X509_V_ERR_CRL_SIGNATURE_FAILURE = 8,
             X509_V_ERR_CERT_NOT_YET_VALID = 9,

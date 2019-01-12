@@ -13,10 +13,24 @@ namespace System.Diagnostics
     /// </devdoc>
     public sealed class Trace
     {
-        // not creatble...
+        // not creatable...
         //
         private Trace()
         {
+        }
+
+        private static CorrelationManager s_correlationManager = null;
+        public static CorrelationManager CorrelationManager 
+        {
+            get 
+            { 
+                if (s_correlationManager == null)
+                {
+                    s_correlationManager = new CorrelationManager();
+                }
+                
+                return s_correlationManager;
+            }
         }
 
         /// <devdoc>

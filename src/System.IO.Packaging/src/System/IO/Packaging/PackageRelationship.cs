@@ -2,19 +2,11 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//-----------------------------------------------------------------------------
-//
-// Description:
-//  This is a class for representing a PackageRelationship. This is a part of the 
-//  MMCF Packaging Layer. 
-//
-//-----------------------------------------------------------------------------
-
 using System;
 using System.Collections;
 using System.Xml;
-using System.Text;              // for StringBuilder
-using System.Diagnostics;       // for Debug.Assert
+using System.Text;
+using System.Diagnostics;
 
 namespace System.IO.Packaging
 {
@@ -23,21 +15,11 @@ namespace System.IO.Packaging
     /// The only way to create a PackageRelationship, is to call the PackagePart.CreateRelationship()
     /// or Package.CreateRelationship(). A relationship is owned by a part or by the package itself. 
     /// If the source part is deleted all the relationships it owns are also deleted. 
-    /// A target of the relationship need not be present. </summary>
+    /// A target of the relationship need not be present.
+    /// This class is part of the MMCF Packaging layer.
+    /// </summary>
     public class PackageRelationship
     {
-        //------------------------------------------------------
-        //
-        //  Public Constructors
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Public Properties
-        //
-        //------------------------------------------------------
-
         #region Public Properties
 
         /// <summary>
@@ -95,7 +77,7 @@ namespace System.IO.Packaging
         /// PackageRelationship's identifier. Unique across relationships for the given source.
         /// </summary>
         /// <value>String</value>
-        public String Id
+        public string Id
         {
             get
             {
@@ -118,24 +100,6 @@ namespace System.IO.Packaging
 
         #endregion Public Properties
 
-        //------------------------------------------------------
-        //
-        //  Public Methods
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Public Events
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Internal Constructors
-        //
-        //------------------------------------------------------
-
         #region Internal Constructor
 
         /// <summary>
@@ -152,16 +116,16 @@ namespace System.IO.Packaging
             //sourcePart can be null to represent that the relationships are at the package level
 
             if (package == null)
-                throw new ArgumentNullException("package");
+                throw new ArgumentNullException(nameof(package));
 
             if (targetUri == null)
-                throw new ArgumentNullException("targetUri");
+                throw new ArgumentNullException(nameof(targetUri));
 
             if (relationshipType == null)
-                throw new ArgumentNullException("relationshipType");
+                throw new ArgumentNullException(nameof(relationshipType));
 
             if (id == null)
-                throw new ArgumentNullException("id");
+                throw new ArgumentNullException(nameof(id));
             // The ID is guaranteed to be an XML ID by the caller (InternalRelationshipCollection).
             // The following check is a precaution against future bug introductions.
 #if DEBUG
@@ -185,7 +149,7 @@ namespace System.IO.Packaging
                 "TargetMode enum value is out of Range");
 
             // Look for empty string or string with just spaces
-            Debug.Assert(relationshipType.Trim() != String.Empty,
+            Debug.Assert(relationshipType.Trim() != string.Empty,
                 "RelationshipType cannot be empty string or a string with just spaces");
 
             _package = package;
@@ -197,13 +161,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Internal Constructor
-
-        //------------------------------------------------------
-        //
-        //  Internal Properties
-        //
-        //------------------------------------------------------
-
+        
         #region Internal Properties
 
         internal static Uri ContainerRelationshipPartName
@@ -215,31 +173,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Internal Properties
-
-        //------------------------------------------------------
-        //
-        //  Internal Methods
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Internal Events
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Private Methods
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Private Fields
-        //
-        //------------------------------------------------------
-
+        
         #region Private Members
 
         private Package _package;
@@ -247,7 +181,7 @@ namespace System.IO.Packaging
         private Uri _targetUri;
         private string _relationshipType;
         private TargetMode _targetMode;
-        private String _id;
+        private string _id;
 
         private static readonly Uri s_containerRelationshipPartName = PackUriHelper.CreatePartUri(new Uri("/_rels/.rels", UriKind.Relative));
 

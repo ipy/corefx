@@ -17,20 +17,20 @@ namespace System.Net.Http.Tests
         [Fact]
         public void Ctor_ETagNull_Throw()
         {
-            Assert.Throws<ArgumentException>(() => { new EntityTagHeaderValue(null); });
+            AssertExtensions.Throws<ArgumentException>("tag", () => { new EntityTagHeaderValue(null); });
         }
 
         [Fact]
         public void Ctor_ETagEmpty_Throw()
         {
             // null and empty should be treated the same. So we also throw for empty strings.
-            Assert.Throws<ArgumentException>(() => { new EntityTagHeaderValue(string.Empty); });
+            AssertExtensions.Throws<ArgumentException>("tag", () => { new EntityTagHeaderValue(string.Empty); });
         }
 
         [Fact]
         public void Ctor_ETagInvalidFormat_ThrowFormatException()
         {
-            // When adding values using strongly typed objects, no leading/trailing LWS (whitespaces) are allowed.
+            // When adding values using strongly typed objects, no leading/trailing LWS (whitespace) are allowed.
             AssertFormatException("tag");
             AssertFormatException("*");
             AssertFormatException(" tag ");
@@ -138,7 +138,7 @@ namespace System.Net.Http.Tests
             Assert.Equal("\"tag\"", result.Tag);
             Assert.True(result.IsWeak);
 
-            // Note that even if after a valid tag & whitespaces there are invalid characters, GetEntityTagLength()
+            // Note that even if after a valid tag & whitespace there are invalid characters, GetEntityTagLength()
             // will return the length of the valid tag and ignore the invalid characters at the end. It is the callers
             // responsibility to consider the whole string invalid if after a valid ETag there are invalid chars.
             Assert.Equal(11, EntityTagHeaderValue.GetEntityTagLength("\"tag\"  \r\n  !!", 0, out result));

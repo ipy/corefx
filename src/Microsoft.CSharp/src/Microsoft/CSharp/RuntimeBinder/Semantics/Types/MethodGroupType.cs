@@ -6,9 +6,16 @@ namespace Microsoft.CSharp.RuntimeBinder.Semantics
 {
     // ----------------------------------------------------------------------------
     // MethodGroupType - a placeholder typesym used only as the type of an method 
-    // groupe expression.  There is exactly one of these.
+    // group expression.  There is exactly one of these.
     // ----------------------------------------------------------------------------
 
-    internal class MethodGroupType : CType
-    { };
+    internal sealed class MethodGroupType : CType
+    {
+        public static readonly MethodGroupType Instance = new MethodGroupType();
+
+        private MethodGroupType()
+            : base(TypeKind.TK_MethodGroupType)
+        {
+        }
+    }
 }

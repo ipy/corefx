@@ -2,13 +2,14 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Collections.Generic;
-using Xunit;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using TelemData = System.Collections.Generic.KeyValuePair<string, object>;
+using Xunit;
 
-namespace System.Diagnostics.Diagnostic.Tests
+namespace System.Diagnostics.Tests
 {
     /// <summary>
     /// Tests for DiagnosticSource and DiagnosticListener
@@ -121,13 +122,48 @@ namespace System.Diagnostics.Diagnostic.Tests
                     return name == "StructPayload";
                 };
 
+                Assert.False(listener.IsEnabled());
                 using (listener.Subscribe(new ObserverToList<TelemData>(result), predicate))
                 {
                     Assert.False(source.IsEnabled("Uninteresting"));
+                    Assert.False(source.IsEnabled("Uninteresting", "arg1", "arg2"));
                     Assert.True(source.IsEnabled("StructPayload"));
-
+                    Assert.True(source.IsEnabled("StructPayload", "arg1", "arg2"));
                     Assert.True(seenUninteresting);
                     Assert.True(seenStructPayload);
+                    Assert.True(listener.IsEnabled());
+                }
+            }
+        }
+
+        /// <summary>
+        /// Simple tests for the IsEnabled method.
+        /// </summary>
+        [Fact]
+        public void IsEnabledMultipleArgs()
+        {
+            using (DiagnosticListener listener = new DiagnosticListener("Testing"))
+            {
+                DiagnosticSource source = listener;
+                var result = new List<KeyValuePair<string, object>>();
+                Func<string, object, object, bool> isEnabled = (name, arg1, arg2) =>
+                {
+                    if (arg1 != null)
+                        return (bool) arg1;
+                    if (arg2 != null)
+                        return (bool) arg2;
+                    return true;
+                };
+
+                using (listener.Subscribe(new ObserverToList<TelemData>(result), isEnabled))
+                {
+                    Assert.True(source.IsEnabled("event"));
+                    Assert.True(source.IsEnabled("event", null, null));
+                    Assert.True(source.IsEnabled("event", null, true));
+
+                    Assert.False(source.IsEnabled("event", false, false));
+                    Assert.False(source.IsEnabled("event", false, null));
+                    Assert.False(source.IsEnabled("event", null, false));
                 }
             }
         }
@@ -143,16 +179,16 @@ namespace System.Diagnostics.Diagnostic.Tests
                 DiagnosticSource source = listener;
                 var subscriber1Result = new List<KeyValuePair<string, object>>();
                 Predicate<string> subscriber1Predicate = name => (name == "DataForSubscriber1");
-                var subscriber1Oberserver = new ObserverToList<TelemData>(subscriber1Result);
+                var subscriber1Observer = new ObserverToList<TelemData>(subscriber1Result);
 
                 var subscriber2Result = new List<KeyValuePair<string, object>>();
                 Predicate<string> subscriber2Predicate = name => (name == "DataForSubscriber2");
-                var subscriber2Oberserver = new ObserverToList<TelemData>(subscriber2Result);
+                var subscriber2Observer = new ObserverToList<TelemData>(subscriber2Result);
 
                 // Get two subscribers going. 
-                using (var subscription1 = listener.Subscribe(subscriber1Oberserver, subscriber1Predicate))
+                using (var subscription1 = listener.Subscribe(subscriber1Observer, subscriber1Predicate))
                 {
-                    using (var subscription2 = listener.Subscribe(subscriber2Oberserver, subscriber2Predicate))
+                    using (var subscription2 = listener.Subscribe(subscriber2Observer, subscriber2Predicate))
                     {
                         // Things that neither subscribe to get filtered out. 
                         if (listener.IsEnabled("DataToFilterOut"))
@@ -307,7 +343,7 @@ namespace System.Diagnostics.Diagnostic.Tests
         [Fact]
         public void MultiSubscriberStress()
         {
-            using (DiagnosticListener listener = new DiagnosticListener("Testing"))
+            using (DiagnosticListener listener = new DiagnosticListener("MultiSubscriberStressTest"))
             {
                 DiagnosticSource source = listener;
 
@@ -331,8 +367,8 @@ namespace System.Diagnostics.Diagnostic.Tests
                             Predicate<string> predicate = (name) => name == taskName;
                             Predicate<KeyValuePair<string, object>> filter = (keyValue) => keyValue.Key == taskName;
 
-                        // set up the observer to only see events set with the task name as the nname.  
-                        var observer = new ObserverToList<TelemData>(result, filter, taskName);
+                            // set up the observer to only see events set with the task name as the name.  
+                            var observer = new ObserverToList<TelemData>(result, filter, taskName);
                             using (listener.Subscribe(observer, predicate))
                             {
                                 source.Write(taskName, taskNum);
@@ -341,15 +377,15 @@ namespace System.Diagnostics.Diagnostic.Tests
                                 Assert.Equal(taskName, result[0].Key);
                                 Assert.Equal(taskNum, result[0].Value);
 
-                            // Spin a bit randomly.  This mixes of the lifetimes of the subscriptions and makes it 
-                            // more stressful 
-                            var cnt = random.Next(10, 100) * 1000;
+                                // Spin a bit randomly.  This mixes of the lifetimes of the subscriptions and makes it 
+                                // more stressful 
+                                var cnt = random.Next(10, 100) * 1000;
                                 while (0 < --cnt)
                                     GC.KeepAlive("");
                             }   // Unsubscribe
 
-                        // Send the notification again, to see if it now does NOT come through (count remains unchanged). 
-                        source.Write(taskName, -1);
+                            // Send the notification again, to see if it now does NOT come through (count remains unchanged). 
+                            source.Write(taskName, -1);
                             Assert.Equal(1, result.Count);
                         }, i);
                     }
@@ -364,7 +400,7 @@ namespace System.Diagnostics.Diagnostic.Tests
         [Fact]
         public void AllListenersAddRemove()
         {
-            using (DiagnosticListener listener = new DiagnosticListener("Testing"))
+            using (DiagnosticListener listener = new DiagnosticListener("TestListen0"))
             {
                 DiagnosticSource source = listener;
 
@@ -372,6 +408,12 @@ namespace System.Diagnostics.Diagnostic.Tests
                 DiagnosticListener returnedListener = null;
                 Action<DiagnosticListener> onNewListener = delegate (DiagnosticListener listen)
                 {
+                    // Other tests can be running concurrently with this test, which will make
+                    // this callback fire for those listeners as well.   We only care about
+                    // the Listeners we generate here so ignore any that d
+                    if (!listen.Name.StartsWith("TestListen"))
+                        return;
+
                     Assert.Null(returnedListener);
                     Assert.NotNull(listen);
                     returnedListener = listen;
@@ -431,13 +473,13 @@ namespace System.Diagnostics.Diagnostic.Tests
         public void AllListenersCheckCatchupList()
         {
             var expected = new List<DiagnosticListener>();
-            var list = GetActiveNonDefaultListeners();
+            var list = GetActiveListenersWithPrefix("TestListener");
             Assert.Equal(list, expected);
 
             for (int i = 0; i < 50; i++)
             {
                 expected.Insert(0, (new DiagnosticListener("TestListener" + i)));
-                list = GetActiveNonDefaultListeners();
+                list = GetActiveListenersWithPrefix("TestListener");
                 Assert.Equal(list, expected);
             }
 
@@ -449,63 +491,55 @@ namespace System.Diagnostics.Diagnostic.Tests
                 var toRemoveListener = expected[toRemoveIdx];
                 toRemoveListener.Dispose();     // Kill it (which removes it from the list)
                 expected.RemoveAt(toRemoveIdx);
-                list = GetActiveNonDefaultListeners();
+                list = GetActiveListenersWithPrefix("TestListener");
                 Assert.Equal(list.Count, expected.Count);
                 Assert.Equal(list, expected);
             }
         }
 
         /// <summary>
-        /// Stresses the AllListeners by having many threads be added and removed.
+        /// Stresses the AllListeners by having many threads be adding and removing.
         /// </summary>
-        [Fact]
-        public void AllSubscriberStress()
+        [OuterLoop]
+        [Theory]
+        [InlineData(100, 100)] // run multiple times to stress it further
+        [InlineData(100, 100)]
+        [InlineData(100, 100)]
+        [InlineData(100, 100)]
+        [InlineData(100, 100)]
+        public void AllSubscriberStress(int numThreads, int numListenersPerThread)
         {
-            var list = GetActiveNonDefaultListeners();
-            Assert.Equal(0, list.Count);
+            // No listeners have been created yet
+            Assert.Equal(0, GetActiveListenersWithPrefix(nameof(AllSubscriberStress)).Count);
 
-            var factory = new TaskFactory();
-
-            // To the whole stress test 10 times.  This keeps the task array size needed down while still
-            // having lots of concurrency.   
-            for (int k = 0; k < 10; k++)
+            // Run lots of threads to add/remove listeners
+            Task.WaitAll(Enumerable.Range(0, numThreads).Select(i => Task.Factory.StartNew(delegate
             {
-                // TODO FIX NOW:  Task[1] should be Task[100] but it fails.  
-                var tasks = new Task[1];
-                for (int i = 0; i < tasks.Length; i++)
+                // Create a set of DiagnosticListeners, which add themselves to the AllListeners list.
+                var listeners = new List<DiagnosticListener>(numListenersPerThread);
+                for (int j = 0; j < numListenersPerThread; j++)
                 {
-                    tasks[i] = (factory.StartNew(delegate ()
-                    {
-                        // Create a set of DiagnosticListeners (which add themselves to the AllListeners list. 
-                        var listeners = new List<DiagnosticListener>();
-                        for (int j = 0; j < 100; j++)
-                            listeners.Insert(0, (new DiagnosticListener("Task " + i + " TestListener" + j)));
-
-                        // They are all in the list
-                        list = GetActiveNonDefaultListeners();
-                        foreach (var listener in listeners)
-                            Assert.Contains(listener, list);
-
-                        // Dispose them all, first the even then the odd, just to mix it up and be more stressful.  
-                        for (int j = 0; j < listeners.Count; j += 2)      // Even
-                            listeners[j].Dispose();
-                        for (int j = 1; j < listeners.Count; j += 2)      // odd
-                            listeners[j].Dispose();
-
-
-                        // And now they are not in the list.  
-                        list = GetActiveNonDefaultListeners();
-                        foreach (var listener in listeners)
-                            Assert.DoesNotContain(listener, list);
-                    }));
+                    var listener = new DiagnosticListener($"{nameof(AllSubscriberStress)}_Task {i} TestListener{j}");
+                    listeners.Add(listener);
                 }
-                // Wait for all the tasks to finish.  
-                Task.WaitAll(tasks);
-            }
 
-            // There should be no listeners left.  
-            list = GetActiveNonDefaultListeners();
-            Assert.Equal(0, list.Count);
+                // They are all in the list.
+                List<DiagnosticListener> list = GetActiveListenersWithPrefix(nameof(AllSubscriberStress));
+                Assert.All(listeners, listener => Assert.Contains(listener, list));
+
+                // Dispose them all, first the even then the odd, just to mix it up and be more stressful.  
+                for (int j = 0; j < listeners.Count; j += 2) // even
+                    listeners[j].Dispose();
+                for (int j = 1; j < listeners.Count; j += 2) // odd
+                    listeners[j].Dispose();
+
+                // None should be left in the list
+                list = GetActiveListenersWithPrefix(nameof(AllSubscriberStress));
+                Assert.All(listeners, listener => Assert.DoesNotContain(listener, list));
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default)).ToArray());
+
+            // None of the created listeners should remain
+            Assert.Equal(0, GetActiveListenersWithPrefix(nameof(AllSubscriberStress)).Count);
         }
 
         [Fact]
@@ -566,17 +600,47 @@ namespace System.Diagnostics.Diagnostic.Tests
             sub3.Dispose();
         }
 
+        [Fact]
+        public void SubscribeWithNullPredicate()
+        {
+            using (DiagnosticListener listener = new DiagnosticListener("Testing"))
+            {
+                Predicate<string> predicate = null;
+                using (listener.Subscribe(new ObserverToList<TelemData>(new List<KeyValuePair<string, object>>()), predicate))
+                {
+                    Assert.True(listener.IsEnabled("event"));
+                    Assert.True(listener.IsEnabled("event", null));
+                    Assert.True(listener.IsEnabled("event", "arg1"));
+                    Assert.True(listener.IsEnabled("event", "arg1", "arg2"));
+                }
+            }
+
+            using (DiagnosticListener listener = new DiagnosticListener("Testing"))
+            {
+                DiagnosticSource source = listener;
+                Func<string, object, object, bool> predicate = null;
+                using (listener.Subscribe(new ObserverToList<TelemData>(new List<KeyValuePair<string, object>>()), predicate))
+                {
+                    Assert.True(source.IsEnabled("event"));
+                    Assert.True(source.IsEnabled("event", null));
+                    Assert.True(source.IsEnabled("event", "arg1"));
+                    Assert.True(source.IsEnabled("event", "arg1", "arg2"));
+                }
+            }
+        }
+
         #region Helpers 
         /// <summary>
         /// Returns the list of active diagnostic listeners.  
         /// </summary>
         /// <returns></returns>
-        private static List<DiagnosticListener> GetActiveNonDefaultListeners()
+        private static List<DiagnosticListener> GetActiveListenersWithPrefix(string prefix)
         {
             var ret = new List<DiagnosticListener>();
             Action<DiagnosticListener> onNewListener = delegate (DiagnosticListener listen)
             {
-                ret.Add(listen);
+                if (listen.Name.StartsWith(prefix))
+                    ret.Add(listen);
             };
 
             // Subscribe, which gives you the list
@@ -587,9 +651,9 @@ namespace System.Diagnostics.Diagnostic.Tests
         }
 
         /// <summary>
-        /// Used to make an observer out of a action delegate. 
+        /// Used to make an observer out of an action delegate. 
         /// </summary>
-        private static IObserver<T> MakeObserver<T>(
+        public static IObserver<T> MakeObserver<T>(
             Action<T> onNext = null, Action onCompleted = null)
         {
             return new Observer<T>(onNext, onCompleted);
@@ -614,7 +678,7 @@ namespace System.Diagnostics.Diagnostic.Tests
             private Action<T> _onNext;
             private Action _onCompleted;
         }
-        #endregion 
+        #endregion
     }
 
     // Takes an IObserver and returns a List<T> that are the elements observed.

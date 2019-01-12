@@ -17,8 +17,8 @@ namespace System.Net.Http.Tests
             Assert.Equal("token", value.Value);
             Assert.Null(value.Quality);
 
-            Assert.Throws<ArgumentException>(() => { new StringWithQualityHeaderValue(null); });
-            Assert.Throws<ArgumentException>(() => { new StringWithQualityHeaderValue(""); });
+            AssertExtensions.Throws<ArgumentException>("value", () => { new StringWithQualityHeaderValue(null); });
+            AssertExtensions.Throws<ArgumentException>("value", () => { new StringWithQualityHeaderValue(""); });
             Assert.Throws<FormatException>(() => { new StringWithQualityHeaderValue("in valid"); });
         }
 
@@ -29,8 +29,8 @@ namespace System.Net.Http.Tests
             Assert.Equal("token", value.Value);
             Assert.Equal(0.5, value.Quality);
 
-            Assert.Throws<ArgumentException>(() => { new StringWithQualityHeaderValue(null, 0.1); });
-            Assert.Throws<ArgumentException>(() => { new StringWithQualityHeaderValue("", 0.1); });
+            AssertExtensions.Throws<ArgumentException>("value", () => { new StringWithQualityHeaderValue(null, 0.1); });
+            AssertExtensions.Throws<ArgumentException>("value", () => { new StringWithQualityHeaderValue("", 0.1); });
             Assert.Throws<FormatException>(() => { new StringWithQualityHeaderValue("in valid", 0.1); });
 
             Assert.Throws<ArgumentOutOfRangeException>(() => { new StringWithQualityHeaderValue("t", 1.1); });
@@ -156,7 +156,7 @@ namespace System.Net.Http.Tests
         [Fact]
         public void GetStringWithQualityLength_DifferentInvalidScenarios_AllReturnZero()
         {
-            CheckInvalidGetStringWithQualityLength(" t", 0); // no leading whitespaces allowed
+            CheckInvalidGetStringWithQualityLength(" t", 0); // no leading whitespace allowed
             CheckInvalidGetStringWithQualityLength("t;q=", 0);
             CheckInvalidGetStringWithQualityLength("t;q=-1", 0);
             CheckInvalidGetStringWithQualityLength("t;q=1.00001", 0);
@@ -191,14 +191,14 @@ namespace System.Net.Http.Tests
             CheckInvalidParse(" ,, text, , ,next");
             CheckInvalidParse(" ,, text, , ,");
             CheckInvalidParse(", \r\n text \r\n ; \r\n q = 0.123");
-            CheckInvalidParse("teäxt");
-            CheckInvalidParse("text会");
-            CheckInvalidParse("会");
-            CheckInvalidParse("t;q=会");
+            CheckInvalidParse("te\u00E4xt");
+            CheckInvalidParse("text\u4F1A");
+            CheckInvalidParse("\u4F1A");
+            CheckInvalidParse("t;q=\u4F1A");
             CheckInvalidParse("t;q=");
             CheckInvalidParse("t;q");
-            CheckInvalidParse("t;会=1");
-            CheckInvalidParse("t;q会=1");
+            CheckInvalidParse("t;\u4F1A=1");
+            CheckInvalidParse("t;q\u4F1A=1");
             CheckInvalidParse("t y");
             CheckInvalidParse("t;q=1 y");
 
@@ -228,14 +228,14 @@ namespace System.Net.Http.Tests
             CheckInvalidTryParse(" ,, text, , ,next");
             CheckInvalidTryParse(" ,, text, , ,");
             CheckInvalidTryParse(", \r\n text \r\n ; \r\n q = 0.123");
-            CheckInvalidTryParse("teäxt");
-            CheckInvalidTryParse("text会");
-            CheckInvalidTryParse("会");
-            CheckInvalidTryParse("t;q=会");
+            CheckInvalidTryParse("te\u00E4xt");
+            CheckInvalidTryParse("text\u4F1A");
+            CheckInvalidTryParse("\u4F1A");
+            CheckInvalidTryParse("t;q=\u4F1A");
             CheckInvalidTryParse("t;q=");
             CheckInvalidTryParse("t;q");
-            CheckInvalidTryParse("t;会=1");
-            CheckInvalidTryParse("t;q会=1");
+            CheckInvalidTryParse("t;\u4F1A=1");
+            CheckInvalidTryParse("t;q\u4F1A=1");
             CheckInvalidTryParse("t y");
             CheckInvalidTryParse("t;q=1 y");
 

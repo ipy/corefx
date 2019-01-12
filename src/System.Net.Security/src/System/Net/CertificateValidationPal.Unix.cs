@@ -3,89 +3,49 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
-using System.Globalization;
 using Microsoft.Win32.SafeHandles;
 using System.Net.Security;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Threading;
 
 namespace System.Net
 {   
     internal static partial class CertificateValidationPal
     {
-        private static readonly object s_lockObject = new object();
-        private static X509Store s_userCertStore;
-
         internal static SslPolicyErrors VerifyCertificateProperties(
+            SafeDeleteContext securityContext,
             X509Chain chain,
             X509Certificate2 remoteCertificate,
             bool checkCertName,
             bool isServer,
             string hostName)
         {
-            SslPolicyErrors sslPolicyErrors = SslPolicyErrors.None;
-
-            if (!chain.Build(remoteCertificate))
-            {
-                sslPolicyErrors |= SslPolicyErrors.RemoteCertificateChainErrors;
-            }
-
-            if (checkCertName)
-            {
-                if (string.IsNullOrEmpty(hostName))
-                {
-                    sslPolicyErrors |= SslPolicyErrors.RemoteCertificateNameMismatch;
-                }
-                else
-                {
-                    int hostnameMatch;
-
-                    using (SafeX509Handle certHandle = Interop.Crypto.X509Duplicate(remoteCertificate.Handle))
-                    {
-                        IPAddress hostnameAsIp;
-
-                        if (IPAddress.TryParse(hostName, out hostnameAsIp))
-                        {
-                            byte[] addressBytes = hostnameAsIp.GetAddressBytes();
-
-                            hostnameMatch = Interop.Crypto.CheckX509IpAddress(
-                                certHandle,
-                                addressBytes,
-                                addressBytes.Length,
-                                hostName,
-                                hostName.Length);
-                        }
-                        else
-                        {
-                            // The IdnMapping converts Unicode input into the IDNA punycode sequence.
-                            // It also does host case normalization.  The bypass logic would be something
-                            // like "all characters being within [a-z0-9.-]+"
-                            //
-                            // Since it's not documented as being thread safe, create a new one each time.
-                            IdnMapping mapping = new IdnMapping();
-                            string matchName = mapping.GetAscii(hostName);
-
-                            hostnameMatch = Interop.Crypto.CheckX509Hostname(certHandle, matchName, matchName.Length);
-                        }
-                    }
-
-                    if (hostnameMatch != 1)
-                    {
-                        Debug.Assert(hostnameMatch == 0, "hostnameMatch should be (0,1) was " + hostnameMatch);
-                        sslPolicyErrors |= SslPolicyErrors.RemoteCertificateNameMismatch;
-                    }
-                }
-            }
-            return sslPolicyErrors;
+            return CertificateValidation.BuildChainAndVerifyProperties(chain, remoteCertificate, checkCertName, hostName);
         }
 
         //
         // Extracts a remote certificate upon request.
         //
-        internal static X509Certificate2 GetRemoteCertificate(SafeDeleteContext securityContext, out X509Certificate2Collection remoteCertificateStore)
+        internal static X509Certificate2 GetRemoteCertificate(SafeDeleteContext securityContext)
         {
-            remoteCertificateStore = null;
+            return GetRemoteCertificate(securityContext, null);
+        }
+
+        internal static X509Certificate2 GetRemoteCertificate(
+            SafeDeleteContext securityContext,
+            out X509Certificate2Collection remoteCertificateStore)
+        {
+            if (securityContext == null)
+            {
+                remoteCertificateStore = null;
+                return null;
+            }
+
+            remoteCertificateStore = new X509Certificate2Collection();
+            return GetRemoteCertificate(securityContext, remoteCertificateStore);
+        }
+
+        private static X509Certificate2 GetRemoteCertificate(SafeDeleteContext securityContext, X509Certificate2Collection remoteCertificateStore)
+        {
             bool gotReference = false;
 
             if (securityContext == null)
@@ -93,10 +53,7 @@ namespace System.Net
                 return null;
             }
 
-            if (GlobalLog.IsEnabled)
-            {
-                GlobalLog.Enter("CertificateValidationPal.Unix SecureChannel#" + LoggingHash.HashString(securityContext) + "::GetRemoteCertificate()");
-            }
+            if (NetEventSource.IsEnabled) NetEventSource.Enter(securityContext);
 
             X509Certificate2 result = null;
             SafeFreeCertContext remoteContext = null;
@@ -110,24 +67,25 @@ namespace System.Net
                     result = new X509Certificate2(remoteContext.DangerousGetHandle());
                 }
 
-                remoteCertificateStore = new X509Certificate2Collection();
-
-                using (SafeSharedX509StackHandle chainStack =
-                    Interop.OpenSsl.GetPeerCertificateChain(securityContext.SslContext))
+                if (remoteCertificateStore != null)
                 {
-                    if (!chainStack.IsInvalid)
+                    using (SafeSharedX509StackHandle chainStack =
+                        Interop.OpenSsl.GetPeerCertificateChain(((SafeDeleteSslContext)securityContext).SslContext))
                     {
-                        int count = Interop.Crypto.GetX509StackFieldCount(chainStack);
-
-                        for (int i = 0; i < count; i++)
+                        if (!chainStack.IsInvalid)
                         {
-                            IntPtr certPtr = Interop.Crypto.GetX509StackField(chainStack, i);
+                            int count = Interop.Crypto.GetX509StackFieldCount(chainStack);
 
-                            if (certPtr != IntPtr.Zero)
+                            for (int i = 0; i < count; i++)
                             {
-                                // X509Certificate2(IntPtr) calls X509_dup, so the reference is appropriately tracked.
-                                X509Certificate2 chainCert = new X509Certificate2(certPtr);
-                                remoteCertificateStore.Add(chainCert);
+                                IntPtr certPtr = Interop.Crypto.GetX509StackField(chainStack, i);
+
+                                if (certPtr != IntPtr.Zero)
+                                {
+                                    // X509Certificate2(IntPtr) calls X509_dup, so the reference is appropriately tracked.
+                                    X509Certificate2 chainCert = new X509Certificate2(certPtr);
+                                    remoteCertificateStore.Add(chainCert);
+                                }
                             }
                         }
                     }
@@ -146,14 +104,10 @@ namespace System.Net
                 }
             }
 
-            if (SecurityEventSource.Log.IsEnabled())
+            if (NetEventSource.IsEnabled)
             {
-                SecurityEventSource.Log.RemoteCertificate(result == null ? "null" : result.ToString(true));
-            }
-
-            if (GlobalLog.IsEnabled)
-            {
-                GlobalLog.Leave("CertificateValidationPal.Unix SecureChannel#" + LoggingHash.HashString(securityContext) + "::GetRemoteCertificate()", (result == null ? "null" : result.Subject));
+                NetEventSource.Log.RemoteCertificate(result);
+                NetEventSource.Exit(securityContext, result);
             }
             return result;
         }      
@@ -163,7 +117,7 @@ namespace System.Net
         //
         internal static string[] GetRequestCertificateAuthorities(SafeDeleteContext securityContext)
         {
-            using (SafeSharedX509NameStackHandle names = Interop.Ssl.SslGetClientCAList(securityContext.SslContext))
+            using (SafeSharedX509NameStackHandle names = Interop.Ssl.SslGetClientCAList(((SafeDeleteSslContext)securityContext).SslContext))
             {
                 if (names.IsInvalid)
                 {
@@ -192,62 +146,22 @@ namespace System.Net
             }
         }
 
-        internal static X509Store EnsureStoreOpened(bool isMachineStore)
+        static partial void CheckSupportsStore(StoreLocation storeLocation, ref bool hasSupport)
         {
-            if (isMachineStore)
-            {
-                // There's not currently a LocalMachine\My store on Unix, so don't bother trying
-                // and having to deal with the exception.
-                //
-                // https://github.com/dotnet/corefx/issues/3690 tracks the lack of this store.
-                return null;
-            }
-
-            return EnsureStoreOpened(ref s_userCertStore, StoreLocation.CurrentUser);
+            // There's not currently a LocalMachine\My store on Unix, so don't bother trying
+            // and having to deal with the exception.
+            //
+            // https://github.com/dotnet/corefx/issues/3690 tracks the lack of this store.
+            if (storeLocation == StoreLocation.LocalMachine)
+                hasSupport = false;
         }
 
-        private static X509Store EnsureStoreOpened(ref X509Store storeField, StoreLocation storeLocation)
+        private static X509Store OpenStore(StoreLocation storeLocation)
         {
-            X509Store store = Volatile.Read(ref storeField);
+            Debug.Assert(storeLocation == StoreLocation.CurrentUser);
 
-            if (store == null)
-            {
-                lock (s_lockObject)
-                {
-                    store = Volatile.Read(ref storeField);
-
-                    if (store == null)
-                    {
-                        try
-                        {
-                            store = new X509Store(StoreName.My, storeLocation);
-                            store.Open(OpenFlags.ReadOnly);
-
-                            Volatile.Write(ref storeField, store);
-
-                            if (GlobalLog.IsEnabled)
-                            {
-                                GlobalLog.Print(
-                                    "CertModule::EnsureStoreOpened() storeLocation:" + storeLocation +
-                                        " returned store:" + store.GetHashCode().ToString("x"));
-                            }
-                        }
-                        catch (CryptographicException e)
-                        {
-                            if (GlobalLog.IsEnabled)
-                            {
-                                GlobalLog.Assert(
-                                    "CertModule::EnsureStoreOpened()",
-                                    "Failed to open cert store, location:" + storeLocation + " exception:" + e);
-                            }
-                            Debug.Fail(
-                                "CertModule::EnsureStoreOpened()",
-                                "Failed to open cert store, location:" + storeLocation + " exception:" + e);
-                            throw;
-                        }
-                    }
-                }
-            }
+            X509Store store = new X509Store(StoreName.My, storeLocation);
+            store.Open(OpenFlags.ReadOnly);
 
             return store;
         }
@@ -257,7 +171,7 @@ namespace System.Net
             remoteCertContext = null;
             try
             {
-                SafeX509Handle remoteCertificate = Interop.OpenSsl.GetPeerCertificate(securityContext.SslContext);
+                SafeX509Handle remoteCertificate = Interop.OpenSsl.GetPeerCertificate(((SafeDeleteSslContext)securityContext).SslContext);
                 // Note that cert ownership is transferred to SafeFreeCertContext
                 remoteCertContext = new SafeFreeCertContext(remoteCertificate);
                 return 0;

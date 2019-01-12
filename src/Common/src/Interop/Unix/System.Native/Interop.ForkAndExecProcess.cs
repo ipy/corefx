@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -14,17 +15,21 @@ internal static partial class Interop
         internal static unsafe int ForkAndExecProcess(
             string filename, string[] argv, string[] envp, string cwd,
             bool redirectStdin, bool redirectStdout, bool redirectStderr,
-            out int lpChildPid, out int stdinFd, out int stdoutFd, out int stderrFd)
+            bool setUser, uint userId, uint groupId,
+            out int lpChildPid, out int stdinFd, out int stdoutFd, out int stderrFd, bool shouldThrow = true)
         {
             byte** argvPtr = null, envpPtr = null;
+            int result = -1;
             try
             {
                 AllocNullTerminatedArray(argv, ref argvPtr);
                 AllocNullTerminatedArray(envp, ref envpPtr);
-                return ForkAndExecProcess(
+                result = ForkAndExecProcess(
                     filename, argvPtr, envpPtr, cwd,
                     redirectStdin ? 1 : 0, redirectStdout ? 1 : 0, redirectStderr ? 1 :0,
+                    setUser ? 1 : 0, userId, groupId,
                     out lpChildPid, out stdinFd, out stdoutFd, out stderrFd);
+                return result == 0 ? 0 : Marshal.GetLastWin32Error();
             }
             finally
             {
@@ -37,6 +42,7 @@ internal static partial class Interop
         private static extern unsafe int ForkAndExecProcess(
             string filename, byte** argv, byte** envp, string cwd,
             int redirectStdin, int redirectStdout, int redirectStderr,
+            int setUser, uint userId, uint groupId,
             out int lpChildPid, out int stdinFd, out int stdoutFd, out int stderrFd);
 
         private static unsafe void AllocNullTerminatedArray(string[] arr, ref byte** arrPtr)

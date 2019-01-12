@@ -24,7 +24,7 @@ Of course, teams aren't hostage to the set of themes and scenarios. But they pro
 
 ## What this means for CoreFx
 
-Our goal is to become a bit more trigger happy when it comes to closing issues. We've currently over 700 open issues on the corefx repo alone. We've noticed that our design review process is a major bottleneck for adding new features, in particular when we're adding APIs to types that are shared with the .NET Framework: we need to think about how we can reconcile that difference in the future so that you can still author libraries that can run on both platforms.
+Our goal is to become a bit more trigger happy when it comes to closing issues. We've currently over 1,400 open issues on the corefx repo alone. We've noticed that our design review process is a major bottleneck for adding new features, in particular when we're adding APIs to types that are shared with the .NET Framework: we need to think about how we can reconcile that difference in the future so that you can still author libraries that can run on both platforms.
 
 We owe our customers -- and this includes our open source community -- that we don't lose track of what's important. We do, however, want to make sure we can continuously improve small things as well. We strongly believe that one of the key reasons open source is so successful is because it encourages a mindset of small changes over time.
 
@@ -32,9 +32,8 @@ We owe our customers -- and this includes our open source community -- that we d
 
 Our current approach to triage looks as follows (the higher the number the more likely we're going to close it):
 
-1. Is it relevant to unblock the developer experience for [.NET Core RTM](rtm.md)?
-2. Is it helping with [porting .NET Framework code to .NET Core](porting.md)?
-3. Is it aligned with the [roadmap of .NET Core vNext](roadmap.md)?
+1. Is it helping with [porting .NET Framework code to .NET Core](porting.md)?
+2. Is it aligned with the roadmap of .NET Core vNext?
 3. Is it a separate type that we can deliver as a standalone library for both, .NET Framework and .NET Core?
 4. Is it going to require modifying the .NET Framework?
 
@@ -49,3 +48,24 @@ In particular, we strive to follow these guidelines:
 * **Do** close issues that provide little or questionable value to APIs that are included with the .NET Framework
 * **Do** favor issues that do not require modifying types that are included with the .NET Framework.
 * **Avoid** franken design just to avoid adding APIs to types that are included with the .NET Framework
+
+## Porting to .NET Framework
+
+### Constraints for shipping in the .NET Framework
+ 
+Each release of .NET Framework ships to over one billion machines world-wide and installs as an *in-place* update, requiring each fix to meet a high level of quality and compatibility.  Each fix is reviewed extensively to determine which release if any is most appropriate.
+
+Here are some of the factors that are considered:
+
+* **Backward compatibility**. We do not want to break existing applications.
+* **Risk and/or size of the change**. We need to consider whether the change is on a common code path or causes a lot of churn.
+* **Measurable quality of the change**. We need to pay attention to our ability to test the change in an complete end-to-end fashion.
+* **Value of the change**. All the risks outlined above need to be balanced against how many customers the change will help and how much the change will help customers.
+ 
+### How you can tell whether a change will be ported
+ 
+Generally, all changes are expected to be tracked as GitHub issues. We are going to introduce the following three labels on GitHub to track and report progress around porting:
+
+* [**netfx-port-consider**](https://github.com/dotnet/corefx/labels/netfx-port-consider): A given issue should be considered for inclusion in the .NET Framework. Once an issue has this label, the team will consider it for inclusion in the .NET Framework.
+* [**netfx-port-approved**](https://github.com/dotnet/corefx/labels/netfx-port-approved): If the proposed change is shown to add value and not introduce unmitigated risk then the issue will be checked in and ship in a future release of the .NET Framework. Marking an issue with this label does not imply that it will ship in the next release or any specific release of the .NET Framework.
+* [**netfx-port-declined**](https://github.com/dotnet/corefx/labels/netfx-port-declined): If the proposed change does not align with our business goals or introduces unmitigated risk, the issue will not be included in the .NET Framework. In the event of this scenario, we will add a comment on the issue.

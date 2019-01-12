@@ -3,14 +3,13 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
-using System.Security;
 
 namespace System.Numerics
 {
     internal static partial class BigIntegerCalculator
     {
         // Executes different exponentiation algorithms, which are
-        // basically based on the classic square-and-multiply method.
+        // based on the classic square-and-multiply method.
 
         // https://en.wikipedia.org/wiki/Exponentiation_by_squaring
 

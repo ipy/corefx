@@ -41,6 +41,30 @@ namespace System.IO.Tests
             }
         }
 
+        [PlatformSpecific(TestPlatforms.AnyUnix)]  // Uses P/Invokes
+        public async Task FifoReadWriteViaFileStream()
+        {
+            string fifoPath = GetTestFilePath();
+            Assert.Equal(0, mkfifo(fifoPath, 666));
+
+            await Task.WhenAll(
+                Task.Run(() =>
+                {
+                    using (FileStream fs = File.OpenRead(fifoPath))
+                    {
+                        Assert.Equal(42, fs.ReadByte());
+                    }
+                }),
+                Task.Run(() =>
+                {
+                    using (FileStream fs = File.OpenWrite(fifoPath))
+                    {
+                        fs.WriteByte(42);
+                        fs.Flush();
+                    }
+                }));
+        }
+
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
@@ -66,13 +90,13 @@ namespace System.IO.Tests
             }
         }
 
-        [PlatformSpecific(PlatformID.Windows)] // Uses P/Invokes to create async pipe handle
+        [PlatformSpecific(TestPlatforms.Windows)] // Uses P/Invokes to create async pipe handle
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task NamedPipeWriteViaAsyncFileStream(bool asyncWrites)
         {
-            string name = Guid.NewGuid().ToString("N");
+            string name = GetNamedPipeServerStreamName();
             using (var server = new NamedPipeServerStream(name, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous))
             {
                 Task serverTask = Task.Run(async () =>
@@ -100,13 +124,13 @@ namespace System.IO.Tests
             }
         }
 
-        [PlatformSpecific(PlatformID.Windows)] // Uses P/Invokes to create async pipe handle
+        [PlatformSpecific(TestPlatforms.Windows)] // Uses P/Invokes to create async pipe handle
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task NamedPipeReadViaAsyncFileStream(bool asyncReads)
         {
-            string name = Guid.NewGuid().ToString("N");
+            string name = GetNamedPipeServerStreamName();
             using (var server = new NamedPipeServerStream(name, PipeDirection.Out, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous))
             {
                 Task serverTask = Task.Run(async () =>

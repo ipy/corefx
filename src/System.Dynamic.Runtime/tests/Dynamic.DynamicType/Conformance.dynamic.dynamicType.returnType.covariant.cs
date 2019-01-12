@@ -2,13 +2,13 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using Xunit;
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.indexer001.indexer001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.indexer001.indexer001;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests simple indexers changing the return type from dynamic to object and viceversa
+    // <Description> Tests simple indexers changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
@@ -394,14 +394,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.indexer003.indexer003
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.indexer003.indexer003;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests generic indexer changing the return type from dynamic to object and viceversa
+    // <Description> Tests generic indexer changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     abstract public class BaseObject<T>
     {
@@ -510,7 +508,6 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.integeregererface001.integeregererface001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.integeregererface001.integeregererface001;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> Tests interface implementation of methods
     // </Description>
@@ -906,7 +903,6 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.integeregererface003.integeregererface003
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.integeregererface003.integeregererface003;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> Tests interface explicit implementation
     // </Description>
@@ -1136,14 +1132,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.integeregererface004.integeregererface004
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.integeregererface004.integeregererface004;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> Tests interface implementation
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     public interface IFoo
     {
@@ -1230,9 +1224,8 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.method001.method001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.method001.method001;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests simple method changing the return type from dynamic to object and viceversa
+    // <Description> Tests simple method changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
@@ -1562,14 +1555,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.method003.method003
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.method003.method003;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests generic methods changing the return type from dynamic to object and viceversa
+    // <Description> Tests generic methods changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     abstract public class BaseObject<T>
     {
@@ -1648,7 +1639,6 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.method004.method004
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.method004.method004;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> Tests generic method changing the return type from dynamic to object.
     // </Description>
@@ -1852,9 +1842,8 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.property001.property001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.property001.property001;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests simple indexers changing the return type from dynamic to object and viceversa
+    // <Description> Tests simple indexers changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
@@ -2240,14 +2229,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.property003.property003
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.property003.property003;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests generic indexer changing the return type from dynamic to object and viceversa
+    // <Description> Tests generic indexer changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     abstract public class BaseObject<T>
     {
@@ -2356,9 +2343,8 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage001.usage001
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage001.usage001;
     // <Title>Covariant return type for dynamic/object</Title>
-    // <Description> Tests simple method changing the return type from dynamic to object and viceversa
+    // <Description> Tests simple method changing the return type from dynamic to object and vice versa
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
@@ -2587,14 +2573,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage003.usage003
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage003.usage003;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> implicitly typed arrays, anon types, collection init
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     public class Base
     {
@@ -2667,7 +2651,7 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
             var t = x[0].Prop;
             if (Test.Called == "DerivedGetPBaseGetPDerivedGetP")
                 success++;
-            //member intializer of anon type
+            //member initializer of anon type
             var a1 = new
             {
                 d = d.Prop,
@@ -2690,7 +2674,6 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage004.usage004
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage004.usage004;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> is/as
     // </Description>
@@ -2699,7 +2682,6 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
     // <Code>
     //<Expects Status=warning>\(57,6\).*CS1981</Expects>
     //<Expects Status=warning>\(74,6\).*CS1981</Expects>
-    using System.Collections.Generic;
 
     public class Base
     {
@@ -2776,14 +2758,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage005.usage005
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage005.usage005;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> is/as
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     public static class Ext
     {
@@ -2868,14 +2848,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage006.usage006
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage006.usage006;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> is/as
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     public abstract class Base
     {
@@ -2925,16 +2903,6 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.errorverifier.errorverifier
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.errorverifier.errorverifier;
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage007.usage007;
-    using System;
-    using System.Collections;
-    using System.IO;
-    using System.Globalization;
-    using System.Reflection;
-    using System.Resources;
-    using Microsoft.CSharp.RuntimeBinder;
-
     public enum ErrorElementId
     {
         None,
@@ -3119,15 +3087,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage007.usage007
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.errorverifier.errorverifier;
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage007.usage007;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> return type and compound operators
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     public class Base
     {
@@ -3267,14 +3232,12 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
 
 namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage008.usage008
 {
-    using ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.covariant.usage008.usage008;
     // <Title>Covariant return type for dynamic/object</Title>
     // <Description> return type and compound operators
     // </Description>
     // <RelatedBugs></RelatedBugs>
     //<Expects Status=success></Expects>
     // <Code>
-    using System.Collections.Generic;
 
     public class Base
     {
@@ -3431,7 +3394,7 @@ namespace ManagedTests.DynamicCSharp.Conformance.dynamic.dynamicType.returnType.
         {
             int test = 0, success = 0;
             Derived d = new Derived();
-            //---- incrementst the result of a method call
+            //---- increments the result of a method call
             test++;
             var x = d.M();
             x++;

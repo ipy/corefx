@@ -5,15 +5,14 @@
 using System.Diagnostics;
 using System.IO;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
+using System.Threading.Tasks;
 
 namespace System.Net
 {
     internal class StreamFramer
     {
         private Stream _transport;
-
-        // TODO (Issue #3114): Implement using TPL instead of APM.
-        private StreamAsyncHelper _transportAPM;
 
         private bool _eof;
 
@@ -34,7 +33,7 @@ namespace System.Net
         {
             if (Transport == null || Transport == Stream.Null)
             {
-                throw new ArgumentNullException("Transport");
+                throw new ArgumentNullException(nameof(Transport));
             }
 
             _transport = Transport;
@@ -43,8 +42,6 @@ namespace System.Net
 
             _readFrameCallback = new AsyncCallback(ReadFrameCallback);
             _beginWriteCallback = new AsyncCallback(BeginWriteCallback);
-
-            _transportAPM = new StreamAsyncHelper(_transport);
         }
 
         public FrameHeader ReadHeader
@@ -141,7 +138,7 @@ namespace System.Net
                                                                    _readHeaderBuffer, 0,
                                                                    _readHeaderBuffer.Length);
 
-            IAsyncResult result = _transportAPM.BeginRead(_readHeaderBuffer, 0, _readHeaderBuffer.Length,
+            IAsyncResult result = TaskToApm.Begin(_transport.ReadAsync(_readHeaderBuffer, 0, _readHeaderBuffer.Length),
                 _readFrameCallback, workerResult);
 
             if (result.CompletedSynchronously)
@@ -156,12 +153,7 @@ namespace System.Net
         {
             if (!(transportResult.AsyncState is WorkerAsyncResult))
             {
-                if (GlobalLog.IsEnabled)
-                {
-                    GlobalLog.Assert("StreamFramer::ReadFrameCallback|The state expected to be WorkerAsyncResult, received:{0}.", transportResult.GetType().FullName);
-                }
-
-                Debug.Fail("StreamFramer::ReadFrameCallback|The state expected to be WorkerAsyncResult, received:" + transportResult.GetType().FullName + ".");
+                NetEventSource.Fail(this, $"The state expected to be WorkerAsyncResult, received {transportResult}.");
             }
 
             if (transportResult.CompletedSynchronously)
@@ -204,27 +196,17 @@ namespace System.Net
             {
                 if (!(transportResult.AsyncState is WorkerAsyncResult))
                 {
-                    if (GlobalLog.IsEnabled)
-                    {
-                        GlobalLog.AssertFormat("StreamFramer::ReadFrameComplete|The state expected to be WorkerAsyncResult, received:{0}.", transportResult.GetType().FullName);
-                    }
-
-                    Debug.Fail("StreamFramer::ReadFrameComplete|The state expected to be WorkerAsyncResult, received:" + transportResult.GetType().FullName + ".");
+                    NetEventSource.Fail(this, $"The state expected to be WorkerAsyncResult, received {transportResult}.");
                 }
 
                 WorkerAsyncResult workerResult = (WorkerAsyncResult)transportResult.AsyncState;
 
-                int bytesRead = _transportAPM.EndRead(transportResult);
+                int bytesRead = TaskToApm.End<int>(transportResult);
                 workerResult.Offset += bytesRead;
 
                 if (!(workerResult.Offset <= workerResult.End))
                 {
-                    if (GlobalLog.IsEnabled)
-                    {
-                        GlobalLog.AssertFormat("StreamFramer::ReadFrameCallback|WRONG: offset - end = {0}", workerResult.Offset - workerResult.End);
-                    }
-
-                    Debug.Fail("StreamFramer::ReadFrameCallback|WRONG: offset - end = " + (workerResult.Offset - workerResult.End));
+                    NetEventSource.Fail(this, $"WRONG: offset - end = {workerResult.Offset - workerResult.End}");
                 }
 
                 if (bytesRead <= 0)
@@ -250,7 +232,7 @@ namespace System.Net
                     if (!workerResult.HeaderDone)
                     {
                         workerResult.HeaderDone = true;
-                        // This indicates the header has been read succesfully
+                        // This indicates the header has been read successfully
                         _curReadHeader.CopyFrom(workerResult.Buffer, 0, _readVerifier);
                         int payloadSize = _curReadHeader.PayloadSize;
                         if (payloadSize < 0)
@@ -261,7 +243,7 @@ namespace System.Net
 
                         if (payloadSize == 0)
                         {
-                            // report emtpy frame (NOT eof!) to the caller, he might be interested in
+                            // report empty frame (NOT eof!) to the caller, he might be interested in
                             workerResult.InvokeCallback(0);
                             return;
                         }
@@ -280,7 +262,7 @@ namespace System.Net
                         workerResult.End = frame.Length;
                         workerResult.Offset = 0;
 
-                        // Transport.BeginRead below will pickup those changes.
+                        // Transport.ReadAsync below will pickup those changes.
                     }
                     else
                     {
@@ -291,7 +273,7 @@ namespace System.Net
                 }
 
                 // This means we need more data to complete the data block.
-                transportResult = _transportAPM.BeginRead(workerResult.Buffer, workerResult.Offset, workerResult.End - workerResult.Offset,
+                transportResult = TaskToApm.Begin(_transport.ReadAsync(workerResult.Buffer, workerResult.Offset, workerResult.End - workerResult.Offset),
                                             _readFrameCallback, workerResult);
             } while (transportResult.CompletedSynchronously);
         }
@@ -307,13 +289,13 @@ namespace System.Net
         {
             if (asyncResult == null)
             {
-                throw new ArgumentNullException("asyncResult");
+                throw new ArgumentNullException(nameof(asyncResult));
             }
             WorkerAsyncResult workerResult = asyncResult as WorkerAsyncResult;
 
             if (workerResult == null)
             {
-                throw new ArgumentException(SR.Format(SR.net_io_async_result, typeof(WorkerAsyncResult).FullName), "asyncResult");
+                throw new ArgumentException(SR.Format(SR.net_io_async_result, typeof(WorkerAsyncResult).FullName), nameof(asyncResult));
             }
 
             if (!workerResult.InternalPeekCompleted)
@@ -321,9 +303,9 @@ namespace System.Net
                 workerResult.InternalWaitForCompletion();
             }
 
-            if (workerResult.Result is Exception)
+            if (workerResult.Result is Exception e)
             {
-                throw (Exception)(workerResult.Result);
+                ExceptionDispatchInfo.Throw(e);
             }
 
             int size = (int)workerResult.Result;
@@ -335,7 +317,7 @@ namespace System.Net
             else if (size == 0)
             {
                 // Empty frame.
-                return new byte[0];
+                return Array.Empty<byte>();
             }
 
             return workerResult.Buffer;
@@ -345,7 +327,7 @@ namespace System.Net
         {
             if (message == null)
             {
-                throw new ArgumentNullException("message");
+                throw new ArgumentNullException(nameof(message));
             }
 
             _writeHeader.PayloadSize = message.Length;
@@ -364,7 +346,7 @@ namespace System.Net
         {
             if (message == null)
             {
-                throw new ArgumentNullException("message");
+                throw new ArgumentNullException(nameof(message));
             }
 
             _writeHeader.PayloadSize = message.Length;
@@ -372,7 +354,7 @@ namespace System.Net
 
             if (message.Length == 0)
             {
-                return _transportAPM.BeginWrite(_writeHeaderBuffer, 0, _writeHeaderBuffer.Length,
+                return TaskToApm.Begin(_transport.WriteAsync(_writeHeaderBuffer, 0, _writeHeaderBuffer.Length),
                                                    asyncCallback, stateObject);
             }
 
@@ -381,7 +363,7 @@ namespace System.Net
                                                                    message, 0, message.Length);
             
             // Charge the first:
-            IAsyncResult result = _transportAPM.BeginWrite(_writeHeaderBuffer, 0, _writeHeaderBuffer.Length,
+            IAsyncResult result = TaskToApm.Begin(_transport.WriteAsync(_writeHeaderBuffer, 0, _writeHeaderBuffer.Length),
                                  _beginWriteCallback, workerResult);
 
             if (result.CompletedSynchronously)
@@ -396,12 +378,7 @@ namespace System.Net
         {
             if (!(transportResult.AsyncState is WorkerAsyncResult))
             {
-                if (GlobalLog.IsEnabled)
-                {
-                    GlobalLog.AssertFormat("StreamFramer::BeginWriteCallback|The state expected to be WorkerAsyncResult, received:{0}.", transportResult.AsyncState.GetType().FullName);
-                }
-
-                Debug.Fail("StreamFramer::BeginWriteCallback|The state expected to be WorkerAsyncResult, received:" + transportResult.AsyncState.GetType().FullName + ".");
+                NetEventSource.Fail(this, $"The state expected to be WorkerAsyncResult, received {transportResult}.");
             }
 
             if (transportResult.CompletedSynchronously)
@@ -437,7 +414,7 @@ namespace System.Net
                 WorkerAsyncResult workerResult = (WorkerAsyncResult)transportResult.AsyncState;
 
                 // First, complete the previous portion write.
-                _transportAPM.EndWrite(transportResult);
+                TaskToApm.End(transportResult);
 
                 // Check on exit criterion.
                 if (workerResult.Offset == workerResult.End)
@@ -450,7 +427,7 @@ namespace System.Net
                 workerResult.Offset = workerResult.End;
 
                 // Write next portion (frame body) using Async IO.
-                transportResult = _transportAPM.BeginWrite(workerResult.Buffer, 0, workerResult.End,
+                transportResult = TaskToApm.Begin(_transport.WriteAsync(workerResult.Buffer, 0, workerResult.End),
                                             _beginWriteCallback, workerResult);
             }
             while (transportResult.CompletedSynchronously);
@@ -460,7 +437,7 @@ namespace System.Net
         {
             if (asyncResult == null)
             {
-                throw new ArgumentNullException("asyncResult");
+                throw new ArgumentNullException(nameof(asyncResult));
             }
 
             WorkerAsyncResult workerResult = asyncResult as WorkerAsyncResult;
@@ -472,14 +449,14 @@ namespace System.Net
                     workerResult.InternalWaitForCompletion();
                 }
 
-                if (workerResult.Result is Exception)
+                if (workerResult.Result is Exception e)
                 {
-                    throw (Exception)(workerResult.Result);
+                    ExceptionDispatchInfo.Throw(e);
                 }
             }
             else
             {
-                _transportAPM.EndWrite(asyncResult);
+                TaskToApm.End(asyncResult);
             }
         }
     }

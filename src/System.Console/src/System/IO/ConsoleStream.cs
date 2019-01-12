@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -32,19 +31,16 @@ namespace System.IO
 
         public sealed override bool CanRead
         {
-            [Pure]
             get { return _canRead; }
         }
 
         public sealed override bool CanWrite
         {
-            [Pure]
             get { return _canWrite; }
         }
 
         public sealed override bool CanSeek
         {
-            [Pure]
             get { return false; }
         }
 
@@ -77,24 +73,24 @@ namespace System.IO
         protected void ValidateRead(byte[] buffer, int offset, int count)
         {
             if (buffer == null)
-                throw new ArgumentNullException("buffer");
+                throw new ArgumentNullException(nameof(buffer));
             if (offset < 0 || count < 0)
-                throw new ArgumentOutOfRangeException((offset < 0 ? "offset" : "count"), SR.ArgumentOutOfRange_NeedNonNegNum);
+                throw new ArgumentOutOfRangeException(offset < 0 ? nameof(offset) : nameof(count), SR.ArgumentOutOfRange_NeedNonNegNum);
             if (buffer.Length - offset < count)
                 throw new ArgumentException(SR.Argument_InvalidOffLen);
-            Contract.EndContractBlock();
+
             if (!_canRead) throw Error.GetReadNotSupported();
         }
 
         protected void ValidateWrite(byte[] buffer, int offset, int count)
         {
             if (buffer == null)
-                throw new ArgumentNullException("buffer");
+                throw new ArgumentNullException(nameof(buffer));
             if (offset < 0 || count < 0)
-                throw new ArgumentOutOfRangeException((offset < 0 ? "offset" : "count"), SR.ArgumentOutOfRange_NeedNonNegNum);
+                throw new ArgumentOutOfRangeException(offset < 0 ? nameof(offset) : nameof(count), SR.ArgumentOutOfRange_NeedNonNegNum);
             if (buffer.Length - offset < count)
                 throw new ArgumentException(SR.Argument_InvalidOffLen);
-            Contract.EndContractBlock();
+
             if (!_canWrite) throw Error.GetWriteNotSupported();
         }
     }

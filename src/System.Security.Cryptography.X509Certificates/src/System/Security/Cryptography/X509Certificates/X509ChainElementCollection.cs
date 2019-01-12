@@ -27,12 +27,12 @@ namespace System.Security.Cryptography.X509Certificates
             get { return _elements.Length; }
         }
 
-        bool System.Collections.ICollection.IsSynchronized
+        public bool IsSynchronized
         {
             get { return false; }
         }
 
-        object System.Collections.ICollection.SyncRoot
+        public object SyncRoot
         {
             get { return this; }
         }
@@ -44,7 +44,7 @@ namespace System.Security.Cryptography.X509Certificates
                 if (index < 0)
                     throw new InvalidOperationException(SR.InvalidOperation_EnumNotStarted);
                 if (index >= _elements.Length)
-                    throw new ArgumentOutOfRangeException("index", SR.ArgumentOutOfRange_Index);
+                    throw new ArgumentOutOfRangeException(nameof(index), SR.ArgumentOutOfRange_Index);
 
                 return _elements[index];
             }
@@ -58,11 +58,11 @@ namespace System.Security.Cryptography.X509Certificates
         void ICollection.CopyTo(Array array, int index)
         {
             if (array == null)
-                throw new ArgumentNullException("array");
+                throw new ArgumentNullException(nameof(array));
             if (array.Rank != 1)
                 throw new ArgumentException(SR.Arg_RankMultiDimNotSupported);
             if (index < 0 || index >= array.Length)
-                throw new ArgumentOutOfRangeException("index", SR.ArgumentOutOfRange_Index);
+                throw new ArgumentOutOfRangeException(nameof(index), SR.ArgumentOutOfRange_Index);
             if (index + Count > array.Length)
                 throw new ArgumentException(SR.Argument_InvalidOffLen);
 

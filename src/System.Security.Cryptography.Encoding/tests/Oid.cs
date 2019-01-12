@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Xunit;
 
 namespace System.Security.Cryptography.Encoding.Tests
@@ -15,10 +16,14 @@ namespace System.Security.Cryptography.Encoding.Tests
             Oid oid = new Oid("");
             Assert.Equal("", oid.Value);
             Assert.Null(oid.FriendlyName);
+
+            oid = new Oid();
+            Assert.Null(oid.Value);
+            Assert.Null(oid.FriendlyName);
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNamePairs")]
+        [MemberData(nameof(ValidOidFriendlyNamePairs))]
         public static void LookupOidByValue_Ctor(string oidValue, string friendlyName)
         {
             Oid oid = new Oid(oidValue);
@@ -28,7 +33,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNamePairs")]
+        [MemberData(nameof(ValidOidFriendlyNamePairs))]
         public static void LookupOidByFriendlyName_Ctor(string oidValue, string friendlyName)
         {
             Oid oid = new Oid(friendlyName);
@@ -63,7 +68,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNamePairs")]
+        [MemberData(nameof(ValidOidFriendlyNamePairs))]
         public static void Oid_StringString_NullFriendlyName(string oidValue, string expectedFriendlyName)
         {
             // Can omit friendly-name - FriendlyName property demand-computes it.
@@ -154,7 +159,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
         
         [Theory]
-        [MemberData("ValidOidFriendlyNameHashAlgorithmPairs")]
+        [MemberData(nameof(ValidOidFriendlyNameHashAlgorithmPairs))]
         public static void LookupOidByValue_Method_HashAlgorithm(string oidValue, string friendlyName)
         {
             Oid oid = Oid.FromOidValue(oidValue, OidGroup.HashAlgorithm);
@@ -164,7 +169,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNameEncryptionAlgorithmPairs")]
+        [MemberData(nameof(ValidOidFriendlyNameEncryptionAlgorithmPairs))]
         public static void LookupOidByValue_Method_EncryptionAlgorithm(string oidValue, string friendlyName)
         {
             Oid oid = Oid.FromOidValue(oidValue, OidGroup.EncryptionAlgorithm);
@@ -174,8 +179,8 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNameHashAlgorithmPairs")]
-        [PlatformSpecific(PlatformID.Windows)]
+        [MemberData(nameof(ValidOidFriendlyNameHashAlgorithmPairs))]
+        [PlatformSpecific(TestPlatforms.Windows)]  // Uses P/Invokes to get the  Oid lookup table
         public static void LookupOidByValue_Method_WrongGroup(string oidValue, string friendlyName)
         {
             // Oid group is implemented strictly - no fallback to OidGroup.All as with many other parts of Crypto.
@@ -197,7 +202,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNameHashAlgorithmPairs")]
+        [MemberData(nameof(ValidOidFriendlyNameHashAlgorithmPairs))]
         public static void LookupOidByFriendlyName_Method_HashAlgorithm(string oidValue, string friendlyName)
         {
             Oid oid = Oid.FromFriendlyName(friendlyName, OidGroup.HashAlgorithm);
@@ -207,7 +212,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNameEncryptionAlgorithmPairs")]
+        [MemberData(nameof(ValidOidFriendlyNameEncryptionAlgorithmPairs))]
         public static void LookupOidByFriendlyName_Method_EncryptionAlgorithm(string oidValue, string friendlyName)
         {
             Oid oid = Oid.FromFriendlyName(friendlyName, OidGroup.EncryptionAlgorithm);
@@ -217,7 +222,7 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNamePairs")]
+        [MemberData(nameof(ValidOidFriendlyNamePairs))]
         public static void LookupOidByFriendlyName_Method_InverseCase(string oidValue, string friendlyName)
         {
             // Note that oid lookup is case-insensitive, and we store the name in the form it was
@@ -230,8 +235,8 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Theory]
-        [MemberData("ValidOidFriendlyNameHashAlgorithmPairs")]
-        [PlatformSpecific(PlatformID.Windows)]
+        [MemberData(nameof(ValidOidFriendlyNameHashAlgorithmPairs))]
+        [PlatformSpecific(TestPlatforms.Windows)]  // Uses P/Invokes to get the  Oid lookup table
         public static void LookupOidByFriendlyName_Method_WrongGroup(string oidValue, string friendlyName)
         {
             // Oid group is implemented strictly - no fallback to OidGroup.All as with many other parts of Crypto.
@@ -253,27 +258,67 @@ namespace System.Security.Cryptography.Encoding.Tests
         }
 
         [Fact]
-        [PlatformSpecific(PlatformID.AnyUnix)]
+        [PlatformSpecific(TestPlatforms.AnyUnix)]  // Uses P/Invokes to search Oid in the lookup table
         public static void LookupOidByValue_Method_UnixOnly()
         {
             // This needs to be an OID not in the static lookup table.  The purpose is to verify the
             // NativeOidToFriendlyName fallback for Unix.  For Windows this is accomplished by
             // using FromOidValue with an OidGroup other than OidGroup.All.
-            
-            Oid oid = Oid.FromOidValue(ObsoleteSmime3desWrap_Oid, OidGroup.All);
+
+            Oid oid;
+
+            try
+            {
+                oid = Oid.FromOidValue(ObsoleteSmime3desWrap_Oid, OidGroup.All);
+            }
+            catch (CryptographicException)
+            {
+                bool isMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
+                Assert.True(isMac, "Exception is only raised on macOS");
+
+                if (isMac)
+                {
+                    return;
+                }
+                else
+                {
+                    throw;
+                }
+            }
 
             Assert.Equal(ObsoleteSmime3desWrap_Oid, oid.Value);
             Assert.Equal(ObsoleteSmime3desWrap_Name, oid.FriendlyName);
         }
 
         [Fact]
-        [PlatformSpecific(PlatformID.AnyUnix)]
+        [PlatformSpecific(TestPlatforms.AnyUnix)]  // Uses P/Invokes to search Oid in the lookup table
         public static void LookupOidByFriendlyName_Method_UnixOnly()
         {
             // This needs to be a name not in the static lookup table.  The purpose is to verify the
             // NativeFriendlyNameToOid fallback for Unix.  For Windows this is accomplished by
             // using FromOidValue with an OidGroup other than OidGroup.All.
-            Oid oid = Oid.FromFriendlyName(ObsoleteSmime3desWrap_Name, OidGroup.All);
+            Oid oid;
+
+            try
+            {
+                oid = Oid.FromFriendlyName(ObsoleteSmime3desWrap_Name, OidGroup.All);
+            }
+            catch (CryptographicException)
+            {
+                bool isMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+
+                Assert.True(isMac, "Exception is only raised on macOS");
+
+                if (isMac)
+                {
+                    return;
+                }
+                else
+                {
+                    throw;
+                }
+            }
 
             Assert.Equal(ObsoleteSmime3desWrap_Oid, oid.Value);
             Assert.Equal(ObsoleteSmime3desWrap_Name, oid.FriendlyName);

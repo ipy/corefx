@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-
 namespace System.Composition
 {
     /// <summary>
@@ -20,12 +18,7 @@ namespace System.Composition
         /// <param name="exportCreator">Action invoked upon calls to the Create() method.</param>
         public ExportFactory(Func<Tuple<T, Action>> exportCreator)
         {
-            if (exportCreator == null)
-            {
-                throw new ArgumentNullException("exportCreator");
-            }
-
-            _exportLifetimeContextCreator = exportCreator;
+            _exportLifetimeContextCreator = exportCreator ?? throw new ArgumentNullException(nameof(exportCreator));
         }
 
         /// <summary>

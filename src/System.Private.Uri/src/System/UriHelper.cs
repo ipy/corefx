@@ -9,7 +9,7 @@ namespace System
 {
     internal static class UriHelper
     {
-        private static readonly char[] s_hexUpperChars = {
+        internal static readonly char[] s_hexUpperChars = {
                                    '0', '1', '2', '3', '4', '5', '6', '7',
                                    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
@@ -58,13 +58,13 @@ namespace System
                 {
                     if (chOther != '/')
                     {
-                        // comparison has falied
+                        // comparison has failed
                         return false;
                     }
                     // plus the segments must be the same
                     if (!AllSameBeforeSlash)
                     {
-                        // comparison has falied
+                        // comparison has failed
                         return false;
                     }
                     //so far so good
@@ -125,7 +125,7 @@ namespace System
         private const short c_MaxUnicodeCharsReallocate = 40;
         private const short c_MaxUTF_8BytesPerUnicodeChar = 4;
         private const short c_EncodedCharsPerByte = 3;
-        internal unsafe static char[] EscapeString(string input, int start, int end, char[] dest, ref int destPos,
+        internal static unsafe char[] EscapeString(string input, int start, int end, char[] dest, ref int destPos,
             bool isUriString, char force1, char force2, char rsvd)
         {
             if (end - start >= Uri.c_MaxUriBufferSize)
@@ -229,7 +229,7 @@ namespace System
         //
         // ensure destination array has enough space and contains all the needed input stuff
         //
-        private unsafe static char[] EnsureDestinationSize(char* pStr, char[] dest, int currentInputPos,
+        private static unsafe char[] EnsureDestinationSize(char* pStr, char[] dest, int currentInputPos,
             short charsToAdd, short minReallocateChars, ref int destPos, int prevInputPos)
         {
             if ((object)dest == null || dest.Length < destPos + (currentInputPos - prevInputPos) + charsToAdd)
@@ -251,15 +251,15 @@ namespace System
         //
         // This method will assume that any good Escaped Sequence will be unescaped in the output
         // - Assumes Dest.Length - detPosition >= end-start
-        // - UnescapeLevel controls various modes of opearion
+        // - UnescapeLevel controls various modes of operation
         // - Any "bad" escape sequence will remain as is or '%' will be escaped.
         // - destPosition tells the starting index in dest for placing the result.
-        //   On return destPosition tells the last character + 1 postion in the "dest" array.
+        //   On return destPosition tells the last character + 1 position in the "dest" array.
         // - The control chars and chars passed in rsdvX parameters may be re-escaped depending on UnescapeLevel
-        // - It is a RARE case when Unescape actually needs escaping some characteres mentioned above.
+        // - It is a RARE case when Unescape actually needs escaping some characters mentioned above.
         //   For this reason it returns a char[] that is usually the same ref as the input "dest" value.
         //
-        internal unsafe static char[] UnescapeString(string input, int start, int end, char[] dest,
+        internal static unsafe char[] UnescapeString(string input, int start, int end, char[] dest,
             ref int destPosition, char rsvd1, char rsvd2, char rsvd3, UnescapeMode unescapeMode, UriParser syntax,
             bool isQuery)
         {
@@ -269,7 +269,7 @@ namespace System
                     syntax, isQuery);
             }
         }
-        internal unsafe static char[] UnescapeString(char* pStr, int start, int end, char[] dest, ref int destPosition,
+        internal static unsafe char[] UnescapeString(char* pStr, int start, int end, char[] dest, ref int destPosition,
             char rsvd1, char rsvd2, char rsvd3, UnescapeMode unescapeMode, UriParser syntax, bool isQuery)
         {
             byte[] bytes = null;
@@ -326,7 +326,7 @@ namespace System
                                         if ((unescapeMode & UnescapeMode.Escape) != 0)
                                             escapeReserved = true;
                                         else
-                                            continue;   // we should throw instead but since v1.0 woudl just print '%'
+                                            continue;   // we should throw instead but since v1.0 would just print '%'
                                     }
                                     // Do not unescape '%' itself unless full unescape is requested
                                     else if (ch == '%')
@@ -349,7 +349,7 @@ namespace System
                                     else if (iriParsing && ((ch <= '\x9F' && IsNotSafeForUnescape(ch)) ||
                                                             (ch > '\x9F' && !IriHelper.CheckIriUnicodeRange(ch, isQuery))))
                                     {
-                                        // check if unenscaping gives a char ouside iri range 
+                                        // check if unenscaping gives a char outside iri range 
                                         // if it does then keep it escaped
                                         next += 2;
                                         continue;
@@ -371,7 +371,7 @@ namespace System
                                 {
                                     escapeReserved = true;
                                 }
-                                // escape (escapeReserved==ture) or otheriwse unescape the sequence
+                                // escape (escapeReserved==true) or otherwise unescape the sequence
                                 break;
                             }
                             else if ((unescapeMode & (UnescapeMode.Unescape | UnescapeMode.UnescapeAll))
@@ -412,7 +412,7 @@ namespace System
                                 {
                                     escapedReallocations = 30;
                                     char[] newDest = new char[dest.Length + escapedReallocations * 3];
-                                    fixed (char* pNewDest = newDest)
+                                    fixed (char* pNewDest = &newDest[0])
                                     {
                                         for (int i = 0; i < destPosition; ++i)
                                             pNewDest[i] = pDest[i];
@@ -504,7 +504,7 @@ namespace System
 
         //
         // Need to check for invalid utf sequences that may not have given any chars.
-        // We got the unescaped chars, we then reencode them and match off the bytes
+        // We got the unescaped chars, we then re-encode them and match off the bytes
         // to get the invalid sequence bytes that we just copy off
         //
         internal static unsafe void MatchUTF8Sequence(char* pDest, char[] dest, ref int destOffset, char[] unescapedChars,
@@ -569,7 +569,7 @@ namespace System
                                         EscapeAsciiChar((char)encodedBytes[l], dest, ref destOffset);
                                     }
                                 }
-                                else if (!Uri.IsBidiControlCharacter(unescapedCharsPtr[j]))
+                                else if (!UriHelper.IsBidiControlCharacter(unescapedCharsPtr[j]) || !UriParser.DontKeepUnicodeBidiFormattingCharacters)
                                 {
                                     //copy chars
                                     Debug.Assert(dest.Length > destOffset, "Destination length exceeded destination offset.");
@@ -598,7 +598,7 @@ namespace System
                         }
                         else
                         {
-                            // copy bytes till place where bytes dont match
+                            // copy bytes till place where bytes don't match
                             for (int l = 0; l < k; ++l)
                             {
                                 Debug.Assert(dest.Length > destOffset, "Destination length exceeded destination offset.");
@@ -657,28 +657,43 @@ namespace System
                        + 10)));
         }
 
-        // Do not unescape these in safe mode:
-        // 1)  reserved    = ";" | "/" | "?" | ":" | "@" | "&" | "=" | "+" | "$" | ","
-        // 2)  excluded = control | "#" | "%" | "\"
+        internal const string RFC3986ReservedMarks = @";/?:@&=+$,#[]!'()*";
+        private const string RFC2396ReservedMarks = @";/?:@&=+$,";
+        private const string RFC3986UnreservedMarks = @"-_.~";
+        private const string RFC2396UnreservedMarks = @"-_.~*'()!";
+        private const string AdditionalUnsafeToUnescape = @"%\#";// While not specified as reserved, these are still unsafe to unescape.
+
+        // When unescaping in safe mode, do not unescape the RFC 3986 reserved set:
+        // gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+        // sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
+        //             / "*" / "+" / "," / ";" / "="
         //
-        // That will still give plenty characters unescaped by SafeUnesced mode such as
-        // 1) Unicode characters
-        // 2) Unreserved = alphanum | "-" | "_" | "." | "!" | "~" | "*" | "'" | "(" | ")"
-        // 3) DelimitersAndUnwise = "<" | ">" |  <"> | "{" | "}" | "|" | "^" | "[" | "]" | "`"
+        // In addition, do not unescape the following unsafe characters:
+        // excluded    = "%" / "\"
+        //
+        // This implementation used to use the following variant of the RFC 2396 reserved set. 
+        // That behavior is now disabled by default, and is controlled by a UriSyntax property. 
+        // reserved    = ";" | "/" | "?" | "@" | "&" | "=" | "+" | "$" | ","
+        // excluded    = control | "#" | "%" | "\"
         internal static bool IsNotSafeForUnescape(char ch)
         {
             if (ch <= '\x1F' || (ch >= '\x7F' && ch <= '\x9F'))
+            {
                 return true;
-            else if ((ch >= ';' && ch <= '@' && (ch | '\x2') != '>') ||
-                     (ch >= '#' && ch <= '&') ||
-                     ch == '+' || ch == ',' || ch == '/' || ch == '\\')
+            }
+            else if (UriParser.DontEnableStrictRFC3986ReservedCharacterSets)
+            {
+                if ((ch != ':' && (RFC2396ReservedMarks.IndexOf(ch) >= 0) || (AdditionalUnsafeToUnescape.IndexOf(ch) >= 0)))
+                {
+                    return true;
+                }
+            }
+            else if ((RFC3986ReservedMarks.IndexOf(ch) >= 0) || (AdditionalUnsafeToUnescape.IndexOf(ch) >= 0))
+            {
                 return true;
-
+            }
             return false;
         }
-
-        private const string RFC3986ReservedMarks = @":/?#[]@!$&'()*+,;=";
-        private const string RFC3986UnreservedMarks = @"-._~";
 
         private static unsafe bool IsReservedUnreservedOrHash(char c)
         {
@@ -691,7 +706,7 @@ namespace System
 
         internal static unsafe bool IsUnreserved(char c)
         {
-            if (Uri.IsAsciiLetterOrDigit(c))
+            if (UriHelper.IsAsciiLetterOrDigit(c))
             {
                 return true;
             }
@@ -700,11 +715,68 @@ namespace System
 
         internal static bool Is3986Unreserved(char c)
         {
-            if (Uri.IsAsciiLetterOrDigit(c))
+            if (UriHelper.IsAsciiLetterOrDigit(c))
             {
                 return true;
             }
             return (RFC3986UnreservedMarks.IndexOf(c) >= 0);
+        }
+
+        //
+        // Is this a gen delim char from RFC 3986
+        //
+        internal static bool IsGenDelim(char ch)
+        {
+            return (ch == ':' || ch == '/' || ch == '?' || ch == '#' || ch == '[' || ch == ']' || ch == '@');
+        }
+
+        internal static readonly char[] s_WSchars = new char[] { ' ', '\n', '\r', '\t' };
+
+        internal static bool IsLWS(char ch)
+        {
+            return (ch <= ' ') && (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t');
+        }
+
+        //Only consider ASCII characters
+        internal static bool IsAsciiLetter(char character)
+        {
+            return (character >= 'a' && character <= 'z') ||
+                   (character >= 'A' && character <= 'Z');
+        }
+
+        internal static bool IsAsciiLetterOrDigit(char character)
+        {
+            return IsAsciiLetter(character) || (character >= '0' && character <= '9');
+        }
+
+        //
+        // Is this a Bidirectional control char.. These get stripped
+        //
+        internal static bool IsBidiControlCharacter(char ch)
+        {
+            return (ch == '\u200E' /*LRM*/ || ch == '\u200F' /*RLM*/ || ch == '\u202A' /*LRE*/ ||
+                    ch == '\u202B' /*RLE*/ || ch == '\u202C' /*PDF*/ || ch == '\u202D' /*LRO*/ ||
+                    ch == '\u202E' /*RLO*/);
+        }
+
+        //
+        // Strip Bidirectional control characters from this string
+        //
+        internal static unsafe string StripBidiControlCharacter(char* strToClean, int start, int length)
+        {
+            if (length <= 0) return "";
+
+            char[] cleanStr = new char[length];
+            int count = 0;
+            for (int i = 0; i < length; ++i)
+            {
+                char c = strToClean[start + i];
+                if (c < '\u200E' || c > '\u202E' || !IsBidiControlCharacter(c))
+                {
+                    cleanStr[count++] = c;
+                }
+            }
+            return new string(cleanStr, 0, count);
         }
     }
 }

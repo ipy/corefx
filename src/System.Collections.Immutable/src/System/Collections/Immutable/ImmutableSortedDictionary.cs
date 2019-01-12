@@ -153,13 +153,26 @@ namespace System.Collections.Immutable
         [Pure]
         public static ImmutableSortedDictionary<TKey, TValue> ToImmutableSortedDictionary<TSource, TKey, TValue>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, Func<TSource, TValue> elementSelector, IComparer<TKey> keyComparer, IEqualityComparer<TValue> valueComparer)
         {
-            Requires.NotNull(source, "source");
-            Requires.NotNull(keySelector, "keySelector");
-            Requires.NotNull(elementSelector, "elementSelector");
+            Requires.NotNull(source, nameof(source));
+            Requires.NotNull(keySelector, nameof(keySelector));
+            Requires.NotNull(elementSelector, nameof(elementSelector));
             Contract.Ensures(Contract.Result<ImmutableDictionary<TKey, TValue>>() != null);
 
             return ImmutableSortedDictionary<TKey, TValue>.Empty.WithComparers(keyComparer, valueComparer)
                 .AddRange(source.Select(element => new KeyValuePair<TKey, TValue>(keySelector(element), elementSelector(element))));
+        }
+
+        /// <summary>
+        /// Returns an immutable copy of the current contents of the builder's collection.
+        /// </summary>
+        /// <param name="builder">The builder to create the immutable map from.</param>
+        /// <returns>An immutable map.</returns>
+        [Pure]
+        public static ImmutableSortedDictionary<TKey, TValue> ToImmutableSortedDictionary<TKey, TValue>(this ImmutableSortedDictionary<TKey, TValue>.Builder builder)
+        {
+            Requires.NotNull(builder, nameof(builder));
+
+            return builder.ToImmutable();
         }
 
         /// <summary>
@@ -208,7 +221,7 @@ namespace System.Collections.Immutable
         [Pure]
         public static ImmutableSortedDictionary<TKey, TValue> ToImmutableSortedDictionary<TKey, TValue>(this IEnumerable<KeyValuePair<TKey, TValue>> source, IComparer<TKey> keyComparer, IEqualityComparer<TValue> valueComparer)
         {
-            Requires.NotNull(source, "source");
+            Requires.NotNull(source, nameof(source));
             Contract.Ensures(Contract.Result<ImmutableDictionary<TKey, TValue>>() != null);
 
             var existingDictionary = source as ImmutableSortedDictionary<TKey, TValue>;

@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.Win32.SafeHandles;
-using System;
-using System.IO;
 using Xunit;
 
 namespace System.IO.Tests
@@ -13,8 +11,7 @@ namespace System.IO.Tests
     {
         protected sealed override FileStream CreateFileStream(SafeFileHandle handle, FileAccess access, int bufferSize)
         {
-            // default for isAsync is platform specific, we need a better way to determine this
-            return CreateFileStream(handle, access, bufferSize, true);
+            return CreateFileStream(handle, access, bufferSize, false);
         }
 
         protected virtual FileStream CreateFileStream(SafeFileHandle handle, FileAccess access, int bufferSize, bool isAsync)
@@ -23,6 +20,7 @@ namespace System.IO.Tests
         }
 
         [Fact]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.NetFramework, "NetFX doesn't allow concurrent FileStream access when using overlapped IO.")]
         public void MatchedAsync()
         {
             using (FileStream fs = new FileStream(GetTestFilePath(), FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete, 4096, true))

@@ -5,17 +5,24 @@
 using System;
 using System.Linq;
 using System.Diagnostics;
+#if USE_MDT_EVENTSOURCE
+using Microsoft.Diagnostics.Tracing;
+#else
 using System.Diagnostics.Tracing;
+#endif
 
 // We wish to test both Microsoft.Diagnostics.Tracing (Nuget)
-// and System.Diagnostics.Tracing (Framewwork), we use this Ifdef make each kind 
+// and System.Diagnostics.Tracing (Framework), we use this Ifdef make each kind 
 
 namespace SdtEventSources
 {
     /// <summary>
     /// A sample Event source. The Guid and Name attributes are "idempotent", i.e. they 
     /// don't change the default computed by EventSource; they're specified here just to 
-    /// increase the code coverage.
+    /// increase the code coverage. 
+    /// 
+    /// Also, this EventSource uses manifest-based ETW and is not self-describing. That means
+    /// it does not support complex data types, including nullables, as event arguments.
     /// </summary>
     [EventSource(Guid = "69e2aa3e-083b-5014-cad4-3e511a0b94cf", Name = "EventSourceTest")]
     public sealed class EventSourceTest : EventSource
@@ -26,7 +33,7 @@ namespace SdtEventSources
 
         protected override void OnEventCommand(EventCommandEventArgs command)
         {
-            Debug.WriteLine(String.Format("EventSourceTest: Got Command {0}", command.Command));
+            Debug.WriteLine(string.Format("EventSourceTest: Got Command {0}", command.Command));
             Debug.WriteLine("  Args: " + string.Join(", ", command.Arguments.Select((pair) => string.Format("{0} -> {1}", pair.Key, pair.Value))));
         }
 
@@ -74,12 +81,9 @@ namespace SdtEventSources
 
         [Event(15, Keywords = Keywords.HasNoArgs, Level = EventLevel.Informational, Task = Tasks.WorkItem)]
         public void StartTrackingActivity() { WriteEvent(15); }
-
-        // Make sure this is before any #if so it gets a deterministic ID
-        public void EventNoAttributes(string s) { WriteEvent(16, s); }
-
+        
         [Event(17, Keywords = Keywords.Transfer | Keywords.HasStringArgs, Opcode = EventOpcode.Send, Task = Tasks.WorkItem)]
-        unsafe public void LogTaskScheduled(Guid RelatedActivityId, string message)
+        public unsafe void LogTaskScheduled(Guid RelatedActivityId, string message)
         {
             unsafe
             {
@@ -136,13 +140,12 @@ namespace SdtEventSources
         public void EventDateTime(DateTime dt) { WriteEvent(24, dt); }
 
         [Event(25, Keywords = Keywords.HasNoArgs, Level = EventLevel.Informational)]
-        public void EventWithManyTypeArgs(string msg, long l, uint ui, UInt64 ui64,
+        public void EventWithManyTypeArgs(string msg, long l, uint ui, ulong ui64, char c,
                                           byte b, sbyte sb, short sh, ushort ush,
                                           float f, double d, Guid guid)
         {
             if (IsEnabled(EventLevel.Informational, Keywords.HasNoArgs))
-                // 4.5 EventSource does not support "Char" type
-                WriteEvent(25, msg, l, ui, ui64, b, sb, sh, ush, f, d, guid);
+                WriteEvent(25, msg, l, ui, ui64, c, b, sb, sh, ush, f, d, guid);
         }
 
         [Event(26)]
@@ -163,7 +166,7 @@ namespace SdtEventSources
         }
 
         [Event(29, Keywords = Keywords.Transfer | Keywords.HasNoArgs, Level = EventLevel.Informational, Opcode = EventOpcode.Send, Task = Tasks.WorkManyArgs)]
-        public void EventWithXferManyTypeArgs(Guid RelatedActivityId, long l, uint ui, UInt64 ui64, char ch,
+        public void EventWithXferManyTypeArgs(Guid RelatedActivityId, long l, uint ui, ulong ui64, char ch,
                                           byte b, sbyte sb, short sh, ushort ush,
                                           float f, double d, Guid guid)
         {
@@ -225,7 +228,7 @@ namespace SdtEventSources
 
         [NonEvent]
         public void NonEvent()
-        { EventNoAttributes(DateTime.Now.ToString()); }
+        { EventWithString(DateTime.Now.ToString()); }
 
         // The above produces different results on 4.5 vs. 4.5.1. Skip the test for those EventSources
         [Event(32, Level = EventLevel.Informational, Message = "msg={0}, n={1}!")]
@@ -381,5 +384,56 @@ namespace SdtEventSources
         Flag1 = 1,
         Flag2 = 2,
         Flag3 = 4,
+    }
+
+    public sealed class EventSourceNoAttribute : EventSource
+    {
+        [Event(1, Level = EventLevel.Informational)]
+        public void Event0() { WriteEvent(1); }
+
+        [Event(2, Level = EventLevel.Informational)]
+        public void EventI(int arg1) { WriteEvent(2, arg1); }
+
+        [Event(3, Level = EventLevel.Informational)]
+        public void EventII(int arg1, int arg2) { WriteEvent(3, arg1, arg2); }
+
+        [Event(4, Level = EventLevel.Informational)]
+        public void EventIII(int arg1, int arg2, int arg3 = 12) { WriteEvent(4, arg1, arg2, arg3); }
+
+        [Event(5, Level = EventLevel.Informational)]
+        public void EventL(long arg1) { WriteEvent(5, arg1); }
+
+        [Event(6, Level = EventLevel.Informational)]
+        public void EventLL(long arg1, long arg2) { WriteEvent(6, arg1, arg2); }
+
+        [Event(7, Level = EventLevel.Informational)]
+        public void EventLLL(long arg1, long arg2, long arg3) { WriteEvent(7, arg1, arg2, arg3); }
+
+        [Event(8, Level = EventLevel.Informational)]
+        public void EventS(string arg1) { WriteEvent(8, arg1); }
+
+        [Event(9, Level = EventLevel.Informational)]
+        public void EventSS(string arg1, string arg2) { WriteEvent(9, arg1, arg2); }
+
+        [Event(10, Level = EventLevel.Informational)]
+        public void EventSSS(string arg1, string arg2, string arg3) { WriteEvent(10, arg1, arg2, arg3); }
+
+        [Event(11, Level = EventLevel.Informational)]
+        public void EventSI(string arg1, int arg2) { WriteEvent(11, arg1, arg2); }
+
+        [Event(12, Level = EventLevel.Informational)]
+        public void EventSL(string arg1, long arg2) { WriteEvent(12, arg1, arg2); }
+
+        [Event(13, Level = EventLevel.Informational)]
+        public void EventSII(string arg1, int arg2, int arg3) { WriteEvent(13, arg1, arg2, arg3); }
+
+        [Event(14, Level = EventLevel.Informational)]
+        public void Message(string arg1) { WriteEvent(14, arg1); }
+
+        [Event(15, Level = EventLevel.Informational)]
+        public void StartTrackingActivity() { WriteEvent(15); }
+
+        // Make sure this is before any #if so it gets a deterministic ID
+        public void EventNoAttributes(string s) { WriteEvent(16, s); }
     }
 }

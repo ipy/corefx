@@ -2,7 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 
 namespace System.Net.Http.Headers
 {
@@ -30,7 +30,7 @@ namespace System.Net.Http.Headers
         {
             if (product == null)
             {
-                throw new ArgumentNullException("product");
+                throw new ArgumentNullException(nameof(product));
             }
 
             _product = product;
@@ -38,13 +38,13 @@ namespace System.Net.Http.Headers
 
         public ProductInfoHeaderValue(string comment)
         {
-            HeaderUtilities.CheckValidComment(comment, "comment");
+            HeaderUtilities.CheckValidComment(comment, nameof(comment));
             _comment = comment;
         }
 
         private ProductInfoHeaderValue(ProductInfoHeaderValue source)
         {
-            Contract.Requires(source != null);
+            Debug.Assert(source != null);
 
             _product = source._product;
             _comment = source._comment;
@@ -97,7 +97,7 @@ namespace System.Net.Http.Headers
                 input, null, ref index);
             if (index < input.Length)
             {
-                // There is some invalid leftover data. Normaly BaseHeaderParser.TryParseValue would 
+                // There is some invalid leftover data. Normally BaseHeaderParser.TryParseValue would 
                 // handle this, but ProductInfoHeaderValue does not derive from BaseHeaderParser.
                 throw new FormatException(string.Format(System.Globalization.CultureInfo.InvariantCulture, SR.net_http_headers_invalid_value, input.Substring(index)));
             }
@@ -114,7 +114,7 @@ namespace System.Net.Http.Headers
             {
                 if (index < input.Length)
                 {
-                    // There is some invalid leftover data. Normaly BaseHeaderParser.TryParseValue would 
+                    // There is some invalid leftover data. Normally BaseHeaderParser.TryParseValue would 
                     // handle this, but ProductInfoHeaderValue does not derive from BaseHeaderParser.
                     return false;
                 }
@@ -126,7 +126,7 @@ namespace System.Net.Http.Headers
 
         internal static int GetProductInfoLength(string input, int startIndex, out ProductInfoHeaderValue parsedValue)
         {
-            Contract.Requires(startIndex >= 0);
+            Debug.Assert(startIndex >= 0);
 
             parsedValue = null;
 
@@ -137,7 +137,7 @@ namespace System.Net.Http.Headers
 
             int current = startIndex;
 
-            // Caller must remove leading whitespaces.
+            // Caller must remove leading whitespace.
             string comment = null;
             ProductHeaderValue product = null;
             if (input[current] == '(')
@@ -155,7 +155,7 @@ namespace System.Net.Http.Headers
             }
             else
             {
-                // Trailing whitespaces are removed by GetProductLength().
+                // Trailing whitespace is removed by GetProductLength().
                 int productLength = ProductHeaderValue.GetProductLength(input, current, out product);
 
                 if (productLength == 0)

@@ -2,9 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-// This RegexInterpreter class is internal to the RegularExpression package.
-// It executes a block of regular expression codes while consuming
-// input.
+// The RegexInterpreter executes a block of regular expression codes
+// while consuming input.
 
 using System.Diagnostics;
 using System.Globalization;
@@ -20,7 +19,7 @@ namespace System.Text.RegularExpressions
         private bool _rightToLeft;
         private bool _caseInsensitive;
 
-        internal RegexInterpreter(RegexCode code, CultureInfo culture)
+        public RegexInterpreter(RegexCode code, CultureInfo culture)
         {
             Debug.Assert(code != null, "code cannot be null.");
             Debug.Assert(culture != null, "culture cannot be null.");
@@ -31,18 +30,13 @@ namespace System.Text.RegularExpressions
 
         protected override void InitTrackCount()
         {
-            _runtrackcount = _code._trackcount;
-        }
-
-        private void Advance()
-        {
-            Advance(0);
+            runtrackcount = _code.TrackCount;
         }
 
         private void Advance(int i)
         {
             _codepos += (i + 1);
-            SetOperator(_code._codes[_codepos]);
+            SetOperator(_code.Codes[_codepos]);
         }
 
         private void Goto(int newpos)
@@ -51,80 +45,80 @@ namespace System.Text.RegularExpressions
             if (newpos < _codepos)
                 EnsureStorage();
 
-            SetOperator(_code._codes[newpos]);
+            SetOperator(_code.Codes[newpos]);
             _codepos = newpos;
         }
 
         private void Textto(int newpos)
         {
-            _runtextpos = newpos;
+            runtextpos = newpos;
         }
 
         private void Trackto(int newpos)
         {
-            _runtrackpos = _runtrack.Length - newpos;
+            runtrackpos = runtrack.Length - newpos;
         }
 
         private int Textstart()
         {
-            return _runtextstart;
+            return runtextstart;
         }
 
         private int Textpos()
         {
-            return _runtextpos;
+            return runtextpos;
         }
 
         // push onto the backtracking stack
         private int Trackpos()
         {
-            return _runtrack.Length - _runtrackpos;
+            return runtrack.Length - runtrackpos;
         }
 
         private void TrackPush()
         {
-            _runtrack[--_runtrackpos] = _codepos;
+            runtrack[--runtrackpos] = _codepos;
         }
 
         private void TrackPush(int I1)
         {
-            _runtrack[--_runtrackpos] = I1;
-            _runtrack[--_runtrackpos] = _codepos;
+            runtrack[--runtrackpos] = I1;
+            runtrack[--runtrackpos] = _codepos;
         }
 
         private void TrackPush(int I1, int I2)
         {
-            _runtrack[--_runtrackpos] = I1;
-            _runtrack[--_runtrackpos] = I2;
-            _runtrack[--_runtrackpos] = _codepos;
+            runtrack[--runtrackpos] = I1;
+            runtrack[--runtrackpos] = I2;
+            runtrack[--runtrackpos] = _codepos;
         }
 
         private void TrackPush(int I1, int I2, int I3)
         {
-            _runtrack[--_runtrackpos] = I1;
-            _runtrack[--_runtrackpos] = I2;
-            _runtrack[--_runtrackpos] = I3;
-            _runtrack[--_runtrackpos] = _codepos;
+            runtrack[--runtrackpos] = I1;
+            runtrack[--runtrackpos] = I2;
+            runtrack[--runtrackpos] = I3;
+            runtrack[--runtrackpos] = _codepos;
         }
 
         private void TrackPush2(int I1)
         {
-            _runtrack[--_runtrackpos] = I1;
-            _runtrack[--_runtrackpos] = -_codepos;
+            runtrack[--runtrackpos] = I1;
+            runtrack[--runtrackpos] = -_codepos;
         }
 
         private void TrackPush2(int I1, int I2)
         {
-            _runtrack[--_runtrackpos] = I1;
-            _runtrack[--_runtrackpos] = I2;
-            _runtrack[--_runtrackpos] = -_codepos;
+            runtrack[--runtrackpos] = I1;
+            runtrack[--runtrackpos] = I2;
+            runtrack[--runtrackpos] = -_codepos;
         }
 
         private void Backtrack()
         {
-            int newpos = _runtrack[_runtrackpos++];
+            int newpos = runtrack[runtrackpos++];
 #if DEBUG
-            if (_runmatch.Debug)
+            if (runmatch.Debug)
             {
                 if (newpos < 0)
                     Debug.WriteLine("       Backtracking (back2) to code position " + (-newpos));
@@ -136,11 +130,11 @@ namespace System.Text.RegularExpressions
             if (newpos < 0)
             {
                 newpos = -newpos;
-                SetOperator(_code._codes[newpos] | RegexCode.Back2);
+                SetOperator(_code.Codes[newpos] | RegexCode.Back2);
             }
             else
             {
-                SetOperator(_code._codes[newpos] | RegexCode.Back);
+                SetOperator(_code.Codes[newpos] | RegexCode.Back);
             }
 
             // When branching backward, ensure storage
@@ -159,13 +153,13 @@ namespace System.Text.RegularExpressions
 
         private void TrackPop()
         {
-            _runtrackpos++;
+            runtrackpos++;
         }
 
         // pop framesize items from the backtracking stack
         private void TrackPop(int framesize)
         {
-            _runtrackpos += framesize;
+            runtrackpos += framesize;
         }
 
         // Technically we are actually peeking at items already popped.  So if you want to
@@ -174,36 +168,36 @@ namespace System.Text.RegularExpressions
         // TrackPeek();
         private int TrackPeek()
         {
-            return _runtrack[_runtrackpos - 1];
+            return runtrack[runtrackpos - 1];
         }
 
         // get the ith element down on the backtracking stack
         private int TrackPeek(int i)
         {
-            return _runtrack[_runtrackpos - i - 1];
+            return runtrack[runtrackpos - i - 1];
         }
 
         // Push onto the grouping stack
         private void StackPush(int I1)
         {
-            _runstack[--_runstackpos] = I1;
+            runstack[--runstackpos] = I1;
         }
 
         private void StackPush(int I1, int I2)
         {
-            _runstack[--_runstackpos] = I1;
-            _runstack[--_runstackpos] = I2;
+            runstack[--runstackpos] = I1;
+            runstack[--runstackpos] = I2;
         }
 
         private void StackPop()
         {
-            _runstackpos++;
+            runstackpos++;
         }
 
         // pop framesize items from the grouping stack
         private void StackPop(int framesize)
         {
-            _runstackpos += framesize;
+            runstackpos += framesize;
         }
 
         // Technically we are actually peeking at items already popped.  So if you want to
@@ -212,13 +206,13 @@ namespace System.Text.RegularExpressions
         // StackPeek();
         private int StackPeek()
         {
-            return _runstack[_runstackpos - 1];
+            return runstack[runstackpos - 1];
         }
 
         // get the ith element down on the grouping stack
         private int StackPeek(int i)
         {
-            return _runstack[_runstackpos - i - 1];
+            return runstack[runstackpos - i - 1];
         }
 
         private int Operator()
@@ -228,17 +222,17 @@ namespace System.Text.RegularExpressions
 
         private int Operand(int i)
         {
-            return _code._codes[_codepos + i + 1];
+            return _code.Codes[_codepos + i + 1];
         }
 
         private int Leftchars()
         {
-            return _runtextpos - _runtextbeg;
+            return runtextpos - runtextbeg;
         }
 
         private int Rightchars()
         {
-            return _runtextend - _runtextpos;
+            return runtextend - runtextpos;
         }
 
         private int Bump()
@@ -248,46 +242,46 @@ namespace System.Text.RegularExpressions
 
         private int Forwardchars()
         {
-            return _rightToLeft ? _runtextpos - _runtextbeg : _runtextend - _runtextpos;
+            return _rightToLeft ? runtextpos - runtextbeg : runtextend - runtextpos;
         }
 
         private char Forwardcharnext()
         {
-            char ch = (_rightToLeft ? _runtext[--_runtextpos] : _runtext[_runtextpos++]);
+            char ch = (_rightToLeft ? runtext[--runtextpos] : runtext[runtextpos++]);
 
             return (_caseInsensitive ? _culture.TextInfo.ToLower(ch) : ch);
         }
 
-        private bool Stringmatch(String str)
+        private bool Stringmatch(string str)
         {
             int c;
             int pos;
 
             if (!_rightToLeft)
             {
-                if (_runtextend - _runtextpos < (c = str.Length))
+                if (runtextend - runtextpos < (c = str.Length))
                     return false;
 
-                pos = _runtextpos + c;
+                pos = runtextpos + c;
             }
             else
             {
-                if (_runtextpos - _runtextbeg < (c = str.Length))
+                if (runtextpos - runtextbeg < (c = str.Length))
                     return false;
 
-                pos = _runtextpos;
+                pos = runtextpos;
             }
 
             if (!_caseInsensitive)
             {
                 while (c != 0)
-                    if (str[--c] != _runtext[--pos])
+                    if (str[--c] != runtext[--pos])
                         return false;
             }
             else
             {
                 while (c != 0)
-                    if (str[--c] != _culture.TextInfo.ToLower(_runtext[--pos]))
+                    if (str[--c] != _culture.TextInfo.ToLower(runtext[--pos]))
                         return false;
             }
 
@@ -296,7 +290,7 @@ namespace System.Text.RegularExpressions
                 pos += str.Length;
             }
 
-            _runtextpos = pos;
+            runtextpos = pos;
 
             return true;
         }
@@ -309,17 +303,17 @@ namespace System.Text.RegularExpressions
 
             if (!_rightToLeft)
             {
-                if (_runtextend - _runtextpos < len)
+                if (runtextend - runtextpos < len)
                     return false;
 
-                pos = _runtextpos + len;
+                pos = runtextpos + len;
             }
             else
             {
-                if (_runtextpos - _runtextbeg < len)
+                if (runtextpos - runtextbeg < len)
                     return false;
 
-                pos = _runtextpos;
+                pos = runtextpos;
             }
             cmpos = index + len;
 
@@ -328,13 +322,13 @@ namespace System.Text.RegularExpressions
             if (!_caseInsensitive)
             {
                 while (c-- != 0)
-                    if (_runtext[--cmpos] != _runtext[--pos])
+                    if (runtext[--cmpos] != runtext[--pos])
                         return false;
             }
             else
             {
                 while (c-- != 0)
-                    if (_culture.TextInfo.ToLower(_runtext[--cmpos]) != _culture.TextInfo.ToLower(_runtext[--pos]))
+                    if (_culture.TextInfo.ToLower(runtext[--cmpos]) != _culture.TextInfo.ToLower(runtext[--pos]))
                         return false;
             }
 
@@ -343,94 +337,91 @@ namespace System.Text.RegularExpressions
                 pos += len;
             }
 
-            _runtextpos = pos;
+            runtextpos = pos;
 
             return true;
         }
 
         private void Backwardnext()
         {
-            _runtextpos += _rightToLeft ? 1 : -1;
+            runtextpos += _rightToLeft ? 1 : -1;
         }
 
         private char CharAt(int j)
         {
-            return _runtext[j];
+            return runtext[j];
         }
 
         protected override bool FindFirstChar()
         {
-            int i;
-            String set;
-
-            if (0 != (_code._anchors & (RegexFCD.Beginning | RegexFCD.Start | RegexFCD.EndZ | RegexFCD.End)))
+            if (0 != (_code.Anchors & (RegexFCD.Beginning | RegexFCD.Start | RegexFCD.EndZ | RegexFCD.End)))
             {
-                if (!_code._rightToLeft)
+                if (!_code.RightToLeft)
                 {
-                    if ((0 != (_code._anchors & RegexFCD.Beginning) && _runtextpos > _runtextbeg) ||
-                        (0 != (_code._anchors & RegexFCD.Start) && _runtextpos > _runtextstart))
+                    if ((0 != (_code.Anchors & RegexFCD.Beginning) && runtextpos > runtextbeg) ||
+                        (0 != (_code.Anchors & RegexFCD.Start) && runtextpos > runtextstart))
                     {
-                        _runtextpos = _runtextend;
+                        runtextpos = runtextend;
                         return false;
                     }
-                    if (0 != (_code._anchors & RegexFCD.EndZ) && _runtextpos < _runtextend - 1)
+                    if (0 != (_code.Anchors & RegexFCD.EndZ) && runtextpos < runtextend - 1)
                     {
-                        _runtextpos = _runtextend - 1;
+                        runtextpos = runtextend - 1;
                     }
-                    else if (0 != (_code._anchors & RegexFCD.End) && _runtextpos < _runtextend)
+                    else if (0 != (_code.Anchors & RegexFCD.End) && runtextpos < runtextend)
                     {
-                        _runtextpos = _runtextend;
+                        runtextpos = runtextend;
                     }
                 }
                 else
                 {
-                    if ((0 != (_code._anchors & RegexFCD.End) && _runtextpos < _runtextend) ||
-                        (0 != (_code._anchors & RegexFCD.EndZ) && (_runtextpos < _runtextend - 1 ||
-                                                               (_runtextpos == _runtextend - 1 && CharAt(_runtextpos) != '\n'))) ||
-                        (0 != (_code._anchors & RegexFCD.Start) && _runtextpos < _runtextstart))
+                    if ((0 != (_code.Anchors & RegexFCD.End) && runtextpos < runtextend) ||
+                        (0 != (_code.Anchors & RegexFCD.EndZ) && (runtextpos < runtextend - 1 ||
+                                                               (runtextpos == runtextend - 1 && CharAt(runtextpos) != '\n'))) ||
+                        (0 != (_code.Anchors & RegexFCD.Start) && runtextpos < runtextstart))
                     {
-                        _runtextpos = _runtextbeg;
+                        runtextpos = runtextbeg;
                         return false;
                     }
-                    if (0 != (_code._anchors & RegexFCD.Beginning) && _runtextpos > _runtextbeg)
+                    if (0 != (_code.Anchors & RegexFCD.Beginning) && runtextpos > runtextbeg)
                     {
-                        _runtextpos = _runtextbeg;
+                        runtextpos = runtextbeg;
                     }
                 }
 
-                if (_code._bmPrefix != null)
+                if (_code.BMPrefix != null)
                 {
-                    return _code._bmPrefix.IsMatch(_runtext, _runtextpos, _runtextbeg, _runtextend);
+                    return _code.BMPrefix.IsMatch(runtext, runtextpos, runtextbeg, runtextend);
                 }
 
                 return true; // found a valid start or end anchor
             }
-            else if (_code._bmPrefix != null)
+            else if (_code.BMPrefix != null)
             {
-                _runtextpos = _code._bmPrefix.Scan(_runtext, _runtextpos, _runtextbeg, _runtextend);
+                runtextpos = _code.BMPrefix.Scan(runtext, runtextpos, runtextbeg, runtextend);
 
-                if (_runtextpos == -1)
+                if (runtextpos == -1)
                 {
-                    _runtextpos = (_code._rightToLeft ? _runtextbeg : _runtextend);
+                    runtextpos = (_code.RightToLeft ? runtextbeg : runtextend);
                     return false;
                 }
 
                 return true;
             }
-            else if (_code._fcPrefix == null)
+            else if (_code.FCPrefix == null)
             {
                 return true;
             }
 
-            _rightToLeft = _code._rightToLeft;
-            _caseInsensitive = _code._fcPrefix.CaseInsensitive;
-            set = _code._fcPrefix.Prefix;
+            _rightToLeft = _code.RightToLeft;
+            _caseInsensitive = _code.FCPrefix.GetValueOrDefault().CaseInsensitive;
+            string set = _code.FCPrefix.GetValueOrDefault().Prefix;
 
             if (RegexCharClass.IsSingleton(set))
             {
                 char ch = RegexCharClass.SingletonChar(set);
 
-                for (i = Forwardchars(); i > 0; i--)
+                for (int i = Forwardchars(); i > 0; i--)
                 {
                     if (ch == Forwardcharnext())
                     {
@@ -441,7 +432,7 @@ namespace System.Text.RegularExpressions
             }
             else
             {
-                for (i = Forwardchars(); i > 0; i--)
+                for (int i = Forwardchars(); i > 0; i--)
                 {
                     if (RegexCharClass.CharInClass(Forwardcharnext(), set))
                     {
@@ -450,6 +441,7 @@ namespace System.Text.RegularExpressions
                     }
                 }
             }
+            
             return false;
         }
 
@@ -457,10 +449,18 @@ namespace System.Text.RegularExpressions
         {
             Goto(0);
 
+            int advance = -1;
             for (; ;)
             {
+                if (advance >= 0)
+                {
+                    // https://github.com/dotnet/coreclr/pull/14850#issuecomment-342256447
+                    // Single common Advance call to reduce method size; and single method inline point
+                    Advance(advance);
+                    advance = -1;
+                }
 #if DEBUG
-                if (_runmatch.Debug)
+                if (runmatch.Debug)
                 {
                     DumpState();
                 }
@@ -483,12 +483,12 @@ namespace System.Text.RegularExpressions
                     case RegexCode.Testref:
                         if (!IsMatched(Operand(0)))
                             break;
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Lazybranch:
                         TrackPush(Textpos());
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Lazybranch | RegexCode.Back:
@@ -500,13 +500,13 @@ namespace System.Text.RegularExpressions
                     case RegexCode.Setmark:
                         StackPush(Textpos());
                         TrackPush();
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Nullmark:
                         StackPush(-1);
                         TrackPush();
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Setmark | RegexCode.Back:
@@ -518,7 +518,7 @@ namespace System.Text.RegularExpressions
                         StackPop();
                         TrackPush(StackPeek());
                         Textto(StackPeek());
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Getmark | RegexCode.Back:
@@ -536,7 +536,7 @@ namespace System.Text.RegularExpressions
                             Capture(Operand(0), StackPeek(), Textpos());
                         TrackPush(StackPeek());
 
-                        Advance(2);
+                        advance = 2;
 
                         continue;
 
@@ -565,7 +565,7 @@ namespace System.Text.RegularExpressions
                             else
                             {                                  // Empty match -> straight now
                                 TrackPush2(StackPeek());            // Save old mark
-                                Advance(1);                         // Straight
+                                advance = 1;                        // Straight
                             }
                             continue;
                         }
@@ -575,7 +575,7 @@ namespace System.Text.RegularExpressions
                         StackPop();
                         Textto(TrackPeek(1));                       // Recall position
                         TrackPush2(TrackPeek());                    // Save old mark
-                        Advance(1);                                 // Straight
+                        advance = 1;                                // Straight
                         continue;
 
                     case RegexCode.Branchmark | RegexCode.Back2:
@@ -609,7 +609,7 @@ namespace System.Text.RegularExpressions
 
                                 TrackPush2(StackPeek());                // Save old mark
                             }
-                            Advance(1);
+                            advance = 1;
                             continue;
                         }
 
@@ -642,13 +642,13 @@ namespace System.Text.RegularExpressions
                     case RegexCode.Setcount:
                         StackPush(Textpos(), Operand(0));
                         TrackPush();
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Nullcount:
                         StackPush(-1, Operand(0));
                         TrackPush();
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Setcount | RegexCode.Back:
@@ -672,7 +672,7 @@ namespace System.Text.RegularExpressions
                             if (count >= Operand(1) || (matched == 0 && count >= 0))
                             {                                   // Max loops or empty match -> straight now
                                 TrackPush2(mark, count);            // Save old mark, count
-                                Advance(2);                         // Straight
+                                advance = 2;                        // Straight
                             }
                             else
                             {                                  // Nonempty match -> count+loop now
@@ -695,7 +695,7 @@ namespace System.Text.RegularExpressions
                         {                         // Positive -> can go straight
                             Textto(StackPeek());                        // Zap to mark
                             TrackPush2(TrackPeek(), StackPeek(1) - 1);  // Save old mark, old count
-                            Advance(2);                                 // Straight
+                            advance = 2;                                // Straight
                             continue;
                         }
                         StackPush(TrackPeek(), StackPeek(1) - 1);       // recall old mark, old count
@@ -728,7 +728,7 @@ namespace System.Text.RegularExpressions
                             else
                             {                                  // Nonneg count -> straight now
                                 TrackPush(mark, count, Textpos());  // Save mark, count, position
-                                Advance(2);                         // Straight
+                                advance = 2;                        // Straight
                             }
                             continue;
                         }
@@ -772,7 +772,7 @@ namespace System.Text.RegularExpressions
                     case RegexCode.Setjump:
                         StackPush(Trackpos(), Crawlpos());
                         TrackPush();
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Setjump | RegexCode.Back:
@@ -798,7 +798,7 @@ namespace System.Text.RegularExpressions
                         StackPop(2);
                         Trackto(StackPeek());
                         TrackPush(StackPeek(1));
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Forejump | RegexCode.Back:
@@ -814,90 +814,90 @@ namespace System.Text.RegularExpressions
                     case RegexCode.Bol:
                         if (Leftchars() > 0 && CharAt(Textpos() - 1) != '\n')
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Eol:
                         if (Rightchars() > 0 && CharAt(Textpos()) != '\n')
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Boundary:
-                        if (!IsBoundary(Textpos(), _runtextbeg, _runtextend))
+                        if (!IsBoundary(Textpos(), runtextbeg, runtextend))
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Nonboundary:
-                        if (IsBoundary(Textpos(), _runtextbeg, _runtextend))
+                        if (IsBoundary(Textpos(), runtextbeg, runtextend))
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.ECMABoundary:
-                        if (!IsECMABoundary(Textpos(), _runtextbeg, _runtextend))
+                        if (!IsECMABoundary(Textpos(), runtextbeg, runtextend))
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.NonECMABoundary:
-                        if (IsECMABoundary(Textpos(), _runtextbeg, _runtextend))
+                        if (IsECMABoundary(Textpos(), runtextbeg, runtextend))
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Beginning:
                         if (Leftchars() > 0)
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.Start:
                         if (Textpos() != Textstart())
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.EndZ:
                         if (Rightchars() > 1 || Rightchars() == 1 && CharAt(Textpos()) != '\n')
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.End:
                         if (Rightchars() > 0)
                             break;
-                        Advance();
+                        advance = 0;
                         continue;
 
                     case RegexCode.One:
                         if (Forwardchars() < 1 || Forwardcharnext() != (char)Operand(0))
                             break;
 
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Notone:
                         if (Forwardchars() < 1 || Forwardcharnext() == (char)Operand(0))
                             break;
 
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Set:
-                        if (Forwardchars() < 1 || !RegexCharClass.CharInClass(Forwardcharnext(), _code._strings[Operand(0)]))
+                        if (Forwardchars() < 1 || !RegexCharClass.CharInClass(Forwardcharnext(), _code.Strings[Operand(0)]))
                             break;
 
-                        Advance(1);
+                        advance = 1;
                         continue;
 
                     case RegexCode.Multi:
                         {
-                            if (!Stringmatch(_code._strings[Operand(0)]))
+                            if (!Stringmatch(_code.Strings[Operand(0)]))
                                 break;
 
-                            Advance(1);
+                            advance = 1;
                             continue;
                         }
 
@@ -912,11 +912,11 @@ namespace System.Text.RegularExpressions
                             }
                             else
                             {
-                                if ((_runregex._roptions & RegexOptions.ECMAScript) == 0)
+                                if ((runregex.roptions & RegexOptions.ECMAScript) == 0)
                                     break;
                             }
 
-                            Advance(1);
+                            advance = 1;
                             continue;
                         }
 
@@ -933,7 +933,7 @@ namespace System.Text.RegularExpressions
                                 if (Forwardcharnext() != ch)
                                     goto BreakBackward;
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -950,7 +950,7 @@ namespace System.Text.RegularExpressions
                                 if (Forwardcharnext() == ch)
                                     goto BreakBackward;
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -961,13 +961,13 @@ namespace System.Text.RegularExpressions
                             if (Forwardchars() < c)
                                 break;
 
-                            String set = _code._strings[Operand(0)];
+                            string set = _code.Strings[Operand(0)];
 
                             while (c-- > 0)
                                 if (!RegexCharClass.CharInClass(Forwardcharnext(), set))
                                     goto BreakBackward;
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -993,7 +993,7 @@ namespace System.Text.RegularExpressions
                             if (c > i)
                                 TrackPush(c - i - 1, Textpos() - Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1019,7 +1019,7 @@ namespace System.Text.RegularExpressions
                             if (c > i)
                                 TrackPush(c - i - 1, Textpos() - Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1030,7 +1030,7 @@ namespace System.Text.RegularExpressions
                             if (c > Forwardchars())
                                 c = Forwardchars();
 
-                            String set = _code._strings[Operand(0)];
+                            string set = _code.Strings[Operand(0)];
                             int i;
 
                             for (i = c; i > 0; i--)
@@ -1045,7 +1045,7 @@ namespace System.Text.RegularExpressions
                             if (c > i)
                                 TrackPush(c - i - 1, Textpos() - Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1061,7 +1061,7 @@ namespace System.Text.RegularExpressions
                             if (i > 0)
                                 TrackPush(i - 1, pos - Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1076,7 +1076,7 @@ namespace System.Text.RegularExpressions
                             if (i > 0)
                                 TrackPush(i - 1, pos - Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1091,7 +1091,7 @@ namespace System.Text.RegularExpressions
                             if (c > 0)
                                 TrackPush(c - 1, Textpos());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1105,7 +1105,7 @@ namespace System.Text.RegularExpressions
                             if (c > 0)
                                 TrackPush(c - 1, Textpos());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1123,7 +1123,7 @@ namespace System.Text.RegularExpressions
                             if (i > 0)
                                 TrackPush(i - 1, pos + Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1141,7 +1141,7 @@ namespace System.Text.RegularExpressions
                             if (i > 0)
                                 TrackPush(i - 1, pos + Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 
@@ -1151,7 +1151,7 @@ namespace System.Text.RegularExpressions
                             int pos = TrackPeek(1);
                             Textto(pos);
 
-                            if (!RegexCharClass.CharInClass(Forwardcharnext(), _code._strings[Operand(0)]))
+                            if (!RegexCharClass.CharInClass(Forwardcharnext(), _code.Strings[Operand(0)]))
                                 break;
 
                             int i = TrackPeek();
@@ -1159,7 +1159,7 @@ namespace System.Text.RegularExpressions
                             if (i > 0)
                                 TrackPush(i - 1, pos + Bump());
 
-                            Advance(2);
+                            advance = 2;
                             continue;
                         }
 

@@ -9,18 +9,13 @@ namespace System.Diagnostics
     /// <summary>
     /// This is the basic API to 'hook' parts of the framework.   It is like an EventSource
     /// (which can also write object), but is intended to log complex objects that can't be serialized.
+    /// 
+    /// Please See the DiagnosticSource Users Guide 
+    /// https://github.com/dotnet/corefx/blob/master/src/System.Diagnostics.DiagnosticSource/src/DiagnosticSourceUsersGuide.md
+    /// for instructions on its use.  
     /// </summary>
-    public abstract class DiagnosticSource
-    {
-#if false
-        /// <summary>
-        /// The NotificationSource that you should be writing to by default.  This is what
-        /// most of the class library does.   Data written here goes to DefaultListener
-        /// which dispatches to all its subscribers.  
-        /// </summary>
-        // public static DiagnosticSource DefaultSource { get { return DiagnosticListener.DefaultListener; } }
-#endif 
-
+    public abstract partial class DiagnosticSource
+    { 
         /// <summary>
         /// Write is a generic way of logging complex payloads.  Each notification
         /// is given a name, which identifies it as well as a object (typically an anonymous type)
@@ -36,7 +31,7 @@ namespace System.Diagnostics
         /// </summary>
         /// <param name="name">The name of the event being written.</param>
         /// <param name="value">An object that represent the value being passed as a payload for the event.
-        /// This is often a anonymous type which contains several sub-values.</param>
+        /// This is often an anonymous type which contains several sub-values.</param>
         public abstract void Write(string name, object value);
 
         /// <summary>
@@ -47,5 +42,24 @@ namespace System.Diagnostics
         /// </summary>
         /// <param name="name">The name of the event being written.</param>
         public abstract bool IsEnabled(string name);
+
+        /// <summary>
+        /// Optional: if there is expensive setup for the notification, you can call IsEnabled
+        /// before doing this setup with context 
+        /// </summary>
+        /// <param name="name">The name of the event being written.</param>
+        /// <param name="arg1">An object that represents the additional context for IsEnabled.
+        /// Consumers should expect to receive null which may indicate that producer called pure 
+        /// IsEnabled(string)  to check if consumer wants to get notifications for such events at all. 
+        /// Based on it, producer may call IsEnabled(string, object, object) again with non-null context </param>
+        /// <param name="arg2">Optional. An object that represents the additional context for IsEnabled. 
+        /// Null by default. Consumers should expect to receive null which may indicate that producer 
+        /// called pure IsEnabled(string) or producer passed all necessary context in arg1</param>
+        /// <seealso cref="IsEnabled(string)"/>
+        public virtual bool IsEnabled(string name, object arg1, object arg2 = null)
+        {
+            return IsEnabled(name);
+        }
+
     }
 }

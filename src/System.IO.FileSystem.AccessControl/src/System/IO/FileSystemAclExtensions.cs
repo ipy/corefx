@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using Microsoft.Win32.SafeHandles;
-using System.Diagnostics.Contracts;
 using System.Security.AccessControl;
 using System;
 
@@ -24,10 +23,9 @@ namespace System.IO
         public static void SetAccessControl(this DirectoryInfo directoryInfo, DirectorySecurity directorySecurity)
         {
             if (directorySecurity == null)
-                throw new ArgumentNullException("directorySecurity");
-            Contract.EndContractBlock();
+                throw new ArgumentNullException(nameof(directorySecurity));
 
-            String fullPath = Path.GetFullPath(directoryInfo.FullName);
+            string fullPath = Path.GetFullPath(directoryInfo.FullName);
             directorySecurity.Persist(fullPath);
         }
 
@@ -44,10 +42,9 @@ namespace System.IO
         public static void SetAccessControl(this FileInfo fileInfo, FileSecurity fileSecurity)
         {
             if (fileSecurity == null)
-                throw new ArgumentNullException("fileSecurity");
-            Contract.EndContractBlock();
+                throw new ArgumentNullException(nameof(fileSecurity));
 
-            String fullPath = Path.GetFullPath(fileInfo.FullName);
+            string fullPath = Path.GetFullPath(fileInfo.FullName);
             // Appropriate security check should be done for us by FileSecurity.
             fileSecurity.Persist(fullPath);
         }
@@ -62,14 +59,12 @@ namespace System.IO
             return new FileSecurity(handle, fileStream.Name, AccessControlSections.Access | AccessControlSections.Owner | AccessControlSections.Group);
         }
 
-        [System.Security.SecuritySafeCritical]  // auto-generated
         public static void SetAccessControl(this FileStream fileStream, FileSecurity fileSecurity)
         {
             SafeFileHandle handle = fileStream.SafeFileHandle;
 
             if (fileSecurity == null)
-                throw new ArgumentNullException("fileSecurity");
-            Contract.EndContractBlock();
+                throw new ArgumentNullException(nameof(fileSecurity));
 
             if (handle.IsClosed)
             {

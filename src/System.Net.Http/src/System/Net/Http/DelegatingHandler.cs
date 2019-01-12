@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
-using System.Diagnostics.Contracts;
 using System.Threading.Tasks;
 
 namespace System.Net.Http
@@ -27,11 +26,11 @@ namespace System.Net.Http
             {
                 if (value == null)
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
                 CheckDisposedOrStarted();
 
-                if (HttpEventSource.Log.IsEnabled()) HttpEventSource.Associate(this, value);
+                if (NetEventSource.IsEnabled) NetEventSource.Associate(this, value);
                 _innerHandler = value;
             }
         }
@@ -49,7 +48,7 @@ namespace System.Net.Http
         {
             if (request == null)
             {
-                throw new ArgumentNullException("request", SR.net_http_handler_norequest);
+                throw new ArgumentNullException(nameof(request), SR.net_http_handler_norequest);
             }
             SetOperationStarted();
             return _innerHandler.SendAsync(request, cancellationToken);

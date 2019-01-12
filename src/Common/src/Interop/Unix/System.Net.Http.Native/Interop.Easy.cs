@@ -33,6 +33,9 @@ internal static partial class Interop
         [DllImport(Libraries.HttpNative, EntryPoint = "HttpNative_EasyGetInfoPointer")]
         public static extern CURLcode EasyGetInfoPointer(IntPtr handle, CURLINFO info, out IntPtr value);
 
+        [DllImport(Libraries.HttpNative, EntryPoint = "HttpNative_EasyGetInfoPointer")]
+        public static extern CURLcode EasyGetInfoPointer(SafeCurlHandle handle, CURLINFO info, out IntPtr value);
+
         [DllImport(Libraries.HttpNative, EntryPoint = "HttpNative_EasyGetInfoLong")]
         public static extern CURLcode EasyGetInfoLong(SafeCurlHandle handle, CURLINFO info, out long value);
 
@@ -47,6 +50,8 @@ internal static partial class Interop
         public delegate ulong ReadWriteCallback(IntPtr buffer, ulong bufferSize, ulong nitems, IntPtr userPointer);
 
         public delegate CURLcode SslCtxCallback(IntPtr curl, IntPtr sslCtx, IntPtr userPointer);
+
+        public delegate void DebugCallback(IntPtr curl, CurlInfoType type, IntPtr data, ulong size, IntPtr userPointer);
 
         [DllImport(Libraries.HttpNative, EntryPoint = "HttpNative_RegisterSeekCallback")]
         public static extern void RegisterSeekCallback(
@@ -70,17 +75,26 @@ internal static partial class Interop
             IntPtr userPointer,
             ref SafeCallbackHandle callbackHandle);
 
+        [DllImport(Libraries.HttpNative, EntryPoint = "HttpNative_RegisterDebugCallback")]
+        public static extern CURLcode RegisterDebugCallback(
+            SafeCurlHandle curl,
+            DebugCallback callback,
+            IntPtr userPointer,
+            ref SafeCallbackHandle callbackHandle);
+
         [DllImport(Libraries.HttpNative, EntryPoint = "HttpNative_FreeCallbackHandle")]
         private static extern void FreeCallbackHandle(IntPtr handle);
 
         // Curl options are of the format <type base> + <n>
         private const int CurlOptionLongBase = 0;
         private const int CurlOptionObjectPointBase = 10000;
+        private const int CurlOptionOffTBase = 30000;
 
         // Enum for constants defined for the enum CURLoption in curl.h
         internal enum CURLoption
         {
             CURLOPT_INFILESIZE = CurlOptionLongBase + 14,
+            CURLOPT_SSLVERSION = CurlOptionLongBase + 32,
             CURLOPT_VERBOSE = CurlOptionLongBase + 41,
             CURLOPT_NOBODY = CurlOptionLongBase + 44,
             CURLOPT_UPLOAD = CurlOptionLongBase + 46,
@@ -88,11 +102,18 @@ internal static partial class Interop
             CURLOPT_FOLLOWLOCATION = CurlOptionLongBase + 52,
             CURLOPT_PROXYPORT = CurlOptionLongBase + 59,
             CURLOPT_POSTFIELDSIZE = CurlOptionLongBase + 60,
+            CURLOPT_SSL_VERIFYPEER = CurlOptionLongBase + 64,
             CURLOPT_MAXREDIRS = CurlOptionLongBase + 68,
+            CURLOPT_SSL_VERIFYHOST = CurlOptionLongBase + 81,
             CURLOPT_HTTP_VERSION = CurlOptionLongBase + 84,
+            CURLOPT_DNS_CACHE_TIMEOUT = CurlOptionLongBase + 92,
             CURLOPT_NOSIGNAL = CurlOptionLongBase + 99,
             CURLOPT_PROXYTYPE = CurlOptionLongBase + 101,
             CURLOPT_HTTPAUTH = CurlOptionLongBase + 107,
+            CURLOPT_TCP_NODELAY = CurlOptionLongBase + 121,
+            CURLOPT_TCP_KEEPALIVE = CurlOptionLongBase + 213,
+            CURLOPT_CONNECTTIMEOUT_MS = CurlOptionLongBase + 156,
+            CURLOPT_ADDRESS_SCOPE = CurlOptionLongBase + 171,
             CURLOPT_PROTOCOLS = CurlOptionLongBase + 181,
             CURLOPT_REDIR_PROTOCOLS = CurlOptionLongBase + 182,
 
@@ -107,6 +128,13 @@ internal static partial class Interop
             CURLOPT_COPYPOSTFIELDS = CurlOptionObjectPointBase + 165,
             CURLOPT_USERNAME = CurlOptionObjectPointBase + 173,
             CURLOPT_PASSWORD = CurlOptionObjectPointBase + 174,
+            CURLOPT_CAPATH = CurlOptionObjectPointBase + 97,
+            CURLOPT_PROXY_CAPATH = CurlOptionObjectPointBase + 247,
+            CURLOPT_CAINFO = CurlOptionObjectPointBase + 65,
+            CURLOPT_PROXY_CAINFO = CurlOptionObjectPointBase + 246,
+
+            CURLOPT_INFILESIZE_LARGE = CurlOptionOffTBase + 115,
+            CURLOPT_POSTFIELDSIZE_LARGE = CurlOptionOffTBase + 120,
         }
 
         internal enum ReadWriteFunction
@@ -126,12 +154,25 @@ internal static partial class Interop
             CURL_HTTP_VERSION_NONE = 0,
             CURL_HTTP_VERSION_1_0 = 1,
             CURL_HTTP_VERSION_1_1 = 2,
-            CURL_HTTP_VERSION_2_0 = 3,
+            CURL_HTTP_VERSION_2TLS = 4,
+        };
+
+        // Enum for constants defined for CURL_SSLVERSION
+        internal enum CurlSslVersion
+        {
+            CURL_SSLVERSION_TLSv1 = 1,   /* TLS 1.x */
+            CURL_SSLVERSION_SSLv2 = 2,   /* SSL 2 */
+            CURL_SSLVERSION_SSLv3 = 3,   /* SSL 3 */
+            CURL_SSLVERSION_TLSv1_0 = 4, /* TLS 1.0 */
+            CURL_SSLVERSION_TLSv1_1 = 5, /* TLS 1.1 */
+            CURL_SSLVERSION_TLSv1_2 = 6, /* TLS 1.2 */
+            CURL_SSLVERSION_TLSv1_3 = 7, /* TLS 1.3 */
         };
 
         // Enum for constants defined for the enum CURLINFO in curl.h
         internal enum CURLINFO
         {
+            CURLINFO_EFFECTIVE_URL = CurlInfoStringBase + 1,
             CURLINFO_PRIVATE = CurlInfoStringBase + 21,
             CURLINFO_HTTPAUTH_AVAIL = CurlInfoLongBase + 23,
         }
@@ -144,6 +185,7 @@ internal static partial class Interop
             Basic = 1 << 0,
             Digest = 1 << 1,
             Negotiate = 1 << 2,
+            NTLM = 1 << 3,
         }
 
         // Enum for constants defined for the enum curl_proxytype in curl.h
@@ -167,10 +209,23 @@ internal static partial class Interop
             CURL_SEEKFUNC_CANTSEEK = 2,
         }
 
+        internal enum CurlInfoType : int
+        {
+            CURLINFO_TEXT = 0,
+            CURLINFO_HEADER_IN = 1,
+            CURLINFO_HEADER_OUT = 2,
+            CURLINFO_DATA_IN = 3,
+            CURLINFO_DATA_OUT = 4,
+            CURLINFO_SSL_DATA_IN = 5,
+            CURLINFO_SSL_DATA_OUT = 6,
+        };
+
         // constants defined for the results of a CURL_READ or CURL_WRITE function
         internal const ulong CURL_READFUNC_ABORT = 0x10000000;
         internal const ulong CURL_READFUNC_PAUSE = 0x10000001;
         internal const ulong CURL_WRITEFUNC_PAUSE = 0x10000001;
+
+        internal const ulong CURL_MAX_HTTP_HEADER = 100 * 1024;
 
         internal sealed class SafeCurlHandle : SafeHandle
         {

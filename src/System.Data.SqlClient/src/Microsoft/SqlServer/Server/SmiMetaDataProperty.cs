@@ -35,17 +35,18 @@ namespace Microsoft.SqlServer.Server
         private SmiMetaDataProperty[] _properties;
         private bool _isReadOnly;
 
-        internal static readonly SmiMetaDataPropertyCollection EmptyInstance;
-
         // Singleton empty instances to ensure each property is always non-null
         private static readonly SmiDefaultFieldsProperty s_emptyDefaultFields = new SmiDefaultFieldsProperty(new List<bool>());
         private static readonly SmiOrderProperty s_emptySortOrder = new SmiOrderProperty(new List<SmiOrderProperty.SmiColumnOrder>());
         private static readonly SmiUniqueKeyProperty s_emptyUniqueKey = new SmiUniqueKeyProperty(new List<bool>());
 
-        static SmiMetaDataPropertyCollection()
+        internal static readonly SmiMetaDataPropertyCollection EmptyInstance = CreateEmptyInstance();
+
+        private static SmiMetaDataPropertyCollection CreateEmptyInstance()
         {
-            EmptyInstance = new SmiMetaDataPropertyCollection();
-            EmptyInstance.SetReadOnly();
+            var emptyInstance = new SmiMetaDataPropertyCollection();
+            emptyInstance.SetReadOnly();
+            return emptyInstance;
         }
 
         internal SmiMetaDataPropertyCollection()

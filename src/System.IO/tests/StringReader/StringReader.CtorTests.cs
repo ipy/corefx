@@ -8,7 +8,7 @@ using Xunit;
 
 namespace System.IO.Tests
 {
-    public class ReaderTests
+    public partial class StringReaderTests
     {
         [Fact]
         public static void StringReaderWithNullString()
@@ -19,7 +19,6 @@ namespace System.IO.Tests
         [Fact]
         public static void StringReaderWithEmptyString()
         {
-
             // [] Check vanilla construction
             //-----------------------------------------------------------
             StringReader sr = new StringReader(string.Empty);
@@ -37,7 +36,7 @@ namespace System.IO.Tests
         }
 
         [Fact]
-        public static void ReadEmtpyString() {
+        public static void ReadEmptyString() {
             StringReader sr = new StringReader(string.Empty);
             Assert.Equal(-1, sr.Read());
 
@@ -51,11 +50,27 @@ namespace System.IO.Tests
             {
                 Assert.Equal((int)str1[i], sr.Read());
             }
-
         }
 
         [Fact]
-        public static void ReadPsudoRandomString()
+        public static void ReadLine()
+        {
+            string str1 = "Hello\0\t\v   \\ World";
+            string str2 = str1 + Environment.NewLine + str1;
+
+            using (StringReader sr = new StringReader(str1))
+            {
+                Assert.Equal(str1, sr.ReadLine());
+            }
+            using (StringReader sr = new StringReader(str2))
+            {
+                Assert.Equal(str1, sr.ReadLine());
+                Assert.Equal(str1, sr.ReadLine());
+            }
+        }
+
+        [Fact]
+        public static void ReadPseudoRandomString()
         {
             string str1 = string.Empty;
             Random r = new Random(-55);
@@ -69,12 +84,8 @@ namespace System.IO.Tests
             }
         }
 
-
-
-
-
         [Fact]
-        public static void PeedEmtpyString()
+        public static void PeekEmptyString()
         {
             StringReader sr = new StringReader(string.Empty);
             Assert.Equal(-1, sr.Peek());
@@ -96,7 +107,7 @@ namespace System.IO.Tests
         }
 
         [Fact]
-        public static void PeekPsudoRandomString()
+        public static void PeekPseudoRandomString()
         {
             string str1 = string.Empty;
             Random r = new Random(-55);
@@ -133,7 +144,7 @@ namespace System.IO.Tests
         }
 
         [Fact]
-        public static void ReadToEndPsuedoRandom() {
+        public static void ReadToEndPseudoRandom() {
             // [] Try with large random strings
             //-----------------------------------------------------------
             string str1 = string.Empty;
@@ -143,6 +154,29 @@ namespace System.IO.Tests
 
             StringReader sr = new StringReader(str1);
             Assert.Equal(str1, sr.ReadToEnd());
+        }
+
+        [Fact]
+        public static void Closed_DisposedExceptions()
+        {
+            StringReader sr = new StringReader("abcdefg");
+            sr.Close();
+            ValidateDisposedExceptions(sr);
+        }
+
+        [Fact]
+        public static void Disposed_DisposedExceptions()
+        {
+            StringReader sr = new StringReader("abcdefg");
+            sr.Dispose();
+            ValidateDisposedExceptions(sr);
+        }
+
+        private static void ValidateDisposedExceptions(StringReader sr)
+        {
+            Assert.Throws<ObjectDisposedException>(() => { sr.Peek(); });
+            Assert.Throws<ObjectDisposedException>(() => { sr.Read(); });
+            Assert.Throws<ObjectDisposedException>(() => { sr.Read(new char[10], 0 , 1); });
         }
     }
 }

@@ -1,20 +1,12 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), dir.props))\dir.props" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{9574CEEC-5554-411B-B44C-6CA9EC1CEB08}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AssemblyName>System.Globalization.Calendars.Tests</AssemblyName>
-    <RootNamespace>System.Globalization.Calendars.Tests</RootNamespace>
-  </PropertyGroup>
-   <!-- Default configurations to help VS understand the configurations -->
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <ProjectGuid>{66BE33BB-790D-4D0C-9336-E073001CBD15}</ProjectGuid>
+    <Configurations>netcoreapp-Debug;netcoreapp-Release;netstandard-Debug;netstandard-Release</Configurations>
+    <TestRuntime>true</TestRuntime>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="CalendarHelpers.cs" />
+    <Compile Include="GregorianCalendar\GregorianCalendarCtor.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarAddMonths.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarAddYears.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarEras.cs" />
@@ -25,14 +17,16 @@
     <Compile Include="GregorianCalendar\GregorianCalendarGetDaysInYear.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarGetEra.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarGetMonth.cs" />
+    <Compile Include="GregorianCalendar\GregorianCalendarGetLeapMonth.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarGetMonthsInYear.cs" />
-    <Compile Include="GregorianCalendar\GregorianCalendarGetWeekOfYears.cs" />
+    <Compile Include="GregorianCalendar\GregorianCalendarGetWeekOfYear.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarGetYear.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarIsLeapDay.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarIsLeapMonth.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarIsLeapYear.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarMaxSupportedDateTime.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarMinSupportedDateTime.cs" />
+    <Compile Include="GregorianCalendar\GregorianCalendarTests.Utilities.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarToDateTime.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarToFourDigitYear.cs" />
     <Compile Include="GregorianCalendar\GregorianCalendarTwoDigitYearMax.cs" />
@@ -40,11 +34,11 @@
     <Compile Include="JapaneseCalendar\JapaneseCalendarEras.cs" />
     <Compile Include="JapaneseCalendar\JapaneseCalendarMaxSupportedDateTime.cs" />
     <Compile Include="JapaneseCalendar\JapaneseCalendarMinSupportedDateTime.cs" />
+    <Compile Include="JapaneseCalendar\JapaneseCalendarToFourDigitYear.cs" />
     <Compile Include="JapaneseCalendar\JapaneseCalendarTwoDigitYearMax.cs" />
-    <Compile Include="KoreanCalendar\KoreanCalendarToDateTime.cs" />    
+    <Compile Include="KoreanCalendar\KoreanCalendarToDateTime.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarAddMonths.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarAddYears.cs" />
-    <Compile Include="KoreanCalendar\KoreanCalendarCtor.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarEras.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarGetDayOfMonth.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarGetDayOfWeek.cs" />
@@ -62,10 +56,11 @@
     <Compile Include="KoreanCalendar\KoreanCalendarMaxSupportedDateTime.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarMinSupportedDateTime.cs" />
     <Compile Include="KoreanCalendar\KoreanCalendarToFourDigitYear.cs" />
-    <Compile Include="KoreanCalendar\KoreanCalendarTwoDigitYearMax.cs" />    
+    <Compile Include="KoreanCalendar\KoreanCalendarTwoDigitYearMax.cs" />
     <Compile Include="Misc\MiscCalendars.cs" />
     <Compile Include="Misc\Calendars.cs" />
-    <Compile Include="PersianCalendar\PersianCalendarTest.cs" />    
+    <Compile Include="PersianCalendar\PersianCalendarTest.cs" />
+    <Compile Include="TaiwanCalendar\TaiwanCalendarUtilities.cs" />
     <Compile Include="TaiwanCalendar\TaiwanCalendarAddMonths.cs" />
     <Compile Include="TaiwanCalendar\TaiwanCalendarAddYears.cs" />
     <Compile Include="TaiwanCalendar\TaiwanCalendarDaysAndMonths.cs" />
@@ -94,7 +89,7 @@
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetDayOfMonth.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetDayOfWeek.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetDayOfYear.cs" />
-    <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetDaysInMonth.cs" />    
+    <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetDaysInMonth.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetDaysInYear.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetEra.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetMonth.cs" />
@@ -102,18 +97,20 @@
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetWeekOfYear.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarGetYear.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarIsLeapDay.cs" />
-    <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarIsLeapMonth.cs" />    
+    <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarIsLeapMonth.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarIsLeapYear.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarMaxSupportedDateTime.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarMinSupportedDateTime.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarToDateTime.cs" />
-    <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarToDateTime2.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarToFourDigitYear.cs" />
     <Compile Include="ThaiBuddhistCalendar\ThaiBuddhistCalendarTwoDigitYearMax.cs" />
     <Compile Include="$(CommonTestPath)\System\RandomDataGenerator.cs" />
+    <!-- Helpers -->
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetGroup)' == 'netcoreapp'">
+    <Compile Include="ISOWeek\ISOWeekTests.netcoreapp.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="project.json" />
+    <EmbeddedResource Include="Resources\$(AssemblyName).rd.xml" />
   </ItemGroup>
-  <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), dir.targets))\dir.targets" />
 </Project>

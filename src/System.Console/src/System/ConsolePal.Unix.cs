@@ -4,9 +4,9 @@
 
 using Microsoft.Win32.SafeHandles;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -22,17 +22,17 @@ namespace System
     {
         public static Stream OpenStandardInput()
         {
-            return new UnixConsoleStream(SafeFileHandle.Open(() => Interop.Sys.Dup(Interop.Sys.FileDescriptors.STDIN_FILENO)), FileAccess.Read);
+            return new UnixConsoleStream(SafeFileHandleHelper.Open(() => Interop.Sys.Dup(Interop.Sys.FileDescriptors.STDIN_FILENO)), FileAccess.Read);
         }
 
         public static Stream OpenStandardOutput()
         {
-            return new UnixConsoleStream(SafeFileHandle.Open(() => Interop.Sys.Dup(Interop.Sys.FileDescriptors.STDOUT_FILENO)), FileAccess.Write);
+            return new UnixConsoleStream(SafeFileHandleHelper.Open(() => Interop.Sys.Dup(Interop.Sys.FileDescriptors.STDOUT_FILENO)), FileAccess.Write);
         }
 
         public static Stream OpenStandardError()
         {
-            return new UnixConsoleStream(SafeFileHandle.Open(() => Interop.Sys.Dup(Interop.Sys.FileDescriptors.STDERR_FILENO)), FileAccess.Write);
+            return new UnixConsoleStream(SafeFileHandleHelper.Open(() => Interop.Sys.Dup(Interop.Sys.FileDescriptors.STDERR_FILENO)), FileAccess.Write);
         }
 
         public static Encoding InputEncoding
@@ -45,7 +45,6 @@ namespace System
             get { return GetConsoleEncoding(); }
         }
 
-        private static readonly object s_stdInReaderSyncObject = new object();
         private static SyncTextReader s_stdInReader;
         private const int DefaultBufferSize = 255;
 
@@ -55,13 +54,11 @@ namespace System
             {
                 EnsureInitialized();
 
-                return Volatile.Read(ref s_stdInReader) ??
-                    Console.EnsureInitialized(
+                return Console.EnsureInitialized(
                         ref s_stdInReader,
                         () => SyncTextReader.GetSynchronizedTextReader(
-                            new StdInStreamReader(
-                                stream: OpenStandardInput(),
-                                encoding: InputEncoding,
+                            new StdInReader(
+                                encoding: Console.InputEncoding,
                                 bufferSize: DefaultBufferSize)));
             }
         }
@@ -77,7 +74,7 @@ namespace System
                     StreamReader.Null :
                     new StreamReader(
                         stream: inputStream,
-                        encoding: ConsolePal.InputEncoding,
+                        encoding: Console.InputEncoding,
                         detectEncodingFromByteOrderMarks: false,
                         bufferSize: DefaultConsoleBufferSize,
                         leaveOpen: true)
@@ -100,15 +97,45 @@ namespace System
                 throw new InvalidOperationException(SR.InvalidOperation_ConsoleReadKeyOnFile);
             }
 
-            ConsoleKeyInfo keyInfo = StdInReader.ReadKey();
-            if (!intercept) Console.Write(keyInfo.KeyChar);
+            bool previouslyProcessed;
+            ConsoleKeyInfo keyInfo = StdInReader.ReadKey(out previouslyProcessed);
 
+            // Replace the '\n' char for Enter by '\r' to match Windows behavior.
+            if (keyInfo.Key == ConsoleKey.Enter && keyInfo.KeyChar == '\n')
+            {
+                bool shift   = (keyInfo.Modifiers & ConsoleModifiers.Shift)   != 0;
+                bool alt     = (keyInfo.Modifiers & ConsoleModifiers.Alt)     != 0;
+                bool control = (keyInfo.Modifiers & ConsoleModifiers.Control) != 0;
+                keyInfo = new ConsoleKeyInfo('\r', keyInfo.Key, shift, alt, control);
+            }
+
+            if (!intercept && !previouslyProcessed) Console.Write(keyInfo.KeyChar);
             return keyInfo;
         }
 
-        private const ConsoleColor UnknownColor = (ConsoleColor)(-1);
-        private static ConsoleColor s_trackedForegroundColor = UnknownColor;
-        private static ConsoleColor s_trackedBackgroundColor = UnknownColor;
+        public static bool TreatControlCAsInput
+        {
+            get
+            {
+                if (Console.IsInputRedirected)
+                    return false;
+
+                EnsureInitialized();
+                return !Interop.Sys.GetSignalForBreak();
+            }
+            set
+            {
+                if (!Console.IsInputRedirected)
+                {
+                    EnsureInitialized();
+                    if (!Interop.Sys.SetSignalForBreak(signalForBreak: !value))
+                        throw Interop.GetExceptionForIoErrno(Interop.Sys.GetLastErrorInfo());
+                }
+            }
+        }
+
+        private static ConsoleColor s_trackedForegroundColor = Console.UnknownColor;
+        private static ConsoleColor s_trackedBackgroundColor = Console.UnknownColor;
 
         public static ConsoleColor ForegroundColor
         {
@@ -126,10 +153,20 @@ namespace System
         {
             lock (Console.Out) // synchronize with other writers
             {
-                s_trackedForegroundColor = UnknownColor;
-                s_trackedBackgroundColor = UnknownColor;
+                s_trackedForegroundColor = Console.UnknownColor;
+                s_trackedBackgroundColor = Console.UnknownColor;
                 WriteResetColorString();
             }
+        }
+
+        public static bool NumberLock { get { throw new PlatformNotSupportedException(); } }
+
+        public static bool CapsLock { get { throw new PlatformNotSupportedException(); } }
+
+        public static int CursorSize
+        {
+            get { return 100; }
+            set { throw new PlatformNotSupportedException(); }
         }
 
         public static string Title
@@ -155,6 +192,11 @@ namespace System
             {
                 WriteStdoutAnsiString(TerminalFormatStrings.Instance.Bell);
             }
+        }
+
+        public static void Beep(int frequency, int duration)
+        {
+            throw new PlatformNotSupportedException();
         }
 
         public static void Clear()
@@ -198,13 +240,11 @@ namespace System
         public static int LargestWindowWidth
         {
             get { return WindowWidth; }
-            set { throw new PlatformNotSupportedException(); }
         }
 
         public static int LargestWindowHeight
         {
             get { return WindowHeight; }
-            set { throw new PlatformNotSupportedException(); }
         }
 
         public static int WindowLeft
@@ -241,6 +281,16 @@ namespace System
                     TerminalFormatStrings.Instance.Lines;
             }
             set { throw new PlatformNotSupportedException(); }
+        }
+
+        public static void SetWindowPosition(int left, int top)
+        {
+            throw new PlatformNotSupportedException();
+        }
+
+        public static void SetWindowSize(int width, int height)
+        {
+            throw new PlatformNotSupportedException();
         }
 
         public static bool CursorVisible
@@ -280,6 +330,20 @@ namespace System
             }
         }
 
+        /// <summary>
+        /// Tracks whether we've ever successfully received a response to a cursor position request (CPR).
+        /// If we have, then we can be more aggressive about expecting a response to subsequent requests,
+        /// e.g. using a longer timeout.
+        /// </summary>
+        private static bool s_everReceivedCursorPositionResponse;
+
+        /// <summary>
+        /// Tracks if this is out first attempt to send a cursor posotion request. If it is, we start the
+        /// timer immediately (i.e. minChar = 0), but we use a slightly longer timeout to avoid the CPR response
+        /// being written to the console.
+        /// </summary>
+        private static bool s_firstCursorPositionRequest = true;
+
         /// <summary>Gets the current cursor position.  This involves both writing to stdout and reading stdin.</summary>
         private static unsafe void GetCursorPosition(out int left, out int top)
         {
@@ -288,97 +352,223 @@ namespace System
             // Getting the cursor position involves both writing out a request string and
             // parsing a response string from the terminal.  So if anything is redirected, bail.
             if (Console.IsInputRedirected || Console.IsOutputRedirected)
+            {
                 return;
+            }
 
-            // Get the cursor position request format string.
-            string cpr = TerminalFormatStrings.Instance.CursorPositionRequest;
-            if (string.IsNullOrEmpty(cpr))
-                return;
+            // Create a buffer to read the response into.  We start with stack memory and grow
+            // into the heap only if we need to, and we choose a limit that should be large
+            // enough for the vast, vast majority of use cases, such that when we do grow, we
+            // just allocate, rather than employing any complicated pooling strategy.
+            int readBytesPos = 0;
+            Span<byte> readBytes = stackalloc byte[256];
 
             // Synchronize with all other stdin readers.  We need to do this in case multiple threads are
             // trying to read/write concurrently, and to minimize the chances of resulting conflicts.
-            // This does mean that Console.get_CursorLeft/Top can't be used concurrently Console.Read*, etc.;
+            // This does mean that Console.get_CursorLeft/Top can't be used concurrently with Console.Read*, etc.;
             // attempting to do so will block one of them until the other completes, but in doing so we prevent
             // one thread's get_CursorLeft/Top from providing input to the other's Console.Read*.
             lock (StdInReader) 
             {
-                // Write out the cursor position request.
-                WriteStdoutAnsiString(cpr);
+                // Because the CPR request/response protocol involves blocking until we get a certain
+                // response from the terminal, we want to avoid doing so if we don't know the terminal
+                // will definitely respond.  As such, we start with minChars == 0, which causes the
+                // terminal's read timer to start immediately.  Once we've received a response for
+                // a request such that we know the terminal supports the protocol, we then specify
+                // minChars == 1.  With that, the timer won't start until the first character is
+                // received.  This makes the mechanism more reliable when there are high latencies
+                // involved in reading/writing, such as when accessing a remote system. We also extend
+                // the timeout on the very first request to 15 seconds, to account for potential latency
+                // before we know if we will receive a response.
+                Interop.Sys.InitializeConsoleBeforeRead(minChars: (byte)(s_everReceivedCursorPositionResponse ? 1 : 0), decisecondsTimeout: (byte)(s_firstCursorPositionRequest ? 100 : 10));
+                try
+                {
+                    // Write out the cursor position report request.
+                    Debug.Assert(!string.IsNullOrEmpty(TerminalFormatStrings.CursorPositionReport));
+                    WriteStdoutAnsiString(TerminalFormatStrings.CursorPositionReport);
 
-                // Read the response.  There's a race condition here if the user is typing,
-                // or if other threads are accessing the console; there's relatively little
-                // we can do about that, but we try not to lose any data.
-                StdInStreamReader r = StdInReader.Inner;
-                const int BufferSize = 1024;
-                byte* bytes = stackalloc byte[BufferSize];
+                    // Read the cursor position report (CPR), of the form \ESC[row;colR. This is not
+                    // as easy it it sounds.  Prior to the CPR having been supplied to stdin, other
+                    // user input could have come in and be available to read first from stdin.  Plus,
+                    // that user input could include escape sequences, and those escape sequences could
+                    // have a prefix very similar to that of the CPR (e.g. other escape sequences start
+                    // with \ESC + '['.  It's also possible that some terminal implementations may not
+                    // write the CPR to stdin atomically, such that the CPR could have other user input
+                    // in the middle of it, and that user input could have escape sequences!  Handling
+                    // that last case is very challenging, and rare, so we don't try, but we do need to
+                    // handle the rest.  The min bar here is doing something reasonable, which may include
+                    // giving up and just returning default top and left values.
 
-                int bytesRead = 0, i = 0;
+                    // Consume from stdin until we find all of the key markers for the CPR:
+                    // \ESC, '[', ';', and 'R'.  For everything before the \ESC, it's definitely
+                    // not part of the CPR sequence, so we just immediately move any such bytes
+                    // over to the StdInReader's extra buffer.  From there until the end, we buffer
+                    // everything into readBytes for subsequent parsing.
+                    const byte Esc = 0x1B;
+                    StdInReader r = StdInReader.Inner;
+                    int escPos, bracketPos, semiPos, rPos;
+                    if (!AppendToStdInReaderUntil(Esc, r, readBytes, ref readBytesPos, out escPos) ||
+                        !BufferUntil((byte)'[', r, ref readBytes, ref readBytesPos, out bracketPos) ||
+                        !BufferUntil((byte)';', r, ref readBytes, ref readBytesPos, out semiPos) ||
+                        !BufferUntil((byte)'R', r, ref readBytes, ref readBytesPos, out rPos))
+                    {
+                        // We were unable to read everything from stdin, e.g. a timeout ocurred.
+                        // Since we couldn't get the complete CPR, transfer any bytes we did read
+                        // back to the StdInReader's extra buffer, treating it all as user input,
+                        // and exit having not computed a valid cursor position.
+                        TransferBytes(readBytes.Slice(readBytesPos), r);
+                        return;
+                    }
 
-                // Response expected in the form "\ESC[row;colR".  However, user typing concurrently
-                // with the request/response sequence can result in other characters, and potentially
-                // other escape sequences (e.g. for an arrow key) being entered concurrently with
-                // the response.  To avoid garbage showing up in the user's input, we are very liberal
-                // with regards to eating all input from this point until all aspects of the sequence
-                // have been consumed.  
+                    // At this point, readBytes starts with \ESC and ends with 'R'.
+                    Debug.Assert(readBytesPos > 0 && readBytesPos <= readBytes.Length);
+                    Debug.Assert(escPos == 0 && bracketPos > escPos && semiPos > bracketPos && rPos > semiPos);
+                    Debug.Assert(readBytes[escPos] == Esc);
+                    Debug.Assert(readBytes[bracketPos] == '[');
+                    Debug.Assert(readBytes[semiPos] == ';');
+                    Debug.Assert(readBytes[rPos] == 'R');
 
-                // Find the ESC as the start of the sequence.
-                ReadStdinUnbufferedUntil(r, bytes, BufferSize, ref bytesRead, ref i, b => b == 0x1B);
-                i++; // move past the ESC
+                    // There are other sequences that begin with \ESC + '[' and that might be in our sequence before
+                    // the CPR, so we don't immediately trust escPos and bracketPos.  Instead, as a heuristic we trust
+                    // semiPos (which we only tracked after seeing a '[' after seeing an \ESC) and search backwards from
+                    // there looking for '[' and then \ESC.
+                    bracketPos = readBytes.Slice(0, semiPos).LastIndexOf((byte)'[');
+                    escPos = readBytes.Slice(0, bracketPos).LastIndexOf(Esc);
 
-                // Find the '['
-                ReadStdinUnbufferedUntil(r, bytes, BufferSize, ref bytesRead, ref i, b => b == '[');
+                    // Everything before the \ESC is transferred back to the StdInReader. As is everything
+                    // between the \ESC and the '['; there really shouldn't be anything there, but we're
+                    // defensive in case the CPR wasn't written atomically and something crept in.
+                    TransferBytes(readBytes.Slice(0, escPos), r);
+                    TransferBytes(readBytes.Slice(escPos + 1, bracketPos - (escPos + 1)), r);
 
-                // Find the first Int32 and parse it.
-                ReadStdinUnbufferedUntil(r, bytes, BufferSize, ref bytesRead, ref i, b => IsDigit((char)b));
-                int row = ParseInt32(bytes, bytesRead, ref i);
-                if (row >= 1) top = row - 1;
+                    // Now loop through all characters between the '[' and the ';' to compute the row,
+                    // and then between the ';' and the 'R' to compute the column. We incorporate any
+                    // digits we find, and while we shouldn't find anything else, we defensively put anything
+                    // else back into the StdInReader.
+                    ReadRowOrCol(bracketPos, semiPos, r, readBytes, ref top);
+                    ReadRowOrCol(semiPos, rPos, r, readBytes, ref left);
 
-                // Find the second Int32 and parse it.
-                ReadStdinUnbufferedUntil(r, bytes, BufferSize, ref bytesRead, ref i, b => IsDigit((char)b));
-                int col = ParseInt32(bytes, bytesRead, ref i);
-                if (col >= 1) left = col - 1;
+                    // Mark that we've successfully received a CPR response at least once.
+                    s_everReceivedCursorPositionResponse = true;
+                }
+                finally
+                {
+                    Interop.Sys.UninitializeConsoleAfterRead();
+                    s_firstCursorPositionRequest = false;
+                }
 
-                // Find the ending 'R'
-                ReadStdinUnbufferedUntil(r, bytes, BufferSize, ref bytesRead, ref i, b => b == 'R');
+
+                bool BufferUntil(byte toFind, StdInReader src, ref Span<byte> dst, ref int dstPos, out int foundPos)
+                {
+                    // Loop until we find the target byte.
+                    while (true)
+                    {
+                        // Read the next byte from stdin.
+                        byte b;
+                        if (src.ReadStdin(&b, 1) != 1)
+                        {
+                            foundPos = -1;
+                            return false;
+                        }
+
+                        // Make sure we have enough room to store the byte.
+                        if (dstPos == dst.Length)
+                        {
+                            var tmpReadBytes = new byte[dst.Length * 2];
+                            dst.CopyTo(tmpReadBytes);
+                            dst = tmpReadBytes;
+                        }
+
+                        // Store the byte.
+                        dst[dstPos++] = b;
+
+                        // If this is the target, we're done.
+                        if (b == toFind)
+                        {
+                            foundPos = dstPos - 1;
+                            return true;
+                        }
+                    }
+                }
+
+                unsafe bool AppendToStdInReaderUntil(
+                    byte toFind, StdInReader reader, Span<byte> foundByteDst, ref int foundByteDstPos, out int foundPos)
+                {
+                    // Loop until we find the target byte.
+                    while (true)
+                    {
+                        // Read the next byte from stdin.
+                        byte b;
+                        if (reader.ReadStdin(&b, 1) != 1)
+                        {
+                            foundPos = -1;
+                            return false;
+                        }
+
+                        // If it's the target byte, store it and exit.
+                        if (b == toFind)
+                        {
+                            Debug.Assert(foundByteDstPos < foundByteDst.Length, "Should only be called when there's room for at least one byte.");
+                            foundPos = foundByteDstPos;
+                            foundByteDst[foundByteDstPos++] = b;
+                            return true;
+                        }
+
+                        // Otherwise, push it back into the reader's extra buffer.
+                        reader.AppendExtraBuffer(&b, 1);
+                    }
+                }
+
+                void ReadRowOrCol(int startExclusive, int endExclusive, StdInReader reader, ReadOnlySpan<byte> source, ref int result)
+                {
+                    int row = 0;
+
+                    for (int i = startExclusive + 1; i < endExclusive; i++)
+                    {
+                        byte b = source[i];
+                        if (IsDigit(b))
+                        {
+                            try
+                            {
+                                row = checked((row * 10) + (b - '0'));
+                            }
+                            catch (OverflowException) { }
+                        }
+                        else
+                        {
+                            reader.AppendExtraBuffer(&b, 1);
+                        }
+                    }
+
+                    if (row >= 1)
+                    {
+                        result = row - 1;
+                    }
+                }
+
+                void TransferBytes(ReadOnlySpan<byte> src, StdInReader dst)
+                {
+                    for (int i = 0; i < src.Length; i++)
+                    {
+                        byte b = src[i];
+                        dst.AppendExtraBuffer(&b, 1);
+                    }
+                }
             }
         }
 
-        /// <summary>Reads from the stdin reader, unbuffered, until the specified condition is met.</summary>
-        private static unsafe void ReadStdinUnbufferedUntil(
-            StdInStreamReader reader, 
-            byte* buffer, int bufferSize, 
-            ref int bytesRead, ref int pos, 
-            Func<byte, bool> condition)
+        public static void MoveBufferArea(int sourceLeft, int sourceTop, int sourceWidth, int sourceHeight, int targetLeft, int targetTop)
         {
-            while (true)
-            {
-                for (; pos < bytesRead && !condition(buffer[pos]); pos++) ;
-                if (pos < bytesRead) return;
-
-                bytesRead = reader.ReadStdinUnbuffered(buffer, bufferSize);
-                pos = 0;
-            }
+            throw new PlatformNotSupportedException();
         }
 
-        /// <summary>Parses the Int32 at the specified position in the buffer.</summary>
-        /// <param name="buffer">The buffer.</param>
-        /// <param name="bufferSize">The length of the buffer.</param>
-        /// <param name="pos">The current position in the buffer.</param>
-        /// <returns>The parsed result, or 0 if nothing could be parsed.</returns>
-        private static unsafe int ParseInt32(byte* buffer, int bufferSize, ref int pos)
+        public static void MoveBufferArea(int sourceLeft, int sourceTop, int sourceWidth, int sourceHeight, int targetLeft, int targetTop, char sourceChar, ConsoleColor sourceForeColor, ConsoleColor sourceBackColor)
         {
-            int result = 0;
-            for (; pos < bufferSize; pos++)
-            {
-                char c = (char)buffer[pos];
-                if (!IsDigit(c)) break;
-                result = (result * 10) + (c - '0');
-            }
-            return result;
+            throw new PlatformNotSupportedException();
         }
 
         /// <summary>Gets whether the specified character is a digit 0-9.</summary>
-        private static bool IsDigit(char c) { return c >= '0' && c <= '9'; }
+        private static bool IsDigit(byte c) => c >= '0' && c <= '9';
 
         /// <summary>
         /// Gets whether the specified file descriptor was redirected.
@@ -391,7 +581,7 @@ namespace System
 
         /// <summary>
         /// Gets whether Console.In is redirected.
-        /// We approximate the behaviorby checking whether the underlying stream is our UnixConsoleStream and it's wrapping a character device.
+        /// We approximate the behavior by checking whether the underlying stream is our UnixConsoleStream and it's wrapping a character device.
         /// </summary>
         public static bool IsInputRedirectedCore()
         {
@@ -399,7 +589,7 @@ namespace System
         }
 
         /// <summary>Gets whether Console.Out is redirected.
-        /// We approximate the behaviorby checking whether the underlying stream is our UnixConsoleStream and it's wrapping a character device.
+        /// We approximate the behavior by checking whether the underlying stream is our UnixConsoleStream and it's wrapping a character device.
         /// </summary>
         public static bool IsOutputRedirectedCore()
         {
@@ -407,7 +597,7 @@ namespace System
         }
 
         /// <summary>Gets whether Console.Error is redirected.
-        /// We approximate the behaviorby checking whether the underlying stream is our UnixConsoleStream and it's wrapping a character device.
+        /// We approximate the behavior by checking whether the underlying stream is our UnixConsoleStream and it's wrapping a character device.
         /// </summary>
         public static bool IsErrorRedirectedCore()
         {
@@ -419,9 +609,21 @@ namespace System
         private static Encoding GetConsoleEncoding()
         {
             Encoding enc = EncodingHelper.GetEncodingFromCharset();
-            return enc != null ? (Encoding)
-                new ConsoleEncoding(enc) :
+            return enc != null ?
+                enc.RemovePreamble() :
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        }
+
+        public static void SetConsoleInputEncoding(Encoding enc)
+        {
+            // No-op.
+            // There is no good way to set the terminal console encoding.
+        }
+
+        public static void SetConsoleOutputEncoding(Encoding enc)
+        {
+            // No-op.
+            // There is no good way to set the terminal console encoding.
         }
 
         /// <summary>
@@ -432,7 +634,7 @@ namespace System
         /// </summary>
         private static void RefreshColors(ref ConsoleColor toChange, ConsoleColor value)
         {
-            if (((int)value & ~0xF) != 0 && value != UnknownColor)
+            if (((int)value & ~0xF) != 0 && value != Console.UnknownColor)
             {
                 throw new ArgumentException(SR.Arg_InvalidConsoleColor);
             }
@@ -443,12 +645,12 @@ namespace System
 
                 WriteResetColorString();
 
-                if (s_trackedForegroundColor != UnknownColor)
+                if (s_trackedForegroundColor != Console.UnknownColor)
                 {
                     WriteSetColorString(foreground: true, color: s_trackedForegroundColor);
                 }
 
-                if (s_trackedBackgroundColor != UnknownColor)
+                if (s_trackedBackgroundColor != Console.UnknownColor)
                 {
                     WriteSetColorString(foreground: false, color: s_trackedBackgroundColor);
                 }
@@ -539,6 +741,20 @@ namespace System
         {
             int unprocessedCharCount = endIndex - startIndex;
 
+            // First process special control character codes.  These override anything from terminfo.
+            if (unprocessedCharCount > 0)
+            {
+                // Is this an erase / backspace?
+                char c = givenChars[startIndex];
+                if (c != s_posixDisableValue && c == s_veraseCharacter)
+                {
+                    key = new ConsoleKeyInfo(c, ConsoleKey.Backspace, shift: false, alt: false, control: false);
+                    keyLength = 1;
+                    return true;
+                }
+            }
+
+            // Then process terminfo mappings.
             int minRange = TerminalFormatStrings.Instance.MinKeyFormatLength;
             if (unprocessedCharCount >= minRange)
             {
@@ -557,6 +773,7 @@ namespace System
                 }
             }
 
+            // Otherwise, not a known special console key.
             key = default(ConsoleKeyInfo);
             keyLength = 0;
             return false;
@@ -565,7 +782,18 @@ namespace System
         /// <summary>Whether keypad_xmit has already been written out to the terminal.</summary>
         private static volatile bool s_initialized;
 
-        /// <summary>Ensures that the console has been initialized for reading.</summary>
+        /// <summary>Value used to indicate that a special character code isn't available.</summary>
+        internal static byte s_posixDisableValue;
+        /// <summary>Special control character code used to represent an erase (backspace).</summary>
+        private static byte s_veraseCharacter;
+        /// <summary>Special control character that represents the end of a line.</summary>
+        internal static byte s_veolCharacter;
+        /// <summary>Special control character that represents the end of a line.</summary>
+        internal static byte s_veol2Character;
+        /// <summary>Special control character that represents the end of a file.</summary>
+        internal static byte s_veofCharacter;
+
+        /// <summary>Ensures that the console has been initialized for use.</summary>
         private static void EnsureInitialized()
         {
             if (!s_initialized)
@@ -574,22 +802,48 @@ namespace System
             }
         }
 
-        /// <summary>Ensures that the console has been initialized for reading.</summary>
+        /// <summary>Ensures that the console has been initialized for use.</summary>
         private static void EnsureInitializedCore()
         {
             lock (Console.Out) // ensure that writing the ANSI string and setting initialized to true are done atomically
             {
                 if (!s_initialized)
                 {
-                    // Ensure the console is configured appropriately
-                    Interop.Sys.InitializeConsole();
-
-                    // Make sure it's in application mode
-                    if (!Console.IsOutputRedirected)
+                    // Ensure the console is configured appropriately.  This will start
+                    // signal handlers, etc.
+                    if (!Interop.Sys.InitializeConsole())
                     {
-                        WriteStdoutAnsiString(TerminalFormatStrings.Instance.KeypadXmit);
+                        throw new Win32Exception();
                     }
 
+                    // Provide the native lib with the correct code from the terminfo to transition us into
+                    // "application mode".  This will both transition it immediately, as well as allow
+                    // the native lib later to handle signals that require re-entering the mode.
+                    if (!Console.IsOutputRedirected)
+                    {
+                        string keypadXmit = TerminalFormatStrings.Instance.KeypadXmit;
+                        if (keypadXmit != null)
+                        {
+                            Interop.Sys.SetKeypadXmit(keypadXmit);
+                        }
+                    }
+
+                    // Load special control character codes used for input processing
+                    var controlCharacterNames = new Interop.Sys.ControlCharacterNames[4] 
+                    {
+                        Interop.Sys.ControlCharacterNames.VERASE,
+                        Interop.Sys.ControlCharacterNames.VEOL,
+                        Interop.Sys.ControlCharacterNames.VEOL2,
+                        Interop.Sys.ControlCharacterNames.VEOF
+                    };
+                    var controlCharacterValues = new byte[controlCharacterNames.Length];
+                    Interop.Sys.GetControlCharacters(controlCharacterNames, controlCharacterValues, controlCharacterNames.Length, out s_posixDisableValue);
+                    s_veraseCharacter = controlCharacterValues[0];
+                    s_veolCharacter = controlCharacterValues[1];
+                    s_veol2Character = controlCharacterValues[2];
+                    s_veofCharacter = controlCharacterValues[3];
+
+                    // Mark us as initialized
                     s_initialized = true;
                 }
             }
@@ -600,7 +854,7 @@ namespace System
         {
             /// <summary>Gets the lazily-initialized terminal information for the terminal.</summary>
             public static TerminalFormatStrings Instance { get { return s_instance.Value; } }
-            private static Lazy<TerminalFormatStrings> s_instance = new Lazy<TerminalFormatStrings>(() => new TerminalFormatStrings(TermInfo.Database.ReadActiveDatabase()));
+            private static readonly Lazy<TerminalFormatStrings> s_instance = new Lazy<TerminalFormatStrings>(() => new TerminalFormatStrings(TermInfo.Database.ReadActiveDatabase()));
 
             /// <summary>The format string to use to change the foreground color.</summary>
             public readonly string Foreground;
@@ -628,25 +882,26 @@ namespace System
             public readonly string CursorAddress;
             /// <summary>The format string to use to move the cursor to the left.</summary>
             public readonly string CursorLeft;
-            /// <summary>The format string for "user string 7", interpreted to be a cursor position request.</summary>
+            /// <summary>The ANSI-compatible string for the Cursor Position report request.</summary>
             /// <remarks>
-            /// This should be <see cref="KnownCursorPositionRequest"/>, but we use the format string as a way to 
-            /// guess whether the terminal will actually support the request/response protocol.
+            /// This should really be in user string 7 in the terminfo file, but some terminfo databases
+            /// are missing it.  As this is defined to be supported by any ANSI-compatible terminal,
+            /// we assume it's available; doing so means CursorTop/Left will work even if the terminfo database
+            /// doesn't contain it (as appears to be the case with e.g. screen and tmux on Ubuntu), at the risk
+            /// of outputting the sequence on some terminal that's not compatible.
             /// </remarks>
-            public readonly string CursorPositionRequest;
-            /// <summary>Well-known CPR format.</summary>
-            private const string KnownCursorPositionRequest = "\x1B[6n";
+            public const string CursorPositionReport = "\x1B[6n";
             /// <summary>
             /// The dictionary of keystring to ConsoleKeyInfo.
             /// Only some members of the ConsoleKeyInfo are used; in particular, the actual char is ignored.
             /// </summary>
-            public Dictionary<StringOrCharArray, ConsoleKeyInfo> KeyFormatToConsoleKey;
+            public readonly Dictionary<StringOrCharArray, ConsoleKeyInfo> KeyFormatToConsoleKey = new Dictionary<StringOrCharArray, ConsoleKeyInfo>();
             /// <summary> Max key length </summary>
-            public int MaxKeyFormatLength;
+            public readonly int MaxKeyFormatLength;
             /// <summary> Min key length </summary>
-            public int MinKeyFormatLength;
+            public readonly int MinKeyFormatLength;
             /// <summary>The ANSI string used to enter "application" / "keypad transmit" mode.</summary>
-            public string KeypadXmit;
+            public readonly string KeypadXmit;
 
             public TerminalFormatStrings(TermInfo.Database db)
             {
@@ -668,9 +923,9 @@ namespace System
 
                 Title = GetTitle(db);
 
-                CursorPositionRequest = db.GetString(TermInfo.WellKnownStrings.CursorPositionRequest) == KnownCursorPositionRequest ?
-                    KnownCursorPositionRequest :
-                    string.Empty;
+                Debug.WriteLineIf(db.GetString(TermInfo.WellKnownStrings.CursorPositionReport) != CursorPositionReport,
+                    "Getting the cursor position will only work if the terminal supports the CPR sequence," +
+                    "but the terminfo database does not contain an entry for it.");
 
                 int maxColors = db.GetNumber(TermInfo.WellKnownNumbers.MaxColors);
                 MaxColors = // normalize to either the full range of all ANSI colors, just the dark ones, or none
@@ -678,7 +933,6 @@ namespace System
                     maxColors >= 8 ? 8 :
                     0;
 
-                KeyFormatToConsoleKey = new Dictionary<StringOrCharArray, ConsoleKeyInfo>();
                 AddKey(db, TermInfo.WellKnownStrings.KeyF1, ConsoleKey.F1);
                 AddKey(db, TermInfo.WellKnownStrings.KeyF2, ConsoleKey.F2);
                 AddKey(db, TermInfo.WellKnownStrings.KeyF3, ConsoleKey.F3);
@@ -741,8 +995,20 @@ namespace System
 
                 if (KeyFormatToConsoleKey.Count > 0)
                 {
-                    MaxKeyFormatLength = KeyFormatToConsoleKey.Keys.Max(key => key.Length);
-                    MinKeyFormatLength = KeyFormatToConsoleKey.Keys.Min(key => key.Length);
+                    MaxKeyFormatLength = int.MinValue;
+                    MinKeyFormatLength = int.MaxValue;
+
+                    foreach (KeyValuePair<StringOrCharArray, ConsoleKeyInfo> entry in KeyFormatToConsoleKey)
+                    {
+                        if (entry.Key.Length > MaxKeyFormatLength)
+                        {
+                            MaxKeyFormatLength = entry.Key.Length;
+                        }
+                        if (entry.Key.Length < MinKeyFormatLength)
+                        {
+                            MinKeyFormatLength = entry.Key.Length;
+                        }
+                    }
                 }
             }
 
@@ -858,6 +1124,17 @@ namespace System
                         // that ended, so simply pretend we were successful.
                         return;
                     }
+                    else if (errorInfo.Error == Interop.Error.EAGAIN) // aka EWOULDBLOCK
+                    {
+                        // May happen if the file handle is configured as non-blocking.
+                        // In that case, we need to wait to be able to write and then
+                        // try again. We poll, but don't actually care about the result,
+                        // only the blocking behavior, and thus ignore any poll errors
+                        // and loop around to do another write (which may correctly fail
+                        // if something else has gone wrong).
+                        Interop.Sys.Poll(fd, Interop.Sys.PollEvents.POLLOUT, Timeout.Infinite, out Interop.Sys.PollEvents triggered);
+                        continue;
+                    }
                     else
                     {
                         // Something else... fail.
@@ -944,14 +1221,14 @@ namespace System
                 ValidateRead(buffer, offset, count);
 
                 return ConsolePal.Read(_handle, buffer, offset, count);
-                }
+            }
 
             public override void Write(byte[] buffer, int offset, int count)
             {
                 ValidateWrite(buffer, offset, count);
 
                 ConsolePal.Write(_handle, buffer, offset, count);
-                }
+            }
 
             public override void Flush()
             {
@@ -965,17 +1242,14 @@ namespace System
 
         internal sealed class ControlCHandlerRegistrar
         {
-            private static readonly Interop.Sys.CtrlCallback _handler = 
-                c => Console.HandleBreakEvent(c == Interop.Sys.CtrlCode.Break ? ConsoleSpecialKey.ControlBreak : ConsoleSpecialKey.ControlC);
             private bool _handlerRegistered;
 
             internal void Register()
             {
+                EnsureInitialized();
+
                 Debug.Assert(!_handlerRegistered);
-                if (!Interop.Sys.RegisterForCtrl(_handler))
-                {
-                    throw Interop.GetExceptionForIoErrno(Interop.Sys.GetLastErrorInfo());
-                }
+                Interop.Sys.RegisterForCtrl(c => OnBreakEvent(c));
                 _handlerRegistered = true;
             }
 
@@ -985,7 +1259,28 @@ namespace System
                 _handlerRegistered = false;
                 Interop.Sys.UnregisterForCtrl();
             }
-        }
 
+            private static void OnBreakEvent(Interop.Sys.CtrlCode ctrlCode)
+            {
+                // This is called on the native signal handling thread. We need to move to another thread so
+                // signal handling is not blocked. Otherwise we may get deadlocked when the handler depends
+                // on work triggered from the signal handling thread.
+                // We use a new thread rather than queueing to the ThreadPool in order to prioritize handling
+                // in case the ThreadPool is saturated.
+                Thread handlerThread = new Thread(HandleBreakEvent) { IsBackground = true };
+                handlerThread.Start(ctrlCode);
+            }
+
+            private static void HandleBreakEvent(object state)
+            {
+                var ctrlCode = (Interop.Sys.CtrlCode)state;
+                ConsoleSpecialKey controlKey = (ctrlCode == Interop.Sys.CtrlCode.Break ? ConsoleSpecialKey.ControlBreak : ConsoleSpecialKey.ControlC);
+                bool cancel = Console.HandleBreakEvent(controlKey);
+                if (!cancel)
+                {
+                    Interop.Sys.RestoreAndHandleCtrl(ctrlCode);
+                }
+            }
+        }
     }
 }

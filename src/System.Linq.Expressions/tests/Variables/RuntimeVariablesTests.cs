@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Xunit;
@@ -11,8 +10,9 @@ namespace System.Linq.Expressions.Tests
 {
     public class RuntimeVariablesTests
     {
-        [Fact]
-        public void ReadAndReturnVars()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void ReadAndReturnVars(bool useInterpreter)
         {
             ParameterExpression x = Expression.Variable(typeof(int));
             ParameterExpression y = Expression.Variable(typeof(decimal));
@@ -25,15 +25,16 @@ namespace System.Linq.Expressions.Tests
                     Expression.Assign(z, Expression.Constant("hello")),
                     Expression.RuntimeVariables(x, y, z)
                     )
-                ).Compile()();
+                ).Compile(useInterpreter)();
             Assert.Equal(3, vars.Count);
             Assert.Equal(12, vars[0]);
             Assert.Equal(34m, vars[1]);
             Assert.Equal("hello", vars[2]);
         }
 
-        [Fact]
-        public void IRuntimeVariablesListChecksBounds()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void IRuntimeVariablesListChecksBounds(bool useInterpreter)
         {
             ParameterExpression x = Expression.Variable(typeof(int));
             ParameterExpression y = Expression.Variable(typeof(int));
@@ -42,7 +43,7 @@ namespace System.Linq.Expressions.Tests
                     new[] { x, y },
                     Expression.RuntimeVariables(x, y)
                     )
-                ).Compile()();
+                ).Compile(useInterpreter)();
             Assert.Equal(2, vars.Count);
             Assert.Throws<IndexOutOfRangeException>(() => vars[-1]);
             Assert.Throws<IndexOutOfRangeException>(() => vars[-1] = null);
@@ -50,8 +51,9 @@ namespace System.Linq.Expressions.Tests
             Assert.Throws<IndexOutOfRangeException>(() => vars[2] = null);
         }
 
-        [Fact]
-        public void ReadAndWriteVars()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void ReadAndWriteVars(bool useInterpreter)
         {
             ParameterExpression x = Expression.Variable(typeof(int));
             ParameterExpression y = Expression.Variable(typeof(decimal));
@@ -76,11 +78,12 @@ namespace System.Linq.Expressions.Tests
                     Expression.AndAssign(b, Expression.Equal(Expression.Convert(z, typeof(string)), Expression.Constant("Where civil blood makes civil hands unclean."))),
                     b
                     )
-                ).Compile()());
+                ).Compile(useInterpreter)());
         }
 
-        [Fact]
-        public void AliasingAllowed()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void AliasingAllowed(bool useInterpreter)
         {
             ParameterExpression x = Expression.Variable(typeof(int));
             ParameterExpression r = Expression.Variable(typeof(IRuntimeVariables));
@@ -100,11 +103,12 @@ namespace System.Linq.Expressions.Tests
                         ),
                     x
                     )
-                ).Compile()());
+                ).Compile(useInterpreter)());
         }
 
-        [Fact]
-        public void MixedScope()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void MixedScope(bool useInterpreter)
         {
             ParameterExpression x = Expression.Variable(typeof(int));
             ParameterExpression y = Expression.Variable(typeof(int));
@@ -118,7 +122,7 @@ namespace System.Linq.Expressions.Tests
                         Expression.RuntimeVariables(x, y)
                         )
                     )
-                ).Compile()();
+                ).Compile(useInterpreter)();
             Assert.Equal(3, vars[0]);
             Assert.Equal(19, vars[1]);
         }
@@ -126,20 +130,21 @@ namespace System.Linq.Expressions.Tests
         [Fact]
         public void NullVariableList()
         {
-            Assert.Throws<ArgumentNullException>("variables", () => Expression.RuntimeVariables(default(ParameterExpression[])));
-            Assert.Throws<ArgumentNullException>("variables", () => Expression.RuntimeVariables(default(IEnumerable<ParameterExpression>)));
+            AssertExtensions.Throws<ArgumentNullException>("variables", () => Expression.RuntimeVariables(default(ParameterExpression[])));
+            AssertExtensions.Throws<ArgumentNullException>("variables", () => Expression.RuntimeVariables(default(IEnumerable<ParameterExpression>)));
         }
 
         [Fact]
         public void NullVariableInList()
         {
-            Assert.Throws<ArgumentNullException>(() => Expression.RuntimeVariables(Expression.Variable(typeof(int)), null));
+            AssertExtensions.Throws<ArgumentNullException>("variables[1]", () => Expression.RuntimeVariables(Expression.Variable(typeof(int)), null));
         }
 
-        [Fact]
-        public void ZeroVariables()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void ZeroVariables(bool useInterpreter)
         {
-            IRuntimeVariables vars = Expression.Lambda<Func<IRuntimeVariables>>(Expression.RuntimeVariables()).Compile()();
+            IRuntimeVariables vars = Expression.Lambda<Func<IRuntimeVariables>>(Expression.RuntimeVariables()).Compile(useInterpreter)();
             Assert.Equal(0, vars.Count);
             Assert.Throws<IndexOutOfRangeException>(() => vars[0]);
             Assert.Throws<IndexOutOfRangeException>(() => vars[0] = null);
@@ -151,14 +156,17 @@ namespace System.Linq.Expressions.Tests
             RuntimeVariablesExpression vars = Expression.RuntimeVariables(Expression.Variable(typeof(int)));
             Assert.False(vars.CanReduce);
             Assert.Same(vars, vars.Reduce());
-            Assert.Throws<ArgumentException>(() => vars.ReduceAndCheck());
+            AssertExtensions.Throws<ArgumentException>(null, () => vars.ReduceAndCheck());
         }
 
         [Fact]
         public void UpdateSameCollectionSameNode()
         {
-            RuntimeVariablesExpression varExp = Expression.RuntimeVariables(Enumerable.Repeat(Expression.Variable(typeof(RuntimeVariablesTests)), 1));
+            ParameterExpression[] variables = {Expression.Variable(typeof(RuntimeVariablesTests))};
+            RuntimeVariablesExpression varExp = Expression.RuntimeVariables(variables);
+            Assert.Same(varExp, varExp.Update(variables));
             Assert.Same(varExp, varExp.Update(varExp.Variables));
+            Assert.Same(varExp, NoOpVisitor.Instance.Visit(varExp));
         }
 
         [Fact]
@@ -166,6 +174,34 @@ namespace System.Linq.Expressions.Tests
         {
             RuntimeVariablesExpression varExp = Expression.RuntimeVariables(Enumerable.Repeat(Expression.Variable(typeof(RuntimeVariablesTests)), 1));
             Assert.NotSame(varExp, varExp.Update(new[] { Expression.Variable(typeof(RuntimeVariablesTests)) }));
+        }
+
+
+        [Fact]
+        public void UpdateDoesntRepeatEnumeration()
+        {
+            RuntimeVariablesExpression varExp = Expression.RuntimeVariables(Enumerable.Repeat(Expression.Variable(typeof(RuntimeVariablesTests)), 1));
+            Assert.NotSame(varExp, varExp.Update(new RunOnceEnumerable<ParameterExpression>(new[] { Expression.Variable(typeof(RuntimeVariablesTests)) })));
+        }
+
+        [Fact]
+        public void UpdateNullThrows()
+        {
+            RuntimeVariablesExpression varExp = Expression.RuntimeVariables(Enumerable.Repeat(Expression.Variable(typeof(RuntimeVariablesTests)), 0));
+            AssertExtensions.Throws<ArgumentNullException>("variables", () => varExp.Update(null));
+        }
+
+        [Fact]
+        public void ToStringTest()
+        {
+            RuntimeVariablesExpression e1 = Expression.RuntimeVariables();
+            Assert.Equal("()", e1.ToString());
+
+            RuntimeVariablesExpression e2 = Expression.RuntimeVariables(Expression.Parameter(typeof(int), "x"));
+            Assert.Equal("(x)", e2.ToString());
+
+            RuntimeVariablesExpression e3 = Expression.RuntimeVariables(Expression.Parameter(typeof(int), "x"), Expression.Parameter(typeof(int), "y"));
+            Assert.Equal("(x, y)", e3.ToString());
         }
     }
 }

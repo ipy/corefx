@@ -193,7 +193,7 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         {
             Stream stream = MakeRequestStream();
 
-            Assert.Throws<ArgumentException>(() => stream.Write(new byte[1], 0, 3));
+            AssertExtensions.Throws<ArgumentException>("buffer", () => stream.Write(new byte[1], 0, 3));
         }
 
         [Fact]
@@ -201,7 +201,7 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         {
             Stream stream = MakeRequestStream();
 
-            Assert.Throws<ArgumentException>(() => stream.Write(new byte[1], int.MaxValue, int.MaxValue));
+            AssertExtensions.Throws<ArgumentException>("buffer", () => stream.Write(new byte[1], int.MaxValue, int.MaxValue));
         }
 
         [Fact]
@@ -307,6 +307,7 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         internal Stream MakeRequestStream()
         {
             var state = new WinHttpRequestState();
+            state.Pin();
             var handle = new FakeSafeWinHttpHandle(true);
             handle.Callback = WinHttpRequestCallback.StaticCallbackDelegate;
             handle.Context = state.ToIntPtr();

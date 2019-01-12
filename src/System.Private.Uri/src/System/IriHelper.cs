@@ -24,7 +24,7 @@ namespace System
         //
         // Check if highSurr and lowSurr are a surrogate pair then 
         // it checks if the combined char is in the range
-        // Takes in isQuery because because iri restrictions for query are different
+        // Takes in isQuery because iri restrictions for query are different
         //
         internal static bool CheckIriUnicodeRange(char highSurr, char lowSurr, ref bool surrogatePair, bool isQuery)
         {
@@ -36,7 +36,7 @@ namespace System
             if (char.IsSurrogatePair(highSurr, lowSurr))
             {
                 surrogatePair = true;
-                char[] chars = new char[2] { highSurr, lowSurr };
+                ReadOnlySpan<char> chars = stackalloc char[2] { highSurr, lowSurr };
                 string surrPair = new string(chars);
                 if (((string.CompareOrdinal(surrPair, "\U00010000") >= 0)
                         && (string.CompareOrdinal(surrPair, "\U0001FFFD") <= 0)) ||
@@ -80,7 +80,7 @@ namespace System
         }
 
         //
-        // Check reserved chars according to rfc 3987 in a sepecific component
+        // Check reserved chars according to RFC 3987 in a specific component
         //
         internal static bool CheckIsReserved(char ch, UriComponents component)
         {
@@ -93,13 +93,14 @@ namespace System
                     (component != UriComponents.Fragment)
                 )
             {
-                return (component == (UriComponents)0) ? Uri.IsGenDelim(ch) : false;
+                return (component == (UriComponents)0) ? UriHelper.IsGenDelim(ch) : false;
             }
-            else
+            else if (UriParser.DontEnableStrictRFC3986ReservedCharacterSets)
             {
+                // Since we aren't enabling strict RFC 3986 reserved sets, we stick with the old behavior
+                // (for app-compat) which was a broken mix of RFCs 2396 and 3986.
                 switch (component)
                 {
-                    // Reserved chars according to rfc 3987
                     case UriComponents.UserInfo:
                         if (ch == '/' || ch == '?' || ch == '#' || ch == '[' || ch == ']' || ch == '@')
                             return true;
@@ -124,6 +125,10 @@ namespace System
                         break;
                 }
                 return false;
+            }
+            else
+            {
+                return (UriHelper.RFC3986ReservedMarks.IndexOf(ch) >= 0);
             }
         }
 
@@ -284,7 +289,7 @@ namespace System
                     {
                         if (CheckIriUnicodeRange(ch, component == UriComponents.Query))
                         {
-                            if (!Uri.IsBidiControlCharacter(ch))
+                            if (!UriHelper.IsBidiControlCharacter(ch) || !UriParser.DontKeepUnicodeBidiFormattingCharacters)
                             {
                                 // copy it
                                 Debug.Assert(dest.Length > destOffset, "Destination length exceeded destination offset.");
@@ -307,9 +312,9 @@ namespace System
 
                 if (escape)
                 {
-                    const int maxNumberOfBytesEncoded = 4;
+                    const int MaxNumberOfBytesEncoded = 4;
 
-                    if (bufferRemaining < maxNumberOfBytesEncoded * percentEncodingLen)
+                    if (bufferRemaining < MaxNumberOfBytesEncoded * percentEncodingLen)
                     {
                         int newBufferLength = 0;
 
@@ -324,7 +329,7 @@ namespace System
 
                         fixed (char* pNewDest = newDest)
                         {
-                            Buffer.MemoryCopy((byte*)pDest, (byte*)pNewDest, newBufferLength, destOffset * sizeof(char));
+                            Buffer.MemoryCopy((byte*)pDest, (byte*)pNewDest, newBufferLength * sizeof(char), destOffset * sizeof(char));
                         }
 
                         if (destHandle.IsAllocated)
@@ -339,11 +344,11 @@ namespace System
                         pDest = (char*)destHandle.AddrOfPinnedObject();
                     }
 
-                    byte[] encodedBytes = new byte[maxNumberOfBytesEncoded];
-                    fixed (byte* pEncodedBytes = encodedBytes)
+                    byte[] encodedBytes = new byte[MaxNumberOfBytesEncoded];
+                    fixed (byte* pEncodedBytes = &encodedBytes[0])
                     {
-                        int encodedBytesCount = Encoding.UTF8.GetBytes(pInput + next, surrogatePair ? 2 : 1, pEncodedBytes, maxNumberOfBytesEncoded);
-                        Debug.Assert(encodedBytesCount <= maxNumberOfBytesEncoded, "UTF8 encoder should not exceed specified byteCount");
+                        int encodedBytesCount = Encoding.UTF8.GetBytes(pInput + next, surrogatePair ? 2 : 1, pEncodedBytes, MaxNumberOfBytesEncoded);
+                        Debug.Assert(encodedBytesCount <= MaxNumberOfBytesEncoded, "UTF8 encoder should not exceed specified byteCount");
 
                         bufferRemaining -= encodedBytesCount * percentEncodingLen;
 

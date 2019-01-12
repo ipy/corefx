@@ -41,11 +41,9 @@ namespace Windows.UI.Xaml.Media.Animation
 
         public RepeatBehavior(double count)
         {
-            if (Double.IsInfinity(count)
-                || Double.IsNaN(count)
-                || count < 0.0)
+            if (!double.IsFinite(count) || count < 0.0)
             {
-                throw new ArgumentOutOfRangeException("count");
+                throw new ArgumentOutOfRangeException(nameof(count));
             }
 
             _Duration = new TimeSpan(0);
@@ -57,7 +55,7 @@ namespace Windows.UI.Xaml.Media.Animation
         {
             if (duration < new TimeSpan(0))
             {
-                throw new ArgumentOutOfRangeException("duration");
+                throw new ArgumentOutOfRangeException(nameof(duration));
             }
 
             _Duration = duration;
@@ -153,7 +151,7 @@ namespace Windows.UI.Xaml.Media.Animation
             }
         }
 
-        public override bool Equals(Object value)
+        public override bool Equals(object value)
         {
             if (value is RepeatBehavior)
             {

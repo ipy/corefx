@@ -11,31 +11,28 @@ namespace System.Net.NetworkInformation
     internal abstract class UnixNetworkInterface : NetworkInterface
     {
         protected string _name;
-        protected int _index;
+        protected int _index = -1;
         protected NetworkInterfaceType _networkInterfaceType = NetworkInterfaceType.Unknown;
-        protected PhysicalAddress _physicalAddress;
+        protected PhysicalAddress _physicalAddress = PhysicalAddress.None;
         protected List<IPAddress> _addresses = new List<IPAddress>();
         protected Dictionary<IPAddress, IPAddress> _netMasks = new Dictionary<IPAddress, IPAddress>();
         // If this is an ipv6 device, contains the Scope ID.
         protected uint? _ipv6ScopeId = null;
-        private string _id;
 
         protected UnixNetworkInterface(string name)
         {
             _name = name;
         }
 
+        public sealed override string Id { get { return _name; } }
+
         public sealed override string Name { get { return _name; } }
+
+        public sealed override string Description { get { return _name; } }
 
         public sealed override NetworkInterfaceType NetworkInterfaceType { get { return _networkInterfaceType; } }
 
-        public sealed override PhysicalAddress GetPhysicalAddress()
-        {
-            Debug.Assert(_physicalAddress != null, "_physicalAddress was never initialized. This means no address with type AF_PACKET was discovered.");
-            return _physicalAddress;
-        }
-
-        public override string Id { get { return _index.ToString(); } }
+        public sealed override PhysicalAddress GetPhysicalAddress() { return _physicalAddress; }
 
         public override bool Supports(NetworkInterfaceComponent networkInterfaceComponent)
         {
@@ -75,13 +72,16 @@ namespace System.Net.NetworkInformation
             IPAddress netMaskAddress = IPAddressUtil.GetIPAddressFromNativeInfo(netMask);
             AddAddress(ipAddress);
             _netMasks[ipAddress] = netMaskAddress;
+            _index = addressInfo->InterfaceIndex;
         }
 
         protected unsafe void ProcessIpv6Address(Interop.Sys.IpAddressInfo* addressInfo, uint scopeId)
         {
             IPAddress address = IPAddressUtil.GetIPAddressFromNativeInfo(addressInfo);
+            address.ScopeId = scopeId;
             AddAddress(address);
             _ipv6ScopeId = scopeId;
+            _index = addressInfo->InterfaceIndex;
         }
 
         protected unsafe void ProcessLinkLayerAddress(Interop.Sys.LinkLayerAddressInfo* llAddr)
@@ -94,7 +94,6 @@ namespace System.Net.NetworkInformation
             PhysicalAddress physicalAddress = new PhysicalAddress(macAddress);
 
             _index = llAddr->InterfaceIndex;
-            _id = _index.ToString();
             _physicalAddress = physicalAddress;
             _networkInterfaceType = (NetworkInterfaceType)llAddr->HardwareType;
         }

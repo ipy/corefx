@@ -7,24 +7,14 @@ using System.Security.Cryptography;
 
 namespace Internal.Cryptography
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA5350")]
     internal sealed partial class TripleDesImplementation : TripleDES
     {
         private const int BitsPerByte = 8;
-        private static readonly RandomNumberGenerator s_rng = RandomNumberGenerator.Create();
-
-        public override KeySizes[] LegalKeySizes
-        {
-            get
-            {
-                // CNG does not support 128-bit keys.
-                // Only support 192-bit keys on all platforms for simplicity.
-                return new KeySizes[] { new KeySizes(minSize: 3 * 64, maxSize: 3 * 64, skipSize: 0) };
-            }
-        }
 
         public override ICryptoTransform CreateDecryptor()
         {
-            return CreateTransform(this.Key, this.IV, encrypting: false);
+            return CreateTransform(Key, IV, encrypting: false);
         }
 
         public override ICryptoTransform CreateDecryptor(byte[] rgbKey, byte[] rgbIV)
@@ -34,7 +24,7 @@ namespace Internal.Cryptography
 
         public override ICryptoTransform CreateEncryptor()
         {
-            return CreateTransform(this.Key, this.IV, encrypting: true);
+            return CreateTransform(Key, IV, encrypting: true);
         }
 
         public override ICryptoTransform CreateEncryptor(byte[] rgbKey, byte[] rgbIV)
@@ -45,14 +35,14 @@ namespace Internal.Cryptography
         public override void GenerateIV()
         {
             byte[] iv = new byte[BlockSize / BitsPerByte];
-            s_rng.GetBytes(iv);
+            RandomNumberGenerator.Fill(iv);
             IV = iv;
         }
 
         public sealed override void GenerateKey()
         {
             byte[] key = new byte[KeySize / BitsPerByte];
-            s_rng.GetBytes(key);
+            RandomNumberGenerator.Fill(key);
             Key = key;
         }
 
@@ -61,17 +51,27 @@ namespace Internal.Cryptography
             // note: rgbIV is guaranteed to be cloned before this method, so no need to clone it again
 
             if (rgbKey == null)
-                throw new ArgumentNullException("rgbKey");
+                throw new ArgumentNullException(nameof(rgbKey));
 
             long keySize = rgbKey.Length * (long)BitsPerByte;
-            if (keySize > int.MaxValue || !((int)keySize).IsLegalSize(this.LegalKeySizes))
-                throw new ArgumentException(SR.Cryptography_InvalidKeySize, "rgbKey");
+            if (keySize > int.MaxValue || !((int)keySize).IsLegalSize(LegalKeySizes))
+                throw new ArgumentException(SR.Cryptography_InvalidKeySize, nameof(rgbKey));
 
             if (rgbIV != null)
             {
                 long ivSize = rgbIV.Length * (long)BitsPerByte;
                 if (ivSize != BlockSize)
-                    throw new ArgumentException(SR.Cryptography_InvalidIVSize, "rgbIV");
+                    throw new ArgumentException(SR.Cryptography_InvalidIVSize, nameof(rgbIV));
+            }
+
+            if (rgbKey.Length == 16)
+            {
+                // Some platforms do not support Two-Key Triple DES, so manually support it here.
+                // Two-Key Triple DES contains two 8-byte keys {K1}{K2} with {K1} appended to make {K1}{K2}{K1}.
+                byte[] newkey = new byte[24];
+                Array.Copy(rgbKey, 0, newkey, 0, 16);
+                Array.Copy(rgbKey, 0, newkey, 16, 8);
+                rgbKey = newkey;
             }
 
             return CreateTransformCore(Mode, Padding, rgbKey, rgbIV, BlockSize / BitsPerByte, encrypting);

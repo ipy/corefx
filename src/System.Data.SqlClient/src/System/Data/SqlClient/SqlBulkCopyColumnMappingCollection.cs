@@ -2,13 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-
-
-//------------------------------------------------------------------------------
-
-
-using System.Data.Common;
-
 using System.Collections;
 using System.Diagnostics;
 
@@ -25,40 +18,22 @@ namespace System.Data.SqlClient
             OrdinalsOrdinals = 4,
         }
 
-        private bool _readOnly;
         private MappingSchema _mappingSchema = MappingSchema.Undefined;
 
         internal SqlBulkCopyColumnMappingCollection()
         {
         }
 
-        public SqlBulkCopyColumnMapping this[int index]
-        {
-            get
-            {
-                return (SqlBulkCopyColumnMapping)this.List[index];
-            }
-        }
+        internal bool ReadOnly { get; set; }
 
-        internal bool ReadOnly
-        {
-            get
-            {
-                return _readOnly;
-            }
-            set
-            {
-                _readOnly = value;
-            }
-        }
-
+        public SqlBulkCopyColumnMapping this[int index] => (SqlBulkCopyColumnMapping)this.List[index];
 
         public SqlBulkCopyColumnMapping Add(SqlBulkCopyColumnMapping bulkCopyColumnMapping)
         {
             AssertWriteAccess();
-            Debug.Assert(ADP.IsEmpty(bulkCopyColumnMapping.SourceColumn) || bulkCopyColumnMapping._internalSourceColumnOrdinal == -1, "BulkLoadAmbigousSourceColumn");
-            if (((ADP.IsEmpty(bulkCopyColumnMapping.SourceColumn)) && (bulkCopyColumnMapping.SourceOrdinal == -1))
-                || ((ADP.IsEmpty(bulkCopyColumnMapping.DestinationColumn)) && (bulkCopyColumnMapping.DestinationOrdinal == -1)))
+            Debug.Assert(string.IsNullOrEmpty(bulkCopyColumnMapping.SourceColumn) || bulkCopyColumnMapping._internalSourceColumnOrdinal == -1, "BulkLoadAmbiguousSourceColumn");
+            if (((string.IsNullOrEmpty(bulkCopyColumnMapping.SourceColumn)) && (bulkCopyColumnMapping.SourceOrdinal == -1))
+                || ((string.IsNullOrEmpty(bulkCopyColumnMapping.DestinationColumn)) && (bulkCopyColumnMapping.DestinationOrdinal == -1)))
             {
                 throw SQL.BulkLoadNonMatchingColumnMapping();
             }
@@ -69,28 +44,24 @@ namespace System.Data.SqlClient
         public SqlBulkCopyColumnMapping Add(string sourceColumn, string destinationColumn)
         {
             AssertWriteAccess();
-            SqlBulkCopyColumnMapping column = new SqlBulkCopyColumnMapping(sourceColumn, destinationColumn);
-            return Add(column);
+            return Add(new SqlBulkCopyColumnMapping(sourceColumn, destinationColumn));
         }
 
         public SqlBulkCopyColumnMapping Add(int sourceColumnIndex, string destinationColumn)
         {
             AssertWriteAccess();
-            SqlBulkCopyColumnMapping column = new SqlBulkCopyColumnMapping(sourceColumnIndex, destinationColumn);
-            return Add(column);
+            return Add(new SqlBulkCopyColumnMapping(sourceColumnIndex, destinationColumn));
         }
 
         public SqlBulkCopyColumnMapping Add(string sourceColumn, int destinationColumnIndex)
         {
             AssertWriteAccess();
-            SqlBulkCopyColumnMapping column = new SqlBulkCopyColumnMapping(sourceColumn, destinationColumnIndex);
-            return Add(column);
+            return Add(new SqlBulkCopyColumnMapping(sourceColumn, destinationColumnIndex));
         }
         public SqlBulkCopyColumnMapping Add(int sourceColumnIndex, int destinationColumnIndex)
         {
             AssertWriteAccess();
-            SqlBulkCopyColumnMapping column = new SqlBulkCopyColumnMapping(sourceColumnIndex, destinationColumnIndex);
-            return Add(column);
+            return Add(new SqlBulkCopyColumnMapping(sourceColumnIndex, destinationColumnIndex));
         }
 
         private void AssertWriteAccess()
@@ -101,21 +72,15 @@ namespace System.Data.SqlClient
             }
         }
 
-        new public void Clear()
+        public new void Clear()
         {
             AssertWriteAccess();
             base.Clear();
         }
 
-        public bool Contains(SqlBulkCopyColumnMapping value)
-        {
-            return (-1 != InnerList.IndexOf(value));
-        }
+        public bool Contains(SqlBulkCopyColumnMapping value) => InnerList.Contains(value);
 
-        public void CopyTo(SqlBulkCopyColumnMapping[] array, int index)
-        {
-            InnerList.CopyTo(array, index);
-        }
+        public void CopyTo(SqlBulkCopyColumnMapping[] array, int index) => InnerList.CopyTo(array, index);
 
         internal void CreateDefaultMapping(int columnCount)
         {
@@ -125,10 +90,7 @@ namespace System.Data.SqlClient
             }
         }
 
-        public int IndexOf(SqlBulkCopyColumnMapping value)
-        {
-            return InnerList.IndexOf(value);
-        }
+        public int IndexOf(SqlBulkCopyColumnMapping value) => InnerList.IndexOf(value);
 
         public void Insert(int index, SqlBulkCopyColumnMapping value)
         {
@@ -142,7 +104,7 @@ namespace System.Data.SqlClient
             InnerList.Remove(value);
         }
 
-        new public void RemoveAt(int index)
+        public new void RemoveAt(int index)
         {
             AssertWriteAccess();
             base.RemoveAt(index);
@@ -151,30 +113,11 @@ namespace System.Data.SqlClient
         internal void ValidateCollection()
         {
             MappingSchema mappingSchema;
-            foreach (SqlBulkCopyColumnMapping a in this)
+            foreach (SqlBulkCopyColumnMapping a in InnerList)
             {
-                if (a.SourceOrdinal != -1)
-                {
-                    if (a.DestinationOrdinal != -1)
-                    {
-                        mappingSchema = MappingSchema.OrdinalsOrdinals;
-                    }
-                    else
-                    {
-                        mappingSchema = MappingSchema.OrdinalsNames;
-                    }
-                }
-                else
-                {
-                    if (a.DestinationOrdinal != -1)
-                    {
-                        mappingSchema = MappingSchema.NemesOrdinals;
-                    }
-                    else
-                    {
-                        mappingSchema = MappingSchema.NamesNames;
-                    }
-                }
+                mappingSchema = a.SourceOrdinal != -1 ?
+                    (a.DestinationOrdinal != -1 ? MappingSchema.OrdinalsOrdinals : MappingSchema.OrdinalsNames) :
+                    (a.DestinationOrdinal != -1 ? MappingSchema.NemesOrdinals : MappingSchema.NamesNames);
 
                 if (_mappingSchema == MappingSchema.Undefined)
                 {
@@ -191,4 +134,3 @@ namespace System.Data.SqlClient
         }
     }
 }
-

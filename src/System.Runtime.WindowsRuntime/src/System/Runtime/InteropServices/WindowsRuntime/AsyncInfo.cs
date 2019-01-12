@@ -23,7 +23,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         #region Factory methods for creating "normal" IAsyncInfo instances backed by a Task created by a pastProvider delegate
 
         /// <summary>
-        /// Creates and starts an <see cref="Windows.Foundation.IAsyncAction"/> instance from a function that generates
+        /// Creates and starts an <see cref="T:Windows.Foundation.IAsyncAction"/> instance from a function that generates
         /// a <see cref="System.Threading.Tasks.Task"/>.
         /// Use this overload if your task supports cancellation in order to hook-up the <code>Cancel</code>
         /// mechanism exposed by the created asynchronous action and the cancellation of your task.</summary>
@@ -31,11 +31,11 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         /// The function is passed a <see cref="System.Threading.CancellationToken"/> that the task may monitor
         /// to be notified of a cancellation request;
         /// you may ignore the <code>CancellationToken</code> if your task does not support cancellation.</param>
-        /// <returns>An unstarted <see cref="Windows.Foundation.IAsyncAction"/> instance. </returns>
+        /// <returns>An unstarted <see cref="T:Windows.Foundation.IAsyncAction"/> instance. </returns>
         public static IAsyncAction Run(Func<CancellationToken, Task> taskProvider)
         {
             if (taskProvider == null)
-                throw new ArgumentNullException("taskProvider");
+                throw new ArgumentNullException(nameof(taskProvider));
 
             Contract.EndContractBlock();
 
@@ -44,7 +44,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
 
 
         /// <summary>
-        /// Creates and starts an <see cref="Windows.Foundation.IAsyncActionWithProgress{TProgress}"/> instance from a function
+        /// Creates and starts an <see cref="T:Windows.Foundation.IAsyncActionWithProgress`1"/> instance from a function
         /// that generates a <see cref="System.Threading.Tasks.Task"/>.
         /// Use this overload if your task supports cancellation and progress monitoring is order to:
         /// (1) hook-up the <code>Cancel</code> mechanism of the created asynchronous action and the cancellation of your task,
@@ -56,11 +56,11 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         /// you may ignore the <code>CancellationToken</code> if your task does not support cancellation.
         /// It is also passed a <see cref="System.IProgress{TProgress}"/> instance to which progress updates may be published;
         /// you may ignore the <code>IProgress</code> if your task does not support progress reporting.</param>
-        /// <returns>An unstarted <see cref="Windows.Foundation.IAsyncActionWithProgress{TProgress}"/> instance.</returns>
+        /// <returns>An unstarted <see cref="T:Windows.Foundation.IAsyncActionWithProgress`1"/> instance.</returns>
         public static IAsyncActionWithProgress<TProgress> Run<TProgress>(Func<CancellationToken, IProgress<TProgress>, Task> taskProvider)
         {
             if (taskProvider == null)
-                throw new ArgumentNullException("taskProvider");
+                throw new ArgumentNullException(nameof(taskProvider));
 
             Contract.EndContractBlock();
 
@@ -69,7 +69,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
 
 
         /// <summary>
-        /// Creates and starts  an <see cref="Windows.Foundation.IAsyncOperation{TResult}"/> instance from a function
+        /// Creates and starts  an <see cref="T:Windows.Foundation.IAsyncOperation`1"/> instance from a function
         /// that generates a <see cref="System.Threading.Tasks.Task{TResult}"/>.
         /// Use this overload if your task supports cancellation in order to hook-up the <code>Cancel</code>
         /// mechanism exposed by the created asynchronous operation and the cancellation of your task.</summary>
@@ -77,14 +77,14 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         /// The function is passed a <see cref="System.Threading.CancellationToken"/> that the task may monitor
         /// to be notified of a cancellation request;
         /// you may ignore the <code>CancellationToken</code> if your task does not support cancellation.</param>
-        /// <returns>An unstarted <see cref="Windows.Foundation.IAsyncOperation{TResult}"/> instance.</returns>
+        /// <returns>An unstarted <see cref="T:Windows.Foundation.IAsyncOperation`1"/> instance.</returns>
         public static IAsyncOperation<TResult> Run<TResult>(Func<CancellationToken, Task<TResult>> taskProvider)
         {
             // This is only internal to reduce the number of public overloads.
             // Code execution flows through this method when the method above is called. We can always make this public.
 
             if (taskProvider == null)
-                throw new ArgumentNullException("taskProvider");
+                throw new ArgumentNullException(nameof(taskProvider));
 
             Contract.EndContractBlock();
 
@@ -93,7 +93,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
 
 
         /// <summary>
-        /// Creates and starts  an <see cref="Windows.Foundation.IAsyncOperationWithProgress{TResult,TProgress}"/> instance
+        /// Creates and starts  an <see cref="T:Windows.Foundation.IAsyncOperationWithProgress`2"/> instance
         /// from a function that generates a <see cref="System.Threading.Tasks.Task{TResult}"/>.<br />
         /// Use this overload if your task supports cancellation and progress monitoring is order to:
         /// (1) hook-up the <code>Cancel</code> mechanism of the created asynchronous operation and the cancellation of your task,
@@ -107,12 +107,12 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         /// you may ignore the <code>CancellationToken</code> if your task does not support cancellation.
         /// It is also passed a <see cref="System.IProgress{TProgress}"/> instance to which progress updates may be published;
         /// you may ignore the <code>IProgress</code> if your task does not support progress reporting.</param>
-        /// <returns>An unstarted <see cref="Windows.Foundation.IAsyncOperationWithProgress{TResult,TProgress}"/> instance.</returns>
+        /// <returns>An unstarted <see cref="T:Windows.Foundation.IAsyncOperationWithProgress`2"/> instance.</returns>
         public static IAsyncOperationWithProgress<TResult, TProgress> Run<TResult, TProgress>(
                                                                             Func<CancellationToken, IProgress<TProgress>, Task<TResult>> taskProvider)
         {
             if (taskProvider == null)
-                throw new ArgumentNullException("taskProvider");
+                throw new ArgumentNullException(nameof(taskProvider));
 
             Contract.EndContractBlock();
 
@@ -159,7 +159,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         internal static IAsyncAction CreateFaultedAction(Exception error)
         {
             if (error == null)
-                throw new ArgumentNullException("error");
+                throw new ArgumentNullException(nameof(error));
             Contract.EndContractBlock();
 
             var asyncInfo = new TaskToAsyncActionAdapter(isCanceled: false);
@@ -174,7 +174,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         internal static IAsyncActionWithProgress<TProgress> CreateFaultedAction<TProgress>(Exception error)
         {
             if (error == null)
-                throw new ArgumentNullException("error");
+                throw new ArgumentNullException(nameof(error));
             Contract.EndContractBlock();
 
             var asyncInfo = new TaskToAsyncActionWithProgressAdapter<TProgress>(isCanceled: false);
@@ -189,7 +189,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         internal static IAsyncOperation<TResult> CreateFaultedOperation<TResult>(Exception error)
         {
             if (error == null)
-                throw new ArgumentNullException("error");
+                throw new ArgumentNullException(nameof(error));
             Contract.EndContractBlock();
 
             var asyncInfo = new TaskToAsyncOperationAdapter<TResult>(default(TResult));
@@ -204,7 +204,7 @@ namespace System.Runtime.InteropServices.WindowsRuntime
         internal static IAsyncOperationWithProgress<TResult, TProgress> CreateFaultedOperation<TResult, TProgress>(Exception error)
         {
             if (error == null)
-                throw new ArgumentNullException("error");
+                throw new ArgumentNullException(nameof(error));
             Contract.EndContractBlock();
 
             var asyncInfo = new TaskToAsyncOperationWithProgressAdapter<TResult, TProgress>(default(TResult));

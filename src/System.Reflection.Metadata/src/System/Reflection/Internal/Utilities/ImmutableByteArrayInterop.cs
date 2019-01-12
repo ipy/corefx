@@ -25,7 +25,7 @@ namespace System.Reflection.Internal
     /// 
     /// Also, since we don't have access to immutable collection internals, we use a trick involving
     /// overlapping a <see cref="ImmutableArray{Byte}"/> with a <see cref="T:Byte[]"/> refer. While
-    /// unverifiable, it is valid. See Ecma 335, section II.10.7 Controlling instance layout:
+    /// unverifiable, it is valid. See ECMA-335, section II.10.7 Controlling instance layout:
     /// 
     /// "It is possible to overlap fields in this way, though offsets occupied by an object reference 
     /// shall not overlap with offsets occupied by a built-in value type or a part of
@@ -37,7 +37,7 @@ namespace System.Reflection.Internal
     /// characteristics and therefore something we (Microsoft) are comfortable defining as a contract that 
     /// can be depended upon as below.
     /// </remarks>
-    internal unsafe static class ImmutableByteArrayInterop
+    internal static unsafe class ImmutableByteArrayInterop
     {
         /// <summary>
         /// Creates a new instance of <see cref="ImmutableArray{Byte}"/> using a given mutable array as the backing
@@ -94,7 +94,7 @@ namespace System.Reflection.Internal
             internal byte[] UnderlyingArray;
 
             [FieldOffset(0)]
-            internal ImmutableArray<Byte> ImmutableArray;
+            internal ImmutableArray<byte> ImmutableArray;
         }
     }
 }

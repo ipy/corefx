@@ -2,19 +2,11 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-//-----------------------------------------------------------------------------
-//
-// Description:
-//  This is a base abstract class for PackagePart. This is a part of the 
-//  Packaging Layer
-//
-//-----------------------------------------------------------------------------
-
 using System;
 using System.IO;
 using System.Collections;
-using System.Collections.Generic;   // For List <>
-using System.Diagnostics;           // For Debug.Assert
+using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace System.IO.Packaging
 {
@@ -24,12 +16,6 @@ namespace System.IO.Packaging
     /// </summary>
     public abstract class PackagePart
     {
-        //------------------------------------------------------
-        //
-        //  Public Constructors
-        //
-        //------------------------------------------------------
-
         #region Protected Constructor
 
         /// <summary>
@@ -116,10 +102,10 @@ namespace System.IO.Packaging
                                 CompressionOption compressionOption)
         {
             if (package == null)
-                throw new ArgumentNullException("package");
+                throw new ArgumentNullException(nameof(package));
 
             if (partUri == null)
-                throw new ArgumentNullException("partUri");
+                throw new ArgumentNullException(nameof(partUri));
 
             Package.ThrowIfCompressionOptionInvalid(compressionOption);
 
@@ -137,13 +123,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Protected Constructor
-
-        //------------------------------------------------------
-        //
-        //  Public Properties
-        //
-        //------------------------------------------------------
-
+        
         #region Public Properties
 
         /// <summary>
@@ -243,13 +223,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Public Properties    
-
-        //------------------------------------------------------
-        //
-        //  Public Methods
-        //
-        //------------------------------------------------------        
-
+        
         #region Public Methods
 
         #region Content Type Method
@@ -428,7 +402,7 @@ namespace System.IO.Packaging
         /// <exception cref="ArgumentException">If relationship is being targeted to a relationship part</exception>
         /// <exception cref="System.Xml.XmlException">If parameter "id" is not a valid Xsd Id</exception>
         /// <exception cref="System.Xml.XmlException">If an id is provided in the method, and its not unique</exception>
-        public PackageRelationship CreateRelationship(Uri targetUri, TargetMode targetMode, string relationshipType, String id)
+        public PackageRelationship CreateRelationship(Uri targetUri, TargetMode targetMode, string relationshipType, string id)
         {
             CheckInvalidState();
             _container.ThrowIfReadOnly();
@@ -454,7 +428,7 @@ namespace System.IO.Packaging
             _container.ThrowIfReadOnly();
 
             if (id == null)
-                throw new ArgumentNullException("id");
+                throw new ArgumentNullException(nameof(id));
 
             InternalRelationshipCollection.ThrowIfInvalidXsdId(id);
 
@@ -498,7 +472,7 @@ namespace System.IO.Packaging
             _container.ThrowIfWriteOnly();
 
             if (relationshipType == null)
-                throw new ArgumentNullException("relationshipType");
+                throw new ArgumentNullException(nameof(relationshipType));
 
             InternalRelationshipCollection.ThrowIfInvalidRelationshipType(relationshipType);
 
@@ -549,25 +523,7 @@ namespace System.IO.Packaging
         #endregion PackageRelationship Methods
 
         #endregion Public Methods
-
-        //------------------------------------------------------
-        //
-        //  Public Events
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Internal Constructors
-        //
-        //------------------------------------------------------
-        // None       
-        //------------------------------------------------------
-        //
-        //  Internal Properties
-        //
-        //------------------------------------------------------
-
+        
         #region Internal Properties
 
         internal bool IsRelationshipPart
@@ -613,13 +569,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Internal Properties
-
-        //------------------------------------------------------
-        //
-        //  Internal Methods
-        //
-        //------------------------------------------------------
-
+        
         #region Internal Methods
 
         //Delete all the relationships for this part
@@ -661,7 +611,7 @@ namespace System.IO.Packaging
                     if (_requestedStreams != null)
                     {
                         //Adding this extra check here to optimize delete operation
-                        //Everytime we delete a part we close it before deleting to 
+                        //Every time we delete a part we close it before deleting to 
                         //ensure that its deleted in a valid state. However, we do not
                         //need to persist any changes if the part is being deleted.
                         if (!_deleted)
@@ -721,18 +671,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Internal Methods
-
-        //------------------------------------------------------
-        //
-        //  Internal Events
-        //
-        //------------------------------------------------------
-        // None
-        //------------------------------------------------------
-        //
-        //  Private Methods
-        //
-        //------------------------------------------------------
+        
         #region Private Methods
 
         // lazy init
@@ -804,7 +743,7 @@ namespace System.IO.Packaging
             _container.ThrowIfWriteOnly();
 
             if (id == null)
-                throw new ArgumentNullException("id");
+                throw new ArgumentNullException(nameof(id));
 
             InternalRelationshipCollection.ThrowIfInvalidXsdId(id);
 
@@ -851,13 +790,7 @@ namespace System.IO.Packaging
         }
 
         #endregion Private Methods
-
-        //------------------------------------------------------
-        //
-        //  Private Fields
-        //
-        //------------------------------------------------------
-
+        
         #region Private Members
 
         private PackUriHelper.ValidatedPartUri _uri;

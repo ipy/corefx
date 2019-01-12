@@ -190,7 +190,7 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         {
             Stream stream = MakeResponseStream();
 
-            Assert.Throws<ArgumentException>(() => stream.Read(new byte[1], int.MaxValue, int.MaxValue));
+            AssertExtensions.Throws<ArgumentException>("buffer", () => stream.Read(new byte[1], int.MaxValue, int.MaxValue));
         }
 
         [Fact]
@@ -371,12 +371,13 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         internal Stream MakeResponseStream()
         {
             var state = new WinHttpRequestState();
+            state.Pin();
             var handle = new FakeSafeWinHttpHandle(true);
             handle.Callback = WinHttpRequestCallback.StaticCallbackDelegate;
             handle.Context = state.ToIntPtr();
             state.RequestHandle = handle;
 
-            return new WinHttpResponseStream(state);
+            return new WinHttpResponseStream(handle, state);
         }
     }
 }

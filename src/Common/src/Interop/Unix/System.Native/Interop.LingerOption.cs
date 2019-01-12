@@ -17,9 +17,12 @@ internal static partial class Interop
         }
 
         [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_GetLingerOption")]
-        internal static extern unsafe Error GetLingerOption(int socket, LingerOption* option);
+        internal static extern unsafe Error GetLingerOption(SafeHandle socket, LingerOption* option);
 
         [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_SetLingerOption")]
-        internal static extern unsafe Error SetLingerOption(int socket, LingerOption* option);
+        internal static extern unsafe Error SetLingerOption(SafeHandle socket, LingerOption* option);
+
+        [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_SetLingerOption")]
+        internal static extern unsafe Error SetLingerOption(IntPtr socket, LingerOption* option);
     }
 }

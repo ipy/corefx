@@ -28,7 +28,7 @@ namespace System.Net.Http.Tests
             Assert.Equal(new EntityTagHeaderValue("\"y\""), rangeCondition.EntityTag);
             Assert.Null(rangeCondition.Date);
 
-            Assert.Throws<ArgumentException>(() => { new RangeConditionHeaderValue((string)null); });
+            AssertExtensions.Throws<ArgumentException>("tag", () => { new RangeConditionHeaderValue((string)null); });
         }
 
         [Fact]
@@ -139,7 +139,7 @@ namespace System.Net.Http.Tests
         [Fact]
         public void GetRangeConditionLength_DifferentInvalidScenarios_AllReturnZero()
         {
-            CheckInvalidGetRangeConditionLength(" \"x\"", 0); // no leading whitespaces allowed
+            CheckInvalidGetRangeConditionLength(" \"x\"", 0); // no leading whitespace allowed
             CheckInvalidGetRangeConditionLength(" Wed 09 Nov 1994 08:49:37 GMT", 0);
             CheckInvalidGetRangeConditionLength("\"x", 0);
             CheckInvalidGetRangeConditionLength("Wed, 09 Nov", 0);

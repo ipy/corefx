@@ -4,22 +4,20 @@
 
 
 
-//------------------------------------------------------------------------------
-
-using System.Collections;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
 
 
 namespace System.Data.SqlClient
 {
-    internal sealed class SqlConnectionString : DbConnectionOptions
+    internal sealed partial class SqlConnectionString : DbConnectionOptions
     {
         // instances of this class are intended to be immutable, i.e readonly
         // used by pooling classes so it is much easier to verify correctness
         // when not worried about the class being modified during execution
 
-        internal static class DEFAULT
+        internal static partial class DEFAULT
         {
             internal const ApplicationIntent ApplicationIntent = DbConnectionStringDefaults.ApplicationIntent;
             internal const string Application_Name = TdsEnums.SQL_PROVIDER_NAME;
@@ -28,6 +26,7 @@ namespace System.Data.SqlClient
             internal const string Current_Language = "";
             internal const string Data_Source = "";
             internal const bool Encrypt = false;
+            internal const bool Enlist = true;
             internal const string FailoverPartner = "";
             internal const string Initial_Catalog = "";
             internal const bool Integrated_Security = false;
@@ -57,6 +56,9 @@ namespace System.Data.SqlClient
             internal const string Application_Name = "application name";
             internal const string AsynchronousProcessing = "asynchronous processing";
             internal const string AttachDBFilename = "attachdbfilename";
+#if netcoreapp
+            internal const string PoolBlockingPeriod = "poolblockingperiod";
+#endif
             internal const string Connect_Timeout = "connect timeout";
             internal const string Connection_Reset = "connection reset";
             internal const string Context_Connection = "context connection";
@@ -88,7 +90,7 @@ namespace System.Data.SqlClient
             internal const string Connect_Retry_Interval = "connectretryinterval";
         }
 
-        // Constant for the number of duplicate options in the connnection string
+        // Constant for the number of duplicate options in the connection string
 
         private static class SYNONYM
         {
@@ -151,13 +153,25 @@ namespace System.Data.SqlClient
             internal const string SQL_Server_2012 = "SQL Server 2012";
         }
 
+        internal enum TransactionBindingEnum
+        {
+            ImplicitUnbind,
+            ExplicitUnbind
+        }
 
-        static private Hashtable s_sqlClientSynonyms;
+        internal static class TRANSACTIONBINDING
+        {
+            internal const string ImplicitUnbind = "Implicit Unbind";
+            internal const string ExplicitUnbind = "Explicit Unbind";
+        }
+
+        private static Dictionary<string, string> s_sqlClientSynonyms;
 
         private readonly bool _integratedSecurity;
 
         private readonly bool _encrypt;
         private readonly bool _trustServerCertificate;
+        private readonly bool _enlist;
         private readonly bool _mars;
         private readonly bool _persistSecurityInfo;
         private readonly bool _pooling;
@@ -186,14 +200,18 @@ namespace System.Data.SqlClient
 
         private readonly string _workstationId;
 
+        private readonly TransactionBindingEnum _transactionBinding;
+
         private readonly TypeSystem _typeSystemVersion;
+        private readonly Version _typeSystemAssemblyVersion;
+        private static readonly Version constTypeSystemAsmVersion10 = new Version("10.0.0.0");
+        private static readonly Version constTypeSystemAsmVersion11 = new Version("11.0.0.0");
+
         internal SqlConnectionString(string connectionString) : base(connectionString, GetParseSynonyms())
         {
             ThrowUnsupportedIfKeywordSet(KEY.AsynchronousProcessing);
             ThrowUnsupportedIfKeywordSet(KEY.Connection_Reset);
             ThrowUnsupportedIfKeywordSet(KEY.Context_Connection);
-            ThrowUnsupportedIfKeywordSet(KEY.Enlist);
-            ThrowUnsupportedIfKeywordSet(KEY.TransactionBinding);
 
             // Network Library has its own special error message
             if (ContainsKey(KEY.Network_Library))
@@ -202,8 +220,11 @@ namespace System.Data.SqlClient
             }
 
             _integratedSecurity = ConvertValueToIntegratedSecurity();
-
+#if netcoreapp
+            _poolBlockingPeriod = ConvertValueToPoolBlockingPeriod();
+#endif
             _encrypt = ConvertValueToBoolean(KEY.Encrypt, DEFAULT.Encrypt);
+            _enlist = ConvertValueToBoolean(KEY.Enlist, DEFAULT.Enlist);
             _mars = ConvertValueToBoolean(KEY.MARS, DEFAULT.MARS);
             _persistSecurityInfo = ConvertValueToBoolean(KEY.Persist_Security_Info, DEFAULT.Persist_Security_Info);
             _pooling = ConvertValueToBoolean(KEY.Pooling, DEFAULT.Pooling);
@@ -232,6 +253,7 @@ namespace System.Data.SqlClient
 
             // Temporary string - this value is stored internally as an enum.
             string typeSystemVersionString = ConvertValueToString(KEY.Type_System_Version, null);
+            string transactionBindingString = ConvertValueToString(KEY.TransactionBinding, null);
 
             _userID = ConvertValueToString(KEY.User_ID, DEFAULT.User_ID);
             _workstationId = ConvertValueToString(KEY.Workstation_Id, null);
@@ -280,7 +302,7 @@ namespace System.Data.SqlClient
                 ValidateValueLength(_workstationId, TdsEnums.MAXLEN_HOSTNAME, KEY.Workstation_Id);
             }
 
-            if (!String.Equals(DEFAULT.FailoverPartner, _failoverPartner, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(DEFAULT.FailoverPartner, _failoverPartner, StringComparison.OrdinalIgnoreCase))
             {
                 // fail-over partner is set
 
@@ -289,12 +311,13 @@ namespace System.Data.SqlClient
                     throw SQL.MultiSubnetFailoverWithFailoverPartner(serverProvidedFailoverPartner: false, internalConnection: null);
                 }
 
-                if (String.Equals(DEFAULT.Initial_Catalog, _initialCatalog, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(DEFAULT.Initial_Catalog, _initialCatalog, StringComparison.OrdinalIgnoreCase))
                 {
                     throw ADP.MissingConnectionOptionValue(KEY.FailoverPartner, KEY.Initial_Catalog);
                 }
             }
 
+            // string.Contains(char) is .NetCore2.1+ specific
             if (0 <= _attachDBFileName.IndexOf('|'))
             {
                 throw ADP.InvalidConnectionOptionValue(KEY.AttachDBFilename);
@@ -304,13 +327,14 @@ namespace System.Data.SqlClient
                 ValidateValueLength(_attachDBFileName, TdsEnums.MAXLEN_ATTACHDBFILE, KEY.AttachDBFilename);
             }
 
+            _typeSystemAssemblyVersion = constTypeSystemAsmVersion10;
 
-            if (true == _userInstance && !ADP.IsEmpty(_failoverPartner))
+            if (true == _userInstance && !string.IsNullOrEmpty(_failoverPartner))
             {
                 throw SQL.UserInstanceFailoverNotCompatible();
             }
 
-            if (ADP.IsEmpty(typeSystemVersionString))
+            if (string.IsNullOrEmpty(typeSystemVersionString))
             {
                 typeSystemVersionString = DbConnectionStringDefaults.TypeSystemVersion;
             }
@@ -334,14 +358,32 @@ namespace System.Data.SqlClient
             else if (typeSystemVersionString.Equals(TYPESYSTEMVERSION.SQL_Server_2012, StringComparison.OrdinalIgnoreCase))
             {
                 _typeSystemVersion = TypeSystem.SQLServer2012;
+                _typeSystemAssemblyVersion = constTypeSystemAsmVersion11;
             }
             else
             {
                 throw ADP.InvalidConnectionOptionValue(KEY.Type_System_Version);
             }
 
+            if (string.IsNullOrEmpty(transactionBindingString))
+            {
+                transactionBindingString = DbConnectionStringDefaults.TransactionBinding;
+            }
 
-            if (_applicationIntent == ApplicationIntent.ReadOnly && !String.IsNullOrEmpty(_failoverPartner))
+            if (transactionBindingString.Equals(TRANSACTIONBINDING.ImplicitUnbind, StringComparison.OrdinalIgnoreCase))
+            {
+                _transactionBinding = TransactionBindingEnum.ImplicitUnbind;
+            }
+            else if (transactionBindingString.Equals(TRANSACTIONBINDING.ExplicitUnbind, StringComparison.OrdinalIgnoreCase))
+            {
+                _transactionBinding = TransactionBindingEnum.ExplicitUnbind;
+            }
+            else
+            {
+                throw ADP.InvalidConnectionOptionValue(KEY.TransactionBinding);
+            }
+
+            if (_applicationIntent == ApplicationIntent.ReadOnly && !string.IsNullOrEmpty(_failoverPartner))
                 throw SQL.ROR_FailoverNotSupportedConnString();
 
             if ((_connectRetryCount < 0) || (_connectRetryCount > 255))
@@ -357,10 +399,19 @@ namespace System.Data.SqlClient
 
         // This c-tor is used to create SSE and user instance connection strings when user instance is set to true
         // BUG (VSTFDevDiv) 479687: Using TransactionScope with Linq2SQL against user instances fails with "connection has been broken" message
-        internal SqlConnectionString(SqlConnectionString connectionOptions, string dataSource, bool userInstance) : base(connectionOptions)
+        internal SqlConnectionString(SqlConnectionString connectionOptions, string dataSource, bool userInstance, bool? setEnlistValue) : base(connectionOptions)
         {
             _integratedSecurity = connectionOptions._integratedSecurity;
             _encrypt = connectionOptions._encrypt;
+
+            if (setEnlistValue.HasValue)
+            {
+                _enlist = setEnlistValue.Value;
+            }
+            else
+            {
+                _enlist = connectionOptions._enlist;
+            }
 
             _mars = connectionOptions._mars;
             _persistSecurityInfo = connectionOptions._persistSecurityInfo;
@@ -369,6 +420,9 @@ namespace System.Data.SqlClient
             _userInstance = userInstance;
             _connectTimeout = connectionOptions._connectTimeout;
             _loadBalanceTimeout = connectionOptions._loadBalanceTimeout;
+#if netcoreapp
+            _poolBlockingPeriod = connectionOptions._poolBlockingPeriod;
+#endif
             _maxPoolSize = connectionOptions._maxPoolSize;
             _minPoolSize = connectionOptions._minPoolSize;
             _multiSubnetFailover = connectionOptions._multiSubnetFailover;
@@ -384,6 +438,7 @@ namespace System.Data.SqlClient
             _userID = connectionOptions._userID;
             _workstationId = connectionOptions._workstationId;
             _typeSystemVersion = connectionOptions._typeSystemVersion;
+            _transactionBinding = connectionOptions._transactionBinding;
             _applicationIntent = connectionOptions._applicationIntent;
             _connectRetryCount = connectionOptions._connectRetryCount;
             _connectRetryInterval = connectionOptions._connectRetryInterval;
@@ -396,12 +451,12 @@ namespace System.Data.SqlClient
         // We always initialize in Async mode so that both synchronous and asynchronous methods
         // will work.  In the future we can deprecate the keyword entirely.
         internal bool Asynchronous { get { return true; } }
-
         // SQLPT 41700: Ignore ResetConnection=False, always reset the connection for security
         internal bool ConnectionReset { get { return true; } }
         //        internal bool EnableUdtDownload { get { return _enableUdtDownload;} }
         internal bool Encrypt { get { return _encrypt; } }
         internal bool TrustServerCertificate { get { return _trustServerCertificate; } }
+        internal bool Enlist { get { return _enlist; } }
         internal bool MARS { get { return _mars; } }
         internal bool MultiSubnetFailover { get { return _multiSubnetFailover; } }
 
@@ -431,74 +486,83 @@ namespace System.Data.SqlClient
         internal string WorkstationId { get { return _workstationId; } }
 
         internal TypeSystem TypeSystemVersion { get { return _typeSystemVersion; } }
+        internal Version TypeSystemAssemblyVersion { get { return _typeSystemAssemblyVersion; } }
 
-        // this hashtable is meant to be read-only translation of parsed string
-        // keywords/synonyms to a known keyword string
-        internal static Hashtable GetParseSynonyms()
+        internal TransactionBindingEnum TransactionBinding { get { return _transactionBinding; } }
+
+        // This dictionary is meant to be read-only translation of parsed string
+        // keywords/synonyms to a known keyword string.
+        internal static Dictionary<string, string> GetParseSynonyms()
         {
-            Hashtable hash = s_sqlClientSynonyms;
-            if (null == hash)
+            Dictionary<string, string> synonyms = s_sqlClientSynonyms;
+            if (null == synonyms)
             {
-                hash = new Hashtable(SqlConnectionStringBuilder.KeywordsCount + SqlConnectionStringBuilder.DeprecatedKeywordsCount + SynonymCount + DeprecatedSynonymCount);
-                hash.Add(KEY.ApplicationIntent, KEY.ApplicationIntent);
-                hash.Add(KEY.Application_Name, KEY.Application_Name);
-                hash.Add(KEY.AsynchronousProcessing, KEY.AsynchronousProcessing);
-                hash.Add(KEY.AttachDBFilename, KEY.AttachDBFilename);
-                hash.Add(KEY.Connect_Timeout, KEY.Connect_Timeout);
-                hash.Add(KEY.Connection_Reset, KEY.Connection_Reset);
-                hash.Add(KEY.Context_Connection, KEY.Context_Connection);
-                hash.Add(KEY.Current_Language, KEY.Current_Language);
-                hash.Add(KEY.Data_Source, KEY.Data_Source);
-                hash.Add(KEY.Encrypt, KEY.Encrypt);
-                hash.Add(KEY.Enlist, KEY.Enlist);
-                hash.Add(KEY.FailoverPartner, KEY.FailoverPartner);
-                hash.Add(KEY.Initial_Catalog, KEY.Initial_Catalog);
-                hash.Add(KEY.Integrated_Security, KEY.Integrated_Security);
-                hash.Add(KEY.Load_Balance_Timeout, KEY.Load_Balance_Timeout);
-                hash.Add(KEY.MARS, KEY.MARS);
-                hash.Add(KEY.Max_Pool_Size, KEY.Max_Pool_Size);
-                hash.Add(KEY.Min_Pool_Size, KEY.Min_Pool_Size);
-                hash.Add(KEY.MultiSubnetFailover, KEY.MultiSubnetFailover);
-                hash.Add(KEY.Network_Library, KEY.Network_Library);
-                hash.Add(KEY.Packet_Size, KEY.Packet_Size);
-                hash.Add(KEY.Password, KEY.Password);
-                hash.Add(KEY.Persist_Security_Info, KEY.Persist_Security_Info);
-                hash.Add(KEY.Pooling, KEY.Pooling);
-                hash.Add(KEY.Replication, KEY.Replication);
-                hash.Add(KEY.TrustServerCertificate, KEY.TrustServerCertificate);
-                hash.Add(KEY.TransactionBinding, KEY.TransactionBinding);
-                hash.Add(KEY.Type_System_Version, KEY.Type_System_Version);
-                hash.Add(KEY.User_ID, KEY.User_ID);
-                hash.Add(KEY.User_Instance, KEY.User_Instance);
-                hash.Add(KEY.Workstation_Id, KEY.Workstation_Id);
-                hash.Add(KEY.Connect_Retry_Count, KEY.Connect_Retry_Count);
-                hash.Add(KEY.Connect_Retry_Interval, KEY.Connect_Retry_Interval);
+                int count = SqlConnectionStringBuilder.KeywordsCount + SqlConnectionStringBuilder.DeprecatedKeywordsCount + SynonymCount + DeprecatedSynonymCount;
+                synonyms = new Dictionary<string, string>(count)
+                {
+                    { KEY.ApplicationIntent, KEY.ApplicationIntent },
+                    { KEY.Application_Name, KEY.Application_Name },
+                    { KEY.AsynchronousProcessing, KEY.AsynchronousProcessing },
+                    { KEY.AttachDBFilename, KEY.AttachDBFilename },
+#if netcoreapp
+                    { KEY.PoolBlockingPeriod, KEY.PoolBlockingPeriod},
+#endif
+                    { KEY.Connect_Timeout, KEY.Connect_Timeout },
+                    { KEY.Connection_Reset, KEY.Connection_Reset },
+                    { KEY.Context_Connection, KEY.Context_Connection },
+                    { KEY.Current_Language, KEY.Current_Language },
+                    { KEY.Data_Source, KEY.Data_Source },
+                    { KEY.Encrypt, KEY.Encrypt },
+                    { KEY.Enlist, KEY.Enlist },
+                    { KEY.FailoverPartner, KEY.FailoverPartner },
+                    { KEY.Initial_Catalog, KEY.Initial_Catalog },
+                    { KEY.Integrated_Security, KEY.Integrated_Security },
+                    { KEY.Load_Balance_Timeout, KEY.Load_Balance_Timeout },
+                    { KEY.MARS, KEY.MARS },
+                    { KEY.Max_Pool_Size, KEY.Max_Pool_Size },
+                    { KEY.Min_Pool_Size, KEY.Min_Pool_Size },
+                    { KEY.MultiSubnetFailover, KEY.MultiSubnetFailover },
+                    { KEY.Network_Library, KEY.Network_Library },
+                    { KEY.Packet_Size, KEY.Packet_Size },
+                    { KEY.Password, KEY.Password },
+                    { KEY.Persist_Security_Info, KEY.Persist_Security_Info },
+                    { KEY.Pooling, KEY.Pooling },
+                    { KEY.Replication, KEY.Replication },
+                    { KEY.TrustServerCertificate, KEY.TrustServerCertificate },
+                    { KEY.TransactionBinding, KEY.TransactionBinding },
+                    { KEY.Type_System_Version, KEY.Type_System_Version },
+                    { KEY.User_ID, KEY.User_ID },
+                    { KEY.User_Instance, KEY.User_Instance },
+                    { KEY.Workstation_Id, KEY.Workstation_Id },
+                    { KEY.Connect_Retry_Count, KEY.Connect_Retry_Count },
+                    { KEY.Connect_Retry_Interval, KEY.Connect_Retry_Interval },
 
-                hash.Add(SYNONYM.APP, KEY.Application_Name);
-                hash.Add(SYNONYM.Async, KEY.AsynchronousProcessing);
-                hash.Add(SYNONYM.EXTENDED_PROPERTIES, KEY.AttachDBFilename);
-                hash.Add(SYNONYM.INITIAL_FILE_NAME, KEY.AttachDBFilename);
-                hash.Add(SYNONYM.CONNECTION_TIMEOUT, KEY.Connect_Timeout);
-                hash.Add(SYNONYM.TIMEOUT, KEY.Connect_Timeout);
-                hash.Add(SYNONYM.LANGUAGE, KEY.Current_Language);
-                hash.Add(SYNONYM.ADDR, KEY.Data_Source);
-                hash.Add(SYNONYM.ADDRESS, KEY.Data_Source);
-                hash.Add(SYNONYM.NETWORK_ADDRESS, KEY.Data_Source);
-                hash.Add(SYNONYM.SERVER, KEY.Data_Source);
-                hash.Add(SYNONYM.DATABASE, KEY.Initial_Catalog);
-                hash.Add(SYNONYM.TRUSTED_CONNECTION, KEY.Integrated_Security);
-                hash.Add(SYNONYM.Connection_Lifetime, KEY.Load_Balance_Timeout);
-                hash.Add(SYNONYM.NET, KEY.Network_Library);
-                hash.Add(SYNONYM.NETWORK, KEY.Network_Library);
-                hash.Add(SYNONYM.Pwd, KEY.Password);
-                hash.Add(SYNONYM.PERSISTSECURITYINFO, KEY.Persist_Security_Info);
-                hash.Add(SYNONYM.UID, KEY.User_ID);
-                hash.Add(SYNONYM.User, KEY.User_ID);
-                hash.Add(SYNONYM.WSID, KEY.Workstation_Id);
-                Debug.Assert(SqlConnectionStringBuilder.KeywordsCount + SqlConnectionStringBuilder.DeprecatedKeywordsCount + SynonymCount + DeprecatedSynonymCount == hash.Count, "incorrect initial ParseSynonyms size");
-                s_sqlClientSynonyms = hash;
+                    { SYNONYM.APP, KEY.Application_Name },
+                    { SYNONYM.Async, KEY.AsynchronousProcessing },
+                    { SYNONYM.EXTENDED_PROPERTIES, KEY.AttachDBFilename },
+                    { SYNONYM.INITIAL_FILE_NAME, KEY.AttachDBFilename },
+                    { SYNONYM.CONNECTION_TIMEOUT, KEY.Connect_Timeout },
+                    { SYNONYM.TIMEOUT, KEY.Connect_Timeout },
+                    { SYNONYM.LANGUAGE, KEY.Current_Language },
+                    { SYNONYM.ADDR, KEY.Data_Source },
+                    { SYNONYM.ADDRESS, KEY.Data_Source },
+                    { SYNONYM.NETWORK_ADDRESS, KEY.Data_Source },
+                    { SYNONYM.SERVER, KEY.Data_Source },
+                    { SYNONYM.DATABASE, KEY.Initial_Catalog },
+                    { SYNONYM.TRUSTED_CONNECTION, KEY.Integrated_Security },
+                    { SYNONYM.Connection_Lifetime, KEY.Load_Balance_Timeout },
+                    { SYNONYM.NET, KEY.Network_Library },
+                    { SYNONYM.NETWORK, KEY.Network_Library },
+                    { SYNONYM.Pwd, KEY.Password },
+                    { SYNONYM.PERSISTSECURITYINFO, KEY.Persist_Security_Info },
+                    { SYNONYM.UID, KEY.User_ID },
+                    { SYNONYM.User, KEY.User_ID },
+                    { SYNONYM.WSID, KEY.Workstation_Id }
+                };
+                Debug.Assert(synonyms.Count == count, "incorrect initial ParseSynonyms size");
+                s_sqlClientSynonyms = synonyms;
             }
-            return hash;
+            return synonyms;
         }
 
         internal string ObtainWorkstationId()
@@ -512,7 +576,8 @@ namespace System.Data.SqlClient
                 // permission to obtain Environment.MachineName is Asserted
                 // since permission to open the connection has been granted
                 // the information is shared with the server, but not directly with the user
-                result = string.Empty;
+                result = ADP.MachineName();
+                ValidateValueLength(result, TdsEnums.MAXLEN_HOSTNAME, KEY.Workstation_Id);
             }
             return result;
         }
@@ -529,8 +594,8 @@ namespace System.Data.SqlClient
 
         internal System.Data.SqlClient.ApplicationIntent ConvertValueToApplicationIntent()
         {
-            object value = base.Parsetable[KEY.ApplicationIntent];
-            if (value == null)
+            string value;
+            if (!TryGetParsetableValue(KEY.ApplicationIntent, out value))
             {
                 return DEFAULT.ApplicationIntent;
             }
@@ -551,6 +616,7 @@ namespace System.Data.SqlClient
             }
             // ArgumentException and other types are raised as is (no wrapping)
         }
+
         internal void ThrowUnsupportedIfKeywordSet(string keyword)
         {
             if (ContainsKey(keyword))
@@ -560,4 +626,3 @@ namespace System.Data.SqlClient
         }
     }
 }
-

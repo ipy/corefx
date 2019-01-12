@@ -6,7 +6,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 using System.Reflection;
 
 namespace System.Security.Principal
@@ -72,9 +71,8 @@ namespace System.Security.Principal
         {
             if (identity == null)
             {
-                throw new ArgumentNullException("identity");
+                throw new ArgumentNullException(nameof(identity));
             }
-            Contract.EndContractBlock();
 
             _Identities.Add(identity);
         }
@@ -83,9 +81,8 @@ namespace System.Security.Principal
         {
             if (identity == null)
             {
-                throw new ArgumentNullException("identity");
+                throw new ArgumentNullException(nameof(identity));
             }
-            Contract.EndContractBlock();
 
             if (Contains(identity))
             {
@@ -104,9 +101,8 @@ namespace System.Security.Principal
         {
             if (identity == null)
             {
-                throw new ArgumentNullException("identity");
+                throw new ArgumentNullException(nameof(identity));
             }
-            Contract.EndContractBlock();
 
             return _Identities.Contains(identity);
         }
@@ -140,9 +136,8 @@ namespace System.Security.Principal
             {
                 if (value == null)
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
-                Contract.EndContractBlock();
 
                 _Identities[index] = value;
             }
@@ -165,7 +160,7 @@ namespace System.Security.Principal
         {
             if (targetType == null)
             {
-                throw new ArgumentNullException("targetType");
+                throw new ArgumentNullException(nameof(targetType));
             }
 
             //
@@ -174,9 +169,8 @@ namespace System.Security.Principal
 
             if (!targetType.GetTypeInfo().IsSubclassOf(typeof(IdentityReference)))
             {
-                throw new ArgumentException(SR.IdentityReference_MustBeIdentityReference, "targetType");
+                throw new ArgumentException(SR.IdentityReference_MustBeIdentityReference, nameof(targetType));
             }
-            Contract.EndContractBlock();
 
             //
             // if the source collection is empty, just return an empty collection
@@ -406,9 +400,8 @@ namespace System.Security.Principal
         {
             if (collection == null)
             {
-                throw new ArgumentNullException("collection");
+                throw new ArgumentNullException(nameof(collection));
             }
-            Contract.EndContractBlock();
 
             _collection = collection;
             _current = -1;

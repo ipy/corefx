@@ -14,7 +14,7 @@ namespace System.Reflection
 {
     // Helper class to handle the IL EMIT for the generation of proxies.
     // Much of this code was taken directly from the Silverlight proxy generation.
-    // Differences beteen this and the Silverlight version are:
+    // Differences between this and the Silverlight version are:
     //  1. This version is based on DispatchProxy from NET Native and CoreCLR, not RealProxy in Silverlight ServiceModel.
     //     There are several notable differences between them.
     //  2. Both DispatchProxy and RealProxy permit the caller to ask for a proxy specifying a pair of types:
@@ -214,8 +214,7 @@ namespace System.Reflection
                 {
                     if (_ignoresAccessChecksToAttributeConstructor == null)
                     {
-                        TypeInfo attributeTypeInfo = GenerateTypeInfoOfIgnoresAccessChecksToAttribute();
-                        _ignoresAccessChecksToAttributeConstructor = attributeTypeInfo.DeclaredConstructors.Single();
+                        _ignoresAccessChecksToAttributeConstructor = IgnoreAccessChecksToAttributeBuilder.AddToModule(_mb);
                     }
 
                     return _ignoresAccessChecksToAttributeConstructor;
@@ -226,94 +225,6 @@ namespace System.Reflection
                 int nextId = Interlocked.Increment(ref _typeId);
                 TypeBuilder tb = _mb.DefineType(name + "_" + nextId, TypeAttributes.Public, proxyBaseType);
                 return new ProxyBuilder(this, tb, proxyBaseType);
-            }
-
-            // Generate the declaration for the IgnoresAccessChecksToAttribute type.
-            // This attribute will be both defined and used in the dynamic assembly.
-            // Each usage identifies the name of the assembly containing non-public
-            // types the dynamic assembly needs to access.  Normally those types
-            // would be inaccessible, but this attribute allows them to be visible.
-            // It works like a reverse InternalsVisibleToAttribute.
-            // This method returns the TypeInfo of the generated attribute.
-            private TypeInfo GenerateTypeInfoOfIgnoresAccessChecksToAttribute()
-            {
-                TypeBuilder attributeTypeBuilder = 
-                    _mb.DefineType("System.Runtime.CompilerServices.IgnoresAccessChecksToAttribute", 
-                                   TypeAttributes.Public | TypeAttributes.Class, 
-                                   typeof(Attribute));
-
-                // Create backing field as:
-                // private string assemblyName;
-                FieldBuilder assemblyNameField = 
-                    attributeTypeBuilder.DefineField("assemblyName", typeof(String), FieldAttributes.Private);
-
-                // Create ctor as:
-                // public IgnoresAccessChecksToAttribute(string)
-                ConstructorBuilder constructorBuilder = attributeTypeBuilder.DefineConstructor(MethodAttributes.Public, 
-                                                             CallingConventions.HasThis, 
-                                                             new Type[] { assemblyNameField.FieldType });
-
-                ILGenerator il = constructorBuilder.GetILGenerator();
-
-                // Create ctor body as:
-                // this.assemblyName = {ctor parameter 0}
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldarg, 1);
-                il.Emit(OpCodes.Stfld, assemblyNameField);
-
-                // return
-                il.Emit(OpCodes.Ret);
-
-                // Define property as:
-                // public string AssemblyName {get { return this.assemblyName; } }
-                PropertyBuilder getterPropertyBuilder = attributeTypeBuilder.DefineProperty(
-                                                       "AssemblyName",
-                                                       PropertyAttributes.None,
-                                                       CallingConventions.HasThis,
-                                                       returnType: typeof(String),
-                                                       parameterTypes: null);
-
-                MethodBuilder getterMethodBuilder = attributeTypeBuilder.DefineMethod(
-                                                       "get_AssemblyName",
-                                                       MethodAttributes.Public,
-                                                       CallingConventions.HasThis,
-                                                       returnType: typeof(String),
-                                                       parameterTypes: null);
-
-                // Generate body:
-                // return this.assemblyName;
-                il = getterMethodBuilder.GetILGenerator();
-                il.Emit(OpCodes.Ldarg_0);
-                il.Emit(OpCodes.Ldfld, assemblyNameField);
-                il.Emit(OpCodes.Ret);
-
-                // Generate the AttributeUsage attribute for this attribute type:
-                // [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-                TypeInfo attributeUsageTypeInfo = typeof(AttributeUsageAttribute).GetTypeInfo();
-
-                // Find the ctor that takes only AttributeTargets
-                ConstructorInfo attributeUsageConstructorInfo =
-                    attributeUsageTypeInfo.DeclaredConstructors
-                        .Single(c => c.GetParameters().Count() == 1 &&
-                                     c.GetParameters()[0].ParameterType == typeof(AttributeTargets));
-
-                // Find the property to set AllowMultiple
-                PropertyInfo allowMultipleProperty =
-                    attributeUsageTypeInfo.DeclaredProperties
-                        .Single(f => String.Equals(f.Name, "AllowMultiple"));
-
-                // Create a builder to construct the instance via the ctor and property
-                CustomAttributeBuilder customAttributeBuilder = 
-                    new CustomAttributeBuilder(attributeUsageConstructorInfo,
-                                                new object[] { AttributeTargets.Assembly },
-                                                new PropertyInfo[] { allowMultipleProperty },
-                                                new object[] { true });
-
-                // Attach this attribute instance to the newly defined attribute type
-                attributeTypeBuilder.SetCustomAttribute(customAttributeBuilder);
-
-                // Make the TypeInfo real so the constructor can be used.
-                return attributeTypeBuilder.CreateTypeInfo();
             }
 
             // Generates an instance of the IgnoresAccessChecksToAttribute to
@@ -421,18 +332,83 @@ namespace System.Reflection
 
             internal void AddInterfaceImpl(Type iface)
             {
-                // If necessary, generate an attribute to permit visiblity
+                // If necessary, generate an attribute to permit visibility
                 // to internal types.
                 _assembly.EnsureTypeIsVisible(iface);
 
                 _tb.AddInterfaceImplementation(iface);
+
+                // AccessorMethods -> Metadata mappings.
+                var propertyMap = new Dictionary<MethodInfo, PropertyAccessorInfo>(MethodInfoEqualityComparer.Instance);
+                foreach (PropertyInfo pi in iface.GetRuntimeProperties())
+                {
+                    var ai = new PropertyAccessorInfo(pi.GetMethod, pi.SetMethod);
+                    if (pi.GetMethod != null)
+                        propertyMap[pi.GetMethod] = ai;
+                    if (pi.SetMethod != null)
+                        propertyMap[pi.SetMethod] = ai;
+                }
+
+                var eventMap = new Dictionary<MethodInfo, EventAccessorInfo>(MethodInfoEqualityComparer.Instance);
+                foreach (EventInfo ei in iface.GetRuntimeEvents())
+                {
+                    var ai = new EventAccessorInfo(ei.AddMethod, ei.RemoveMethod, ei.RaiseMethod);
+                    if (ei.AddMethod != null)
+                        eventMap[ei.AddMethod] = ai;
+                    if (ei.RemoveMethod != null)
+                        eventMap[ei.RemoveMethod] = ai;
+                    if (ei.RaiseMethod != null)
+                        eventMap[ei.RaiseMethod] = ai;
+                }
+
                 foreach (MethodInfo mi in iface.GetRuntimeMethods())
                 {
-                    AddMethodImpl(mi);
+                    MethodBuilder mdb = AddMethodImpl(mi);
+                    PropertyAccessorInfo associatedProperty;
+                    if (propertyMap.TryGetValue(mi, out associatedProperty))
+                    {
+                        if (MethodInfoEqualityComparer.Instance.Equals(associatedProperty.InterfaceGetMethod, mi))
+                            associatedProperty.GetMethodBuilder = mdb;
+                        else
+                            associatedProperty.SetMethodBuilder = mdb;
+                    }
+
+                    EventAccessorInfo associatedEvent;
+                    if (eventMap.TryGetValue(mi, out associatedEvent))
+                    {
+                        if (MethodInfoEqualityComparer.Instance.Equals(associatedEvent.InterfaceAddMethod, mi))
+                            associatedEvent.AddMethodBuilder = mdb;
+                        else if (MethodInfoEqualityComparer.Instance.Equals(associatedEvent.InterfaceRemoveMethod, mi))
+                            associatedEvent.RemoveMethodBuilder = mdb;
+                        else
+                            associatedEvent.RaiseMethodBuilder = mdb;
+                    }
+                }
+
+                foreach (PropertyInfo pi in iface.GetRuntimeProperties())
+                {
+                    PropertyAccessorInfo ai = propertyMap[pi.GetMethod ?? pi.SetMethod];
+                    PropertyBuilder pb = _tb.DefineProperty(pi.Name, pi.Attributes, pi.PropertyType, pi.GetIndexParameters().Select(p => p.ParameterType).ToArray());
+                    if (ai.GetMethodBuilder != null)
+                        pb.SetGetMethod(ai.GetMethodBuilder);
+                    if (ai.SetMethodBuilder != null)
+                        pb.SetSetMethod(ai.SetMethodBuilder);
+                }
+
+                foreach (EventInfo ei in iface.GetRuntimeEvents())
+                {
+                    EventAccessorInfo ai = eventMap[ei.AddMethod ?? ei.RemoveMethod];
+                    EventBuilder eb = _tb.DefineEvent(ei.Name, ei.Attributes, ei.EventHandlerType);
+                    if (ai.AddMethodBuilder != null)
+                        eb.SetAddOnMethod(ai.AddMethodBuilder);
+                    if (ai.RemoveMethodBuilder != null)
+                        eb.SetRemoveOnMethod(ai.RemoveMethodBuilder);
+                    if (ai.RaiseMethodBuilder != null)
+                        eb.SetRaiseMethod(ai.RaiseMethodBuilder);
                 }
             }
 
-            private void AddMethodImpl(MethodInfo mi)
+            private MethodBuilder AddMethodImpl(MethodInfo mi)
             {
                 ParameterInfo[] parameters = mi.GetParameters();
                 Type[] paramTypes = ParamTypes(parameters, false);
@@ -492,7 +468,7 @@ namespace System.Reflection
                 // packed[PackedArgs.MethodTokenPosition] = iface method token;
                 packedArr.BeginSet(PackedArgs.MethodTokenPosition);
                 il.Emit(OpCodes.Ldc_I4, methodToken);
-                packedArr.EndSet(typeof(Int32));
+                packedArr.EndSet(typeof(int));
 
                 // packed[PackedArgs.ArgsPosition] = args;
                 packedArr.BeginSet(PackedArgs.ArgsPosition);
@@ -541,6 +517,7 @@ namespace System.Reflection
                 il.Emit(OpCodes.Ret);
 
                 _tb.DefineMethodOverride(mdb, mi);
+                return mdb;
             }
 
             private static Type[] ParamTypes(ParameterInfo[] parms, bool noByRef)
@@ -563,49 +540,49 @@ namespace System.Reflection
                 if (type == null)
                     return 0;   // TypeCode.Empty;
 
-                if (type == typeof(Boolean))
+                if (type == typeof(bool))
                     return 3;   // TypeCode.Boolean;
 
-                if (type == typeof(Char))
+                if (type == typeof(char))
                     return 4;   // TypeCode.Char;
 
-                if (type == typeof(SByte))
+                if (type == typeof(sbyte))
                     return 5;   // TypeCode.SByte;
 
-                if (type == typeof(Byte))
+                if (type == typeof(byte))
                     return 6;   // TypeCode.Byte;
 
-                if (type == typeof(Int16))
+                if (type == typeof(short))
                     return 7;   // TypeCode.Int16;
 
-                if (type == typeof(UInt16))
+                if (type == typeof(ushort))
                     return 8;   // TypeCode.UInt16;
 
-                if (type == typeof(Int32))
+                if (type == typeof(int))
                     return 9;   // TypeCode.Int32;
 
-                if (type == typeof(UInt32))
+                if (type == typeof(uint))
                     return 10;  // TypeCode.UInt32;
 
-                if (type == typeof(Int64))
+                if (type == typeof(long))
                     return 11;  // TypeCode.Int64;
 
-                if (type == typeof(UInt64))
+                if (type == typeof(ulong))
                     return 12;  // TypeCode.UInt64;
 
-                if (type == typeof(Single))
+                if (type == typeof(float))
                     return 13;  // TypeCode.Single;
 
-                if (type == typeof(Double))
+                if (type == typeof(double))
                     return 14;  // TypeCode.Double;
 
-                if (type == typeof(Decimal))
+                if (type == typeof(decimal))
                     return 15;  // TypeCode.Decimal;
 
                 if (type == typeof(DateTime))
                     return 16;  // TypeCode.DateTime;
 
-                if (type == typeof(String))
+                if (type == typeof(string))
                     return 18;  // TypeCode.String;
 
                 if (type.GetTypeInfo().IsEnum)
@@ -715,7 +692,7 @@ namespace System.Reflection
                 }
                 else if (targetTypeInfo.IsAssignableFrom(sourceTypeInfo))
                 {
-                    if (sourceTypeInfo.IsValueType)
+                    if (sourceTypeInfo.IsValueType || source.IsGenericParameter)
                     {
                         if (isAddress)
                             Ldind(il, source);
@@ -727,8 +704,6 @@ namespace System.Reflection
                     Debug.Assert(sourceTypeInfo.IsAssignableFrom(targetTypeInfo) || targetTypeInfo.IsInterface || sourceTypeInfo.IsInterface);
                     if (target.IsGenericParameter)
                     {
-                        // T GetProperty<T>() where T : class;
-                        Debug.Assert(targetTypeInfo.GenericParameterAttributes == GenericParameterAttributes.ReferenceTypeConstraint);
                         il.Emit(OpCodes.Unbox_Any, target);
                     }
                     else
@@ -829,6 +804,112 @@ namespace System.Reflection
                 {
                     Convert(_il, stackType, typeof(T), false);
                     _il.Emit(OpCodes.Stelem_Ref);
+                }
+            }
+
+            private sealed class PropertyAccessorInfo
+            {
+                public MethodInfo InterfaceGetMethod { get; }
+                public MethodInfo InterfaceSetMethod { get; }
+                public MethodBuilder GetMethodBuilder { get; set; }
+                public MethodBuilder SetMethodBuilder { get; set; }
+
+                public PropertyAccessorInfo(MethodInfo interfaceGetMethod, MethodInfo interfaceSetMethod)
+                {
+                    InterfaceGetMethod = interfaceGetMethod;
+                    InterfaceSetMethod = interfaceSetMethod;
+                }
+            }
+
+            private sealed class EventAccessorInfo
+            {
+                public MethodInfo InterfaceAddMethod { get; }
+                public MethodInfo InterfaceRemoveMethod { get; }
+                public MethodInfo InterfaceRaiseMethod { get; }
+                public MethodBuilder AddMethodBuilder { get; set; }
+                public MethodBuilder RemoveMethodBuilder { get; set; }
+                public MethodBuilder RaiseMethodBuilder { get; set; }
+
+                public EventAccessorInfo(MethodInfo interfaceAddMethod, MethodInfo interfaceRemoveMethod, MethodInfo interfaceRaiseMethod)
+                {
+                    InterfaceAddMethod = interfaceAddMethod;
+                    InterfaceRemoveMethod = interfaceRemoveMethod;
+                    InterfaceRaiseMethod = interfaceRaiseMethod;
+                }
+            }
+
+            private sealed class MethodInfoEqualityComparer : EqualityComparer<MethodInfo>
+            {
+                public static readonly MethodInfoEqualityComparer Instance = new MethodInfoEqualityComparer();
+
+                private MethodInfoEqualityComparer() { }
+
+                public sealed override bool Equals(MethodInfo left, MethodInfo right)
+                {
+                    if (ReferenceEquals(left, right))
+                        return true;
+
+                    if (left == null)
+                        return right == null;
+                    else if (right == null)
+                        return false;
+
+                    // This assembly should work in netstandard1.3,
+                    // so we cannot use MemberInfo.MetadataToken here.
+                    // Therefore, it compares honestly referring ECMA-335 I.8.6.1.6 Signature Matching.
+                    if (!Equals(left.DeclaringType, right.DeclaringType))
+                        return false;
+
+                    if (!Equals(left.ReturnType, right.ReturnType))
+                        return false;
+
+                    if (left.CallingConvention != right.CallingConvention)
+                        return false;
+
+                    if (left.IsStatic != right.IsStatic)
+                        return false;
+
+                    if ( left.Name != right.Name)
+                        return false;
+
+                    Type[] leftGenericParameters = left.GetGenericArguments();
+                    Type[] rightGenericParameters = right.GetGenericArguments();
+                    if (leftGenericParameters.Length != rightGenericParameters.Length)
+                        return false;
+
+                    for (int i = 0; i < leftGenericParameters.Length; i++)
+                    {
+                        if (!Equals(leftGenericParameters[i], rightGenericParameters[i]))
+                            return false;
+                    }
+
+                    ParameterInfo[] leftParameters = left.GetParameters();
+                    ParameterInfo[] rightParameters = right.GetParameters();
+                    if (leftParameters.Length != rightParameters.Length)
+                        return false;
+
+                    for (int i = 0; i < leftParameters.Length; i++)
+                    {
+                        if (!Equals(leftParameters[i].ParameterType, rightParameters[i].ParameterType))
+                            return false;
+                    }
+
+                    return true;
+                }
+
+                public sealed override int GetHashCode(MethodInfo obj)
+                {
+                    if (obj == null)
+                        return 0;
+
+                    int hashCode = obj.DeclaringType.GetHashCode();
+                    hashCode ^= obj.Name.GetHashCode();
+                    foreach (ParameterInfo parameter in obj.GetParameters())
+                    {
+                        hashCode ^= parameter.ParameterType.GetHashCode();
+                    }
+
+                    return hashCode;
                 }
             }
         }

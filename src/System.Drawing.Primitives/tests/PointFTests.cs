@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Globalization;
+using System.Reflection;
 using Xunit;
 
 namespace System.Drawing.PrimitivesTests
@@ -56,12 +57,18 @@ namespace System.Drawing.PrimitivesTests
             PointF p = new PointF(x, y);
             Assert.Equal(x, p.X);
             Assert.Equal(y, p.Y);
+
+            p.X = 10;
+            Assert.Equal(10, p.X);
+
+            p.Y = -10.123f;
+            Assert.Equal(-10.123, p.Y, 3);
         }
 
         [Theory]
         [InlineData(float.MaxValue, float.MinValue, int.MaxValue, int.MinValue)]
         [InlineData(float.MinValue, float.MaxValue, int.MinValue, int.MaxValue)]
-        [InlineData(0,0,0,0)]
+        [InlineData(0, 0, 0, 0)]
         public void ArithmeticTestWithSize(float x, float y, int x1, int y1)
         {
             PointF p = new PointF(x, y);
@@ -97,7 +104,7 @@ namespace System.Drawing.PrimitivesTests
         [InlineData(float.MinValue, float.MaxValue)]
         [InlineData(float.MinValue, float.MinValue)]
         [InlineData(float.MaxValue, float.MaxValue)]
-        [InlineData(0,0)]
+        [InlineData(0, 0)]
         public void EqualityTest(float x, float y)
         {
             PointF pLeft = new PointF(x, y);
@@ -108,6 +115,7 @@ namespace System.Drawing.PrimitivesTests
                 Assert.True(pLeft == pRight);
                 Assert.False(pLeft != pRight);
                 Assert.True(pLeft.Equals(pRight));
+                Assert.True(pLeft.Equals((object)pRight));
                 Assert.Equal(pLeft.GetHashCode(), pRight.GetHashCode());
                 return;
             }
@@ -115,12 +123,40 @@ namespace System.Drawing.PrimitivesTests
             Assert.True(pLeft != pRight);
             Assert.False(pLeft == pRight);
             Assert.False(pLeft.Equals(pRight));
+            Assert.False(pLeft.Equals((object)pRight));
         }
 
         [Fact]
-        public void ToStringTest()
+        public static void EqualityTest_NotPointF()
         {
-            PointF p = new PointF(0, 0);
+            var point = new PointF(0, 0);
+            Assert.False(point.Equals(null));
+            Assert.False(point.Equals(0));
+
+            // If PointF implements IEquatable<PointF> (e.g. in .NET Core), then classes that are implicitly 
+            // convertible to PointF can potentially be equal.
+            // See https://github.com/dotnet/corefx/issues/5255.
+            bool expectsImplicitCastToPointF = typeof(IEquatable<PointF>).IsAssignableFrom(point.GetType());
+            Assert.Equal(expectsImplicitCastToPointF, point.Equals(new Point(0, 0)));
+
+            Assert.False(point.Equals((object)new Point(0, 0))); // No implicit cast
+        }
+
+        [Fact]
+        public static void GetHashCodeTest()
+        {
+            var point = new PointF(10, 10);
+            Assert.Equal(point.GetHashCode(), new PointF(10, 10).GetHashCode());
+            Assert.NotEqual(point.GetHashCode(), new PointF(20, 10).GetHashCode());
+            Assert.NotEqual(point.GetHashCode(), new PointF(10, 20).GetHashCode());
+        }
+
+        [Theory]
+        [InlineData(0, 0)]
+        [InlineData(5.1, -5.123)]
+        public void ToStringTest(float x, float y)
+        {
+            PointF p = new PointF(x, y);
             Assert.Equal(string.Format(CultureInfo.CurrentCulture, "{{X={0}, Y={1}}}", p.X, p.Y), p.ToString());
         }
     }

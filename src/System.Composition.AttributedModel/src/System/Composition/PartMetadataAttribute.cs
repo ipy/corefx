@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-
 namespace System.Composition
 {
     /// <summary>
@@ -17,7 +15,7 @@ namespace System.Composition
         ///     specified name and metadata value.
         /// </summary>
         /// <param name="name">
-        ///     A <see cref="String"/> containing the name of the metadata value; or 
+        ///     A <see cref="string"/> containing the name of the metadata value; or 
         ///     <see langword="null"/> to use an empty string ("").
         /// </param>
         /// <param name="value">
@@ -26,9 +24,7 @@ namespace System.Composition
         /// </param>
         public PartMetadataAttribute(string name, object value)
         {
-            if (name == null) throw new ArgumentNullException("name");
-
-            Name = name;
+            Name = name ?? throw new ArgumentNullException(nameof(name));
             Value = value;
         }
 
@@ -36,9 +32,9 @@ namespace System.Composition
         ///     Gets the name of the metadata value.
         /// </summary>
         /// <value>
-        ///     A <see cref="String"/> containing the name of the metadata value.
+        ///     A <see cref="string"/> containing the name of the metadata value.
         /// </value>
-        public string Name { get; private set; }
+        public string Name { get; }
 
         /// <summary>
         ///     Gets the metadata value.
@@ -46,6 +42,6 @@ namespace System.Composition
         /// <value>
         ///     An <see cref="object"/> containing the metadata value.
         /// </value>
-        public object Value { get; private set; }
+        public object Value { get; }
     }
 }

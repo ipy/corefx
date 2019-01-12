@@ -135,7 +135,7 @@ namespace System.Threading.Tests
                 GC.WaitForPendingFinalizers();
                 GC.Collect();
                 return mres.IsSet;
-            }, 500);
+            }, 5000);
 
             Assert.True(mres.IsSet);
         }
@@ -197,7 +197,7 @@ namespace System.Threading.Tests
 
             private void Method()
             {
-                _foo = new Object();
+                _foo = new object();
                 _wFoo = new WeakReference(_foo);
 
                 new ThreadLocal<object>() { Value = _foo }.Dispose();
@@ -235,13 +235,13 @@ namespace System.Threading.Tests
                 Assert.True(threadLocal.Values.Count == 1, "RunThreadLocalTest8_Values: Expected values count to now be 1 from initialized value");
                 Assert.True(threadLocal.Values[0] == 0, "RunThreadLocalTest8_Values: Expected values to contain initialized value");
 
-                threadLocal.Value = 42;
+                threadLocal.Value = 1000;
                 Assert.True(threadLocal.Values.Count == 1, "RunThreadLocalTest8_Values: Expected values count to still be 1 after updating existing value");
-                Assert.True(threadLocal.Values[0] == 42, "RunThreadLocalTest8_Values: Expected values to contain updated value");
+                Assert.True(threadLocal.Values[0] == 1000, "RunThreadLocalTest8_Values: Expected values to contain updated value");
 
-                ((IAsyncResult)Task.Run(() => threadLocal.Value = 43)).AsyncWaitHandle.WaitOne();
+                ((IAsyncResult)Task.Run(() => threadLocal.Value = 1001)).AsyncWaitHandle.WaitOne();
                 Assert.True(threadLocal.Values.Count == 2, "RunThreadLocalTest8_Values: Expected values count to be 2 now that another thread stored a value");
-                Assert.True(threadLocal.Values.Contains(42) && threadLocal.Values.Contains(43), "RunThreadLocalTest8_Values: Expected values to contain both thread's values");
+                Assert.True(threadLocal.Values.Contains(1000) && threadLocal.Values.Contains(1001), "RunThreadLocalTest8_Values: Expected values to contain both thread's values");
 
                 int numTasks = 1000;
                 Task[] allTasks = new Task[numTasks];
@@ -256,7 +256,25 @@ namespace System.Threading.Tests
                 }
 
                 var values = threadLocal.Values;
-                Assert.True(values.Count == 1002, "RunThreadLocalTest8_Values: Expected values to contain both previous values and 1000 new values");
+                if (values.Count != 1002)
+                {
+                    string message =
+                        "RunThreadLocalTest8_Values: Expected values to contain both previous values and 1000 new values. Actual count: " +
+                        values.Count +
+                        '.';
+                    if (values.Count != 0)
+                    {
+                        message += " Missing items:";
+                        for (int i = 0; i < 1002; i++)
+                        {
+                            if (!values.Contains(i))
+                            {
+                                message += " " + i;
+                            }
+                        }
+                    }
+                    Assert.True(false, message);
+                }
                 for (int i = 0; i < 1000; i++)
                 {
                     Assert.True(values.Contains(i), "RunThreadLocalTest8_Values: Expected values to contain value for thread #: " + i);
@@ -298,6 +316,7 @@ namespace System.Threading.Tests
         }
 
         [Fact]
+        [SkipOnTargetFramework(TargetFrameworkMonikers.Mono, "This test requires precise stack scanning")]
         public static void RunThreadLocalTest8_Values_NegativeCases()
         {
             // Test that Dispose works and that objects are released on dispose
@@ -311,7 +330,7 @@ namespace System.Threading.Tests
                     GC.WaitForPendingFinalizers();
                     GC.Collect();
                     return mres.IsSet;
-                }, 1000);
+                }, 5000);
 
                 Assert.True(mres.IsSet, "RunThreadLocalTest8_Values: Expected thread local to release the object and for it to be finalized");
             }

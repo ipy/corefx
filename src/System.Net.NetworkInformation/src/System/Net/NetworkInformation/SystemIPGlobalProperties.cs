@@ -22,7 +22,6 @@ namespace System.Net.NetworkInformation
         {
             get
             {
-                // TODO: #2485: This will need to be moved to PAL.
                 return HostInformationPal.GetFixedInfo();
             }
         }
@@ -360,7 +359,7 @@ namespace System.Net.NetworkInformation
             return new SystemIcmpV6Statistics();
         }
 
-        private IAsyncResult BeginGetUnicastAddresses(AsyncCallback callback, object state)
+        public override IAsyncResult BeginGetUnicastAddresses(AsyncCallback callback, object state)
         {
             ContextAwareResult asyncResult = new ContextAwareResult(false, false, this, state, callback);
             asyncResult.StartPostingAsyncOp(false);
@@ -374,11 +373,11 @@ namespace System.Net.NetworkInformation
             return asyncResult;
         }
 
-        private UnicastIPAddressInformationCollection EndGetUnicastAddresses(IAsyncResult asyncResult)
+        public override UnicastIPAddressInformationCollection EndGetUnicastAddresses(IAsyncResult asyncResult)
         {
             if (asyncResult == null)
             {
-                throw new ArgumentNullException("asyncResult");
+                throw new ArgumentNullException(nameof(asyncResult));
             }
 
             ContextAwareResult result = asyncResult as ContextAwareResult;
@@ -395,6 +394,20 @@ namespace System.Net.NetworkInformation
             result.InternalWaitForCompletion();
 
             result.EndCalled = true;
+            return GetUnicastAddressTable();
+        }
+
+        public override UnicastIPAddressInformationCollection GetUnicastAddresses()
+        {
+            // Wait for the Address Table to stabilize
+            using (ManualResetEvent stable = new ManualResetEvent(false))
+            {
+                if (!TeredoHelper.UnsafeNotifyStableUnicastIpAddressTable(StableUnicastAddressTableCallback, stable))
+                {
+                    stable.WaitOne();
+                }
+            }
+
             return GetUnicastAddressTable();
         }
 

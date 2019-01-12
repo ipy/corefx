@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
 
 namespace System.Net.Http.Headers
 {
@@ -69,7 +71,7 @@ namespace System.Net.Http.Headers
             get { return _mediaType; }
             set
             {
-                CheckMediaTypeFormat(value, "value");
+                CheckMediaTypeFormat(value, nameof(value));
                 _mediaType = value;
             }
         }
@@ -81,7 +83,7 @@ namespace System.Net.Http.Headers
 
         protected MediaTypeHeaderValue(MediaTypeHeaderValue source)
         {
-            Contract.Requires(source != null);
+            Debug.Assert(source != null);
 
             _mediaType = source._mediaType;
 
@@ -96,13 +98,16 @@ namespace System.Net.Http.Headers
 
         public MediaTypeHeaderValue(string mediaType)
         {
-            CheckMediaTypeFormat(mediaType, "mediaType");
+            CheckMediaTypeFormat(mediaType, nameof(mediaType));
             _mediaType = mediaType;
         }
 
         public override string ToString()
         {
-            return _mediaType + NameValueHeaderValue.ToString(_parameters, ';', true);
+            var sb = StringBuilderCache.Acquire();
+            sb.Append(_mediaType);
+            NameValueHeaderValue.ToString(_parameters, ';', true, sb);
+            return StringBuilderCache.GetStringAndRelease(sb);
         }
 
         public override bool Equals(object obj)
@@ -147,8 +152,8 @@ namespace System.Net.Http.Headers
         internal static int GetMediaTypeLength(string input, int startIndex,
             Func<MediaTypeHeaderValue> mediaTypeCreator, out MediaTypeHeaderValue parsedValue)
         {
-            Contract.Requires(mediaTypeCreator != null);
-            Contract.Requires(startIndex >= 0);
+            Debug.Assert(mediaTypeCreator != null);
+            Debug.Assert(startIndex >= 0);
 
             parsedValue = null;
 
@@ -157,7 +162,7 @@ namespace System.Net.Http.Headers
                 return 0;
             }
 
-            // Caller must remove leading whitespaces. If not, we'll return 0.
+            // Caller must remove leading whitespace. If not, we'll return 0.
             string mediaType = null;
             int mediaTypeLength = MediaTypeHeaderValue.GetMediaTypeExpressionLength(input, startIndex, out mediaType);
 
@@ -198,7 +203,7 @@ namespace System.Net.Http.Headers
 
         private static int GetMediaTypeExpressionLength(string input, int startIndex, out string mediaType)
         {
-            Contract.Requires((input != null) && (input.Length > 0) && (startIndex < input.Length));
+            Debug.Assert((input != null) && (input.Length > 0) && (startIndex < input.Length));
 
             // This method just parses the "type/subtype" string, it does not parse parameters.
             mediaType = null;
@@ -230,7 +235,7 @@ namespace System.Net.Http.Headers
                 return 0;
             }
 
-            // If there are no whitespaces between <type> and <subtype> in <type>/<subtype> get the media type using
+            // If there is no whitespace between <type> and <subtype> in <type>/<subtype> get the media type using
             // one Substring call. Otherwise get substrings for <type> and <subtype> and combine them.
             int mediatTypeLength = current + subtypeLength - startIndex;
             if (typeLength + subtypeLength + 1 == mediatTypeLength)
@@ -252,7 +257,7 @@ namespace System.Net.Http.Headers
                 throw new ArgumentException(SR.net_http_argument_empty_string, parameterName);
             }
 
-            // When adding values using strongly typed objects, no leading/trailing LWS (whitespaces) are allowed.
+            // When adding values using strongly typed objects, no leading/trailing LWS (whitespace) are allowed.
             // Also no LWS between type and subtype are allowed.
             string tempMediaType;
             int mediaTypeLength = GetMediaTypeExpressionLength(mediaType, 0, out tempMediaType);

@@ -13,8 +13,8 @@ namespace Microsoft.Win32.RegistryTests
         [Fact]
         public void NegativeTests()
         {
-            Assert.Throws<ArgumentException>(() => TestRegistryKey.GetValue(null, null, (RegistryValueOptions)(-1)));
-            Assert.Throws<ArgumentException>(() => TestRegistryKey.GetValue(null, null, (RegistryValueOptions)2));
+            AssertExtensions.Throws<ArgumentException>("options", () => TestRegistryKey.GetValue(null, null, (RegistryValueOptions)(-1)));
+            AssertExtensions.Throws<ArgumentException>("options", () => TestRegistryKey.GetValue(null, null, (RegistryValueOptions)2));
 
             Assert.Throws<ObjectDisposedException>(() =>
             {
@@ -58,7 +58,7 @@ namespace Microsoft.Win32.RegistryTests
         public static IEnumerable<object[]> TestExpandableStrings { get { return TestData.TestExpandableStrings; } }
 
         [Theory]
-        [MemberData("TestExpandableStrings")]
+        [MemberData(nameof(TestExpandableStrings))]
         public void GetExpandableStringValueWithNoneOption(string testValue, string expectedValue)
         {
             // [] Make sure NoExpand = false works with some valid values.
@@ -87,7 +87,7 @@ namespace Microsoft.Win32.RegistryTests
         public static IEnumerable<object[]> TestValueTypes { get { return TestData.TestValueTypes; } }
 
         [Theory]
-        [MemberData("TestValueTypes")]
+        [MemberData(nameof(TestValueTypes))]
         public void GetValueWithValueTypes(string valueName, object testValue)
         {
             TestRegistryKey.SetValue(valueName, testValue, RegistryValueKind.ExpandString);
@@ -96,7 +96,7 @@ namespace Microsoft.Win32.RegistryTests
         }
 
         [Theory]
-        [MemberData("TestExpandableStrings")]
+        [MemberData(nameof(TestExpandableStrings))]
         public void GetExpandableStringValueWithDoNotExpandOption(string testValue, string expectedValue)
         {
             const string valueName = "MyTestKey";
@@ -108,7 +108,7 @@ namespace Microsoft.Win32.RegistryTests
         public static IEnumerable<object[]> TestEnvironment { get { return TestData.TestEnvironment; } }
 
         [Theory]
-        [MemberData("TestEnvironment")]
+        [MemberData(nameof(TestEnvironment))]
         public void GetValueWithEnvironmentVariable(string valueName, string envVariableName, string expectedVariableValue)
         {
             TestRegistryKey.SetValue(valueName, expectedVariableValue, RegistryValueKind.ExpandString);

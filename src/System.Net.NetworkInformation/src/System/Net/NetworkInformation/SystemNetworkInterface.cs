@@ -5,7 +5,6 @@
 using Microsoft.Win32.SafeHandles;
 
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
@@ -73,10 +72,7 @@ namespace System.Net.NetworkInformation
             }
             catch (NetworkInformationException nie)
             {
-                if (NetEventSource.Log.IsEnabled())
-                {
-                    NetEventSource.Exception(NetEventSource.ComponentType.NetworkInformation, "SystemNetworkInterface", "InternalGetIsNetworkAvailable", nie);
-                }
+                if (NetEventSource.IsEnabled) NetEventSource.Error(null, nie);
             }
 
             return false;
@@ -84,12 +80,10 @@ namespace System.Net.NetworkInformation
 
         internal static NetworkInterface[] GetNetworkInterfaces()
         {
-            Contract.Ensures(Contract.Result<NetworkInterface[]>() != null);
             AddressFamily family = AddressFamily.Unspecified;
             uint bufferSize = 0;
             SafeLocalAllocHandle buffer = null;
 
-            // TODO: #2485: This will probably require changes in the PAL for HostInformation.
             Interop.IpHlpApi.FIXED_INFO fixedInfo = HostInformationPal.GetFixedInfo();
             List<SystemNetworkInterface> interfaceList = new List<SystemNetworkInterface>();
 
@@ -129,7 +123,7 @@ namespace System.Net.NetworkInformation
             // If we don't have any interfaces detected, return empty.
             if (result == Interop.IpHlpApi.ERROR_NO_DATA || result == Interop.IpHlpApi.ERROR_INVALID_PARAMETER)
             {
-                return new SystemNetworkInterface[0];
+                return Array.Empty<SystemNetworkInterface>();
             }
 
             // Otherwise we throw on an error.
@@ -154,7 +148,7 @@ namespace System.Net.NetworkInformation
 
             _type = ipAdapterAddresses.type;
             _operStatus = ipAdapterAddresses.operStatus;
-            _speed = (long)ipAdapterAddresses.receiveLinkSpeed;
+            _speed = unchecked((long)ipAdapterAddresses.receiveLinkSpeed);
 
             // API specific info.
             _ipv6Index = ipAdapterAddresses.ipv6Index;
@@ -173,9 +167,9 @@ namespace System.Net.NetworkInformation
         {
             byte[] newAddr = new byte[_addressLength];
 
-            // Array.Copy only supports int and long while addressLength is uint (see IpAdapterAddresses).
+            // Buffer.BlockCopy only supports int while addressLength is uint (see IpAdapterAddresses).
             // Will throw OverflowException if addressLength > Int32.MaxValue.
-            Array.Copy(_physicalAddress, 0, newAddr, 0, checked((int)_addressLength));
+            Buffer.BlockCopy(_physicalAddress, 0, newAddr, 0, checked((int)_addressLength));
             return new PhysicalAddress(newAddr);
         }
 
@@ -184,6 +178,11 @@ namespace System.Net.NetworkInformation
         public override IPInterfaceProperties GetIPProperties()
         {
             return _interfaceProperties;
+        }
+
+        public override IPv4InterfaceStatistics GetIPv4Statistics()
+        {
+            return new SystemIPv4InterfaceStatistics(_index);
         }
 
         public override IPInterfaceStatistics GetIPStatistics()

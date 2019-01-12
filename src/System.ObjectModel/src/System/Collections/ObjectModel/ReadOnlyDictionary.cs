@@ -6,42 +6,43 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 
 namespace System.Collections.ObjectModel
 {
+    [Serializable]
     [DebuggerTypeProxy(typeof(DictionaryDebugView<,>))]
     [DebuggerDisplay("Count = {Count}")]
+    [System.Runtime.CompilerServices.TypeForwardedFrom("mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")]
     public class ReadOnlyDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IDictionary, IReadOnlyDictionary<TKey, TValue>
     {
-        private readonly IDictionary<TKey, TValue> _dictionary;
-        private Object _syncRoot;
+        private readonly IDictionary<TKey, TValue> m_dictionary; // Do not rename (binary serialization)
+
+        [NonSerialized]
         private KeyCollection _keys;
+        [NonSerialized]
         private ValueCollection _values;
 
         public ReadOnlyDictionary(IDictionary<TKey, TValue> dictionary)
         {
             if (dictionary == null)
             {
-                throw new ArgumentNullException("dictionary");
+                throw new ArgumentNullException(nameof(dictionary));
             }
-            Contract.EndContractBlock();
-            _dictionary = dictionary;
+            m_dictionary = dictionary;
         }
 
         protected IDictionary<TKey, TValue> Dictionary
         {
-            get { return _dictionary; }
+            get { return m_dictionary; }
         }
 
         public KeyCollection Keys
         {
             get
             {
-                Contract.Ensures(Contract.Result<KeyCollection>() != null);
                 if (_keys == null)
                 {
-                    _keys = new KeyCollection(_dictionary.Keys);
+                    _keys = new KeyCollection(m_dictionary.Keys);
                 }
                 return _keys;
             }
@@ -51,10 +52,9 @@ namespace System.Collections.ObjectModel
         {
             get
             {
-                Contract.Ensures(Contract.Result<ValueCollection>() != null);
                 if (_values == null)
                 {
-                    _values = new ValueCollection(_dictionary.Values);
+                    _values = new ValueCollection(m_dictionary.Values);
                 }
                 return _values;
             }
@@ -64,7 +64,7 @@ namespace System.Collections.ObjectModel
 
         public bool ContainsKey(TKey key)
         {
-            return _dictionary.ContainsKey(key);
+            return m_dictionary.ContainsKey(key);
         }
 
         ICollection<TKey> IDictionary<TKey, TValue>.Keys
@@ -77,7 +77,7 @@ namespace System.Collections.ObjectModel
 
         public bool TryGetValue(TKey key, out TValue value)
         {
-            return _dictionary.TryGetValue(key, out value);
+            return m_dictionary.TryGetValue(key, out value);
         }
 
         ICollection<TValue> IDictionary<TKey, TValue>.Values
@@ -92,7 +92,7 @@ namespace System.Collections.ObjectModel
         {
             get
             {
-                return _dictionary[key];
+                return m_dictionary[key];
             }
         }
 
@@ -110,7 +110,7 @@ namespace System.Collections.ObjectModel
         {
             get
             {
-                return _dictionary[key];
+                return m_dictionary[key];
             }
             set
             {
@@ -124,17 +124,17 @@ namespace System.Collections.ObjectModel
 
         public int Count
         {
-            get { return _dictionary.Count; }
+            get { return m_dictionary.Count; }
         }
 
         bool ICollection<KeyValuePair<TKey, TValue>>.Contains(KeyValuePair<TKey, TValue> item)
         {
-            return _dictionary.Contains(item);
+            return m_dictionary.Contains(item);
         }
 
         void ICollection<KeyValuePair<TKey, TValue>>.CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex)
         {
-            _dictionary.CopyTo(array, arrayIndex);
+            m_dictionary.CopyTo(array, arrayIndex);
         }
 
         bool ICollection<KeyValuePair<TKey, TValue>>.IsReadOnly
@@ -163,7 +163,7 @@ namespace System.Collections.ObjectModel
 
         public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator()
         {
-            return _dictionary.GetEnumerator();
+            return m_dictionary.GetEnumerator();
         }
 
         #endregion
@@ -172,7 +172,7 @@ namespace System.Collections.ObjectModel
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
         {
-            return ((IEnumerable)_dictionary).GetEnumerator();
+            return ((IEnumerable)m_dictionary).GetEnumerator();
         }
 
         #endregion
@@ -183,7 +183,7 @@ namespace System.Collections.ObjectModel
         {
             if (key == null)
             {
-                throw new ArgumentNullException("key");
+                throw new ArgumentNullException(nameof(key));
             }
             return key is TKey;
         }
@@ -205,12 +205,12 @@ namespace System.Collections.ObjectModel
 
         IDictionaryEnumerator IDictionary.GetEnumerator()
         {
-            IDictionary d = _dictionary as IDictionary;
+            IDictionary d = m_dictionary as IDictionary;
             if (d != null)
             {
                 return d.GetEnumerator();
             }
-            return new DictionaryEnumerator(_dictionary);
+            return new DictionaryEnumerator(m_dictionary);
         }
 
         bool IDictionary.IsFixedSize
@@ -264,7 +264,7 @@ namespace System.Collections.ObjectModel
         {
             if (array == null)
             {
-                throw new ArgumentNullException("array");
+                throw new ArgumentNullException(nameof(array));
             }
 
             if (array.Rank != 1)
@@ -279,7 +279,7 @@ namespace System.Collections.ObjectModel
 
             if (index < 0 || index > array.Length)
             {
-                throw new ArgumentOutOfRangeException("index", SR.ArgumentOutOfRange_NeedNonNegNum);
+                throw new ArgumentOutOfRangeException(nameof(index), SR.ArgumentOutOfRange_NeedNonNegNum);
             }
 
             if (array.Length - index < Count)
@@ -290,14 +290,14 @@ namespace System.Collections.ObjectModel
             KeyValuePair<TKey, TValue>[] pairs = array as KeyValuePair<TKey, TValue>[];
             if (pairs != null)
             {
-                _dictionary.CopyTo(pairs, index);
+                m_dictionary.CopyTo(pairs, index);
             }
             else
             {
                 DictionaryEntry[] dictEntryArray = array as DictionaryEntry[];
                 if (dictEntryArray != null)
                 {
-                    foreach (var item in _dictionary)
+                    foreach (var item in m_dictionary)
                     {
                         dictEntryArray[index++] = new DictionaryEntry(item.Key, item.Value);
                     }
@@ -312,7 +312,7 @@ namespace System.Collections.ObjectModel
 
                     try
                     {
-                        foreach (var item in _dictionary)
+                        foreach (var item in m_dictionary)
                         {
                             objects[index++] = new KeyValuePair<TKey, TValue>(item.Key, item.Value);
                         }
@@ -334,19 +334,7 @@ namespace System.Collections.ObjectModel
         {
             get
             {
-                if (_syncRoot == null)
-                {
-                    ICollection c = _dictionary as ICollection;
-                    if (c != null)
-                    {
-                        _syncRoot = c.SyncRoot;
-                    }
-                    else
-                    {
-                        System.Threading.Interlocked.CompareExchange<Object>(ref _syncRoot, new Object(), null);
-                    }
-                }
-                return _syncRoot;
+                return (m_dictionary is ICollection coll) ? coll.SyncRoot : this;
             }
         }
 
@@ -419,13 +407,12 @@ namespace System.Collections.ObjectModel
         public sealed class KeyCollection : ICollection<TKey>, ICollection, IReadOnlyCollection<TKey>
         {
             private readonly ICollection<TKey> _collection;
-            private Object _syncRoot;
 
             internal KeyCollection(ICollection<TKey> collection)
             {
                 if (collection == null)
                 {
-                    throw new ArgumentNullException("collection");
+                    throw new ArgumentNullException(nameof(collection));
                 }
                 _collection = collection;
             }
@@ -503,19 +490,7 @@ namespace System.Collections.ObjectModel
             {
                 get
                 {
-                    if (_syncRoot == null)
-                    {
-                        ICollection c = _collection as ICollection;
-                        if (c != null)
-                        {
-                            _syncRoot = c.SyncRoot;
-                        }
-                        else
-                        {
-                            System.Threading.Interlocked.CompareExchange<Object>(ref _syncRoot, new Object(), null);
-                        }
-                    }
-                    return _syncRoot;
+                    return (_collection is ICollection coll) ? coll.SyncRoot : this;
                 }
             }
             #endregion
@@ -526,13 +501,12 @@ namespace System.Collections.ObjectModel
         public sealed class ValueCollection : ICollection<TValue>, ICollection, IReadOnlyCollection<TValue>
         {
             private readonly ICollection<TValue> _collection;
-            private Object _syncRoot;
 
             internal ValueCollection(ICollection<TValue> collection)
             {
                 if (collection == null)
                 {
-                    throw new ArgumentNullException("collection");
+                    throw new ArgumentNullException(nameof(collection));
                 }
                 _collection = collection;
             }
@@ -610,21 +584,10 @@ namespace System.Collections.ObjectModel
             {
                 get
                 {
-                    if (_syncRoot == null)
-                    {
-                        ICollection c = _collection as ICollection;
-                        if (c != null)
-                        {
-                            _syncRoot = c.SyncRoot;
-                        }
-                        else
-                        {
-                            System.Threading.Interlocked.CompareExchange<Object>(ref _syncRoot, new Object(), null);
-                        }
-                    }
-                    return _syncRoot;
+                    return (_collection is ICollection coll) ? coll.SyncRoot : this;
                 }
             }
+
             #endregion ICollection Members
         }
     }
@@ -639,7 +602,7 @@ namespace System.Collections.ObjectModel
         {
             if (array == null)
             {
-                throw new ArgumentNullException("array");
+                throw new ArgumentNullException(nameof(array));
             }
 
             if (array.Rank != 1)
@@ -654,7 +617,7 @@ namespace System.Collections.ObjectModel
 
             if (index < 0)
             {
-                throw new ArgumentOutOfRangeException("arrayIndex", SR.ArgumentOutOfRange_NeedNonNegNum);
+                throw new ArgumentOutOfRangeException(nameof(index), SR.ArgumentOutOfRange_NeedNonNegNum);
             }
 
             if (array.Length - index < collection.Count)

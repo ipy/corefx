@@ -2,7 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
 using System.Collections.Generic;
 using Xunit;
 
@@ -10,7 +9,7 @@ namespace System.Linq.Expressions.Tests
 {
     public class LabelTargetTests
     {
-        // The actual use of label targets when compiling, interpretting or otherwise acting upon an expression
+        // The actual use of label targets when compiling, interpreting or otherwise acting upon an expression
         // that makes use of them is by necessity covered by testing those GotoExpressions that make use of them.
         // These tests focus on the LabelTarget class and the factory methods producing them, with compilation
         // only when some feature of a target itself (viz. a name that is not a valid C# name is still valid)
@@ -63,15 +62,15 @@ namespace System.Linq.Expressions.Tests
         [Fact]
         public void NullType()
         {
-            Assert.Throws<ArgumentNullException>("type", () => Expression.Label(default(Type)));
-            Assert.Throws<ArgumentNullException>("type", () => Expression.Label(null, "name"));
+            AssertExtensions.Throws<ArgumentNullException>("type", () => Expression.Label(default(Type)));
+            AssertExtensions.Throws<ArgumentNullException>("type", () => Expression.Label(null, "name"));
         }
 
         [Fact]
         public void GenericType()
         {
-            Assert.Throws<ArgumentException>(() => Expression.Label(typeof(List<>)));
-            Assert.Throws<ArgumentException>(() => Expression.Label(typeof(List<>), null));
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(typeof(List<>)));
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(typeof(List<>), null));
         }
 
         [Fact]
@@ -79,8 +78,24 @@ namespace System.Linq.Expressions.Tests
         {
             Type listType = typeof(List<>);
             Type listListListType = listType.MakeGenericType(listType.MakeGenericType(listType));
-            Assert.Throws<ArgumentException>(() => Expression.Label(listListListType));
-            Assert.Throws<ArgumentException>(() => Expression.Label(listListListType, null));
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(listListListType));
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(listListListType, null));
+        }
+
+        [Fact]
+        public void PointerType()
+        {
+            Type pointerType = typeof(int).MakePointerType();
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(pointerType));
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(pointerType, null));
+        }
+
+        [Fact]
+        public void ByRefType()
+        {
+            Type byRefType = typeof(int).MakeByRefType();
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(byRefType));
+            AssertExtensions.Throws<ArgumentException>("type", () => Expression.Label(byRefType, null));
         }
 
         [Fact]
@@ -101,8 +116,9 @@ namespace System.Linq.Expressions.Tests
             Assert.Equal("UnamedLabel", Expression.Label(typeof(int), "").ToString());
         }
 
-        [Fact]
-        public void LableNameNeedNotBeValidCSharpLabel()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void LableNameNeedNotBeValidCSharpLabel(bool useInterpreter)
         {
             LabelTarget target = Expression.Label("1, 2, 3, 4. This is not a valid C♯ label!\"'<>.\uffff");
             Expression.Lambda<Action>(
@@ -111,47 +127,21 @@ namespace System.Linq.Expressions.Tests
                     Expression.Throw(Expression.Constant(new CustomException())),
                     Expression.Label(target)
                     )
-                ).Compile()();
+                ).Compile(useInterpreter)();
         }
 
-        [Fact]
-        public void LableNameNeedNotBeValidCSharpLabelWithValue()
+        [Theory]
+        [ClassData(typeof(CompilationTypes))]
+        public void LableNameNeedNotBeValidCSharpLabelWithValue(bool useInterpreter)
         {
             LabelTarget target = Expression.Label(typeof(int), "1, 2, 3, 4. This is not a valid C♯ label!\"'<>.\uffff");
-            var func = Expression.Lambda<Func<int>>(
+            Func<int> func = Expression.Lambda<Func<int>>(
                 Expression.Block(
                     Expression.Return(target, Expression.Constant(42)),
                     Expression.Throw(Expression.Constant(new CustomException())),
                     Expression.Label(target, Expression.Default(typeof(int)))
                     )
-                ).Compile();
-            Assert.Equal(42, func());
-        }
-
-        [Fact]
-        public void LableNameNeedNotBeValidCSharpLabelInterpreted()
-        {
-            LabelTarget target = Expression.Label("1, 2, 3, 4. This is not a valid C♯ label!\"'<>.\uffff");
-            Expression.Lambda<Action>(
-                Expression.Block(
-                    Expression.Goto(target),
-                    Expression.Throw(Expression.Constant(new CustomException())),
-                    Expression.Label(target)
-                    )
-                ).Compile(true)();
-        }
-
-        [Fact]
-        public void LableNameNeedNotBeValidCSharpLabelWithValueInterpreted()
-        {
-            LabelTarget target = Expression.Label(typeof(int), "1, 2, 3, 4. This is not a valid C♯ label!\"'<>.\uffff");
-            var func = Expression.Lambda<Func<int>>(
-                Expression.Block(
-                    Expression.Return(target, Expression.Constant(42)),
-                    Expression.Throw(Expression.Constant(new CustomException())),
-                    Expression.Label(target, Expression.Default(typeof(int)))
-                    )
-                ).Compile(true);
+                ).Compile(useInterpreter);
             Assert.Equal(42, func());
         }
     }

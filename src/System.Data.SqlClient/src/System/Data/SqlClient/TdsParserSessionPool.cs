@@ -2,10 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-
-
-//------------------------------------------------------------------------------
-
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
@@ -17,7 +13,7 @@ namespace System.Data.SqlClient
         // NOTE: This is a very simplistic, lightweight pooler.  It wasn't
         //       intended to handle huge number of items, just to keep track
         //       of the session objects to ensure that they're cleaned up in
-        //       a timely manner, to avoid holding on to an unacceptible 
+        //       a timely manner, to avoid holding on to an unacceptable 
         //       amount of server-side resources in the event that consumers
         //       let their data readers be GC'd, instead of explicitly 
         //       closing or disposing of them
@@ -78,23 +74,6 @@ namespace System.Data.SqlClient
                 }
                 // TODO: re-enable this assert when the connection isn't doomed.
                 //Debug.Assert (_cachedCount < MaxInactiveCount, "non-orphaned connection past initial allocation?");
-            }
-        }
-
-        // This is called from a ThreadAbort - ensure that it can be run from a CER Catch
-        internal void BestEffortCleanup()
-        {
-            for (int i = 0; i < _cache.Count; i++)
-            {
-                TdsParserStateObject session = _cache[i];
-                if (null != session)
-                {
-                    var sessionHandle = session.Handle;
-                    if (sessionHandle != null)
-                    {
-                        sessionHandle.Dispose();
-                    }
-                }
             }
         }
 

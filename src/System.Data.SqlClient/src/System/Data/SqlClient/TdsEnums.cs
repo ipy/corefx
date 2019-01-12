@@ -2,10 +2,7 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-
-
-//------------------------------------------------------------------------------
-
+using System.Diagnostics;
 
 namespace System.Data.SqlClient
 {
@@ -38,8 +35,9 @@ namespace System.Data.SqlClient
         public const string SPX = "spx";
         public const string VIA = "via";
         public const string LPC = "lpc";
+        public const string ADMIN = "admin";
 
-        // network function string contants
+        // network function string constants
         public const string INIT_SSPI_PACKAGE = "InitSSPIPackage";
         public const string INIT_SESSION = "InitSession";
         public const string CONNECTION_GET_SVR_USER = "ConnectionGetSvrUser";
@@ -203,18 +201,38 @@ namespace System.Data.SqlClient
         // Feature Extension
         public const byte FEATUREEXT_TERMINATOR = 0xFF;
         public const byte FEATUREEXT_SRECOVERY = 0x01;
+        public const byte FEATUREEXT_FEDAUTH = 0x02;
+        public const byte FEATUREEXT_GLOBALTRANSACTIONS = 0x05;
+        public const byte FEATUREEXT_UTF8SUPPORT = 0x0A;
 
         [Flags]
         public enum FeatureExtension : uint
         {
             None = 0,
             SessionRecovery = 1,
+            FedAuth = 2,
+            GlobalTransactions = 16,
+            UTF8Support = 512,
         }
 
+        public const uint UTF8_IN_TDSCOLLATION = 0x4000000;
+
+        public const byte FEDAUTHLIB_LIVEID = 0X00;
+        public const byte FEDAUTHLIB_SECURITYTOKEN = 0x01;
+        public const byte FEDAUTHLIB_ADAL = 0x02;
+        public const byte FEDAUTHLIB_RESERVED = 0X7F;
+
+        public enum FedAuthLibrary : byte
+        {
+            LiveId = FEDAUTHLIB_LIVEID,
+            SecurityToken = FEDAUTHLIB_SECURITYTOKEN,
+            ADAL = FEDAUTHLIB_ADAL, // For later support
+            Default = FEDAUTHLIB_RESERVED
+        }
 
         //    Loginrec defines
         public const byte MAX_LOG_NAME = 30;              // TDS 4.2 login rec max name length
-        public const byte MAX_PROG_NAME = 10;              // max length of loginrec progran name
+        public const byte MAX_PROG_NAME = 10;              // max length of loginrec program name
         public const byte SEC_COMP_LEN = 8;               // length of security compartments
         public const byte MAX_PK_LEN = 6;               // max length of TDS packet size
         public const byte MAX_NIC_SIZE = 6;               // The size of a MAC or client address
@@ -227,15 +245,15 @@ namespace System.Data.SqlClient
         public const int COLLATION_INFO_LEN = 4;
 
         /*
-                public const byte INT4_LSB_HI   = 0;     // lsb is low byte (eg 68000)
-                //    public const byte INT4_LSB_LO   = 1;     // lsb is low byte (eg VAX)
-                public const byte INT2_LSB_HI   = 2;     // lsb is low byte (eg 68000)
-                //    public const byte INT2_LSB_LO   = 3;     // lsb is low byte (eg VAX)
-                public const byte FLT_IEEE_HI   = 4;     // lsb is low byte (eg 68000)
+                public const byte INT4_LSB_HI   = 0;     // lsb is low byte (e.g. 68000)
+                //    public const byte INT4_LSB_LO   = 1;     // lsb is low byte (e.g. VAX)
+                public const byte INT2_LSB_HI   = 2;     // lsb is low byte (e.g. 68000)
+                //    public const byte INT2_LSB_LO   = 3;     // lsb is low byte (e.g. VAX)
+                public const byte FLT_IEEE_HI   = 4;     // lsb is low byte (e.g. 68000)
                 public const byte CHAR_ASCII    = 6;     // ASCII character set
-                public const byte TWO_I4_LSB_HI = 8;     // lsb is low byte (eg 68000
-                //    public const byte TWO_I4_LSB_LO = 9;     // lsb is low byte (eg VAX)
-                //    public const byte FLT_IEEE_LO   = 10;    // lsb is low byte (eg MSDOS)
+                public const byte TWO_I4_LSB_HI = 8;     // lsb is low byte (e.g. 68000
+                //    public const byte TWO_I4_LSB_LO = 9;     // lsb is low byte (e.g. VAX)
+                //    public const byte FLT_IEEE_LO   = 10;    // lsb is low byte (e.g. MSDOS)
                 public const byte FLT4_IEEE_HI  = 12;    // IEEE 4-byte floating point -lsb is high byte
                 //    public const byte FLT4_IEEE_LO  = 13;    // IEEE 4-byte floating point -lsb is low byte
                 public const byte TWO_I2_LSB_HI = 16;    // lsb is high byte
@@ -827,7 +845,10 @@ namespace System.Data.SqlClient
 
         internal enum TransactionManagerRequestType
         {
+            GetDTCAddress = 0,
+            Propagate = 1,
             Begin = 5,
+            Promote = 6,
             Commit = 7,
             Rollback = 8,
             Save = 9
@@ -864,13 +885,54 @@ namespace System.Data.SqlClient
         internal static readonly int[] WHIDBEY_TIME_LENGTH = { 8, 10, 11, 12, 13, 14, 15, 16 };
         internal static readonly int[] WHIDBEY_DATETIME2_LENGTH = { 19, 21, 22, 23, 24, 25, 26, 27 };
         internal static readonly int[] WHIDBEY_DATETIMEOFFSET_LENGTH = { 26, 28, 29, 30, 31, 32, 33, 34 };
+
+        // Needed for UapAot, since we cannot use Enum.GetName() on SniContext.
+        // Enum.GetName() uses reflection, which is blocked on UapAot for internal types
+        // like SniContext.
+        internal static string GetSniContextEnumName(SniContext sniContext)
+        {
+            switch (sniContext)
+            {
+                case SniContext.Undefined:
+                    return "Undefined";
+                case SniContext.Snix_Connect:
+                    return "Snix_Connect";
+                case SniContext.Snix_PreLoginBeforeSuccessfulWrite:
+                    return "Snix_PreLoginBeforeSuccessfulWrite";
+                case SniContext.Snix_PreLogin:
+                    return "Snix_PreLogin";
+                case SniContext.Snix_LoginSspi:
+                    return "Snix_LoginSspi";
+                case SniContext.Snix_ProcessSspi:
+                    return "Snix_ProcessSspi";
+                case SniContext.Snix_Login:
+                    return "Snix_Login";
+                case SniContext.Snix_EnableMars:
+                    return "Snix_EnableMars";
+                case SniContext.Snix_AutoEnlist:
+                    return "Snix_AutoEnlist";
+                case SniContext.Snix_GetMarsSession:
+                    return "Snix_GetMarsSession";
+                case SniContext.Snix_Execute:
+                    return "Snix_Execute";
+                case SniContext.Snix_Read:
+                    return "Snix_Read";
+                case SniContext.Snix_Close:
+                    return "Snix_Close";
+                case SniContext.Snix_SendRows:
+                    return "Snix_SendRows";
+                default:
+                    Debug.Fail($"Received unknown SniContext enum. Value: {sniContext}");
+                    return null;
+            }
+        }
     }
 
     internal enum SniContext
     {
         Undefined = 0,
         Snix_Connect,
-        Snix_PreLoginBeforeSuccessfullWrite,
+        Snix_PreLoginBeforeSuccessfulWrite,
         Snix_PreLogin,
         Snix_LoginSspi,
         Snix_ProcessSspi,
@@ -882,6 +944,31 @@ namespace System.Data.SqlClient
         Snix_Read,
         Snix_Close,
         Snix_SendRows,
+    }
+
+    internal enum ParsingErrorState
+    {
+        Undefined = 0,
+        FedAuthInfoLengthTooShortForCountOfInfoIds = 1,
+        FedAuthInfoLengthTooShortForData = 2,
+        FedAuthInfoFailedToReadCountOfInfoIds = 3,
+        FedAuthInfoFailedToReadTokenStream = 4,
+        FedAuthInfoInvalidOffset = 5,
+        FedAuthInfoFailedToReadData = 6,
+        FedAuthInfoDataNotUnicode = 7,
+        FedAuthInfoDoesNotContainStsurlAndSpn = 8,
+        FedAuthInfoNotReceived = 9,
+        FedAuthNotAcknowledged = 10,
+        FedAuthFeatureAckContainsExtraData = 11,
+        FedAuthFeatureAckUnknownLibraryType = 12,
+        UnrequestedFeatureAckReceived = 13,
+        UnknownFeatureAck = 14,
+        InvalidTdsTokenReceived = 15,
+        SessionStateLengthTooShort = 16,
+        SessionStateInvalidStatus = 17,
+        CorruptedTdsStream = 18,
+        ProcessSniPacketFailed = 19,
+        FedAuthRequiredPreLoginResponseInvalidValue = 20,
     }
 }
 

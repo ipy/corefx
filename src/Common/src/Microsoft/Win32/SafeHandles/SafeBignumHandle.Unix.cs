@@ -8,9 +8,13 @@ using System.Security;
 
 namespace Microsoft.Win32.SafeHandles
 {
-    [SecurityCritical]
     internal sealed class SafeBignumHandle : SafeHandle
     {
+        private SafeBignumHandle() :
+            base(IntPtr.Zero, ownsHandle: true)
+        {
+        }
+
         internal SafeBignumHandle(IntPtr handle, bool ownsHandle)
             :  base(handle, ownsHandle)
         {

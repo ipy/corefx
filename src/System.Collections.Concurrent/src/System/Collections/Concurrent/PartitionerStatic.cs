@@ -19,7 +19,7 @@ namespace System.Collections.Concurrent
     /// <summary>
     /// Out-of-the-box partitioners are created with a set of default behaviors.  
     /// For example, by default, some form of buffering and chunking will be employed to achieve 
-    /// optimal performance in the common scenario where an IEnumerable<> implementation is fast and 
+    /// optimal performance in the common scenario where an <see cref="IEnumerable{T}"/> implementation is fast and 
     /// non-blocking.  These behaviors can be overridden via this enumeration.
     /// </summary>
     [Flags]
@@ -84,7 +84,7 @@ namespace System.Collections.Concurrent
         {
             if (list == null)
             {
-                throw new ArgumentNullException("list");
+                throw new ArgumentNullException(nameof(list));
             }
             if (loadBalance)
             {
@@ -115,7 +115,7 @@ namespace System.Collections.Concurrent
 
             if (array == null)
             {
-                throw new ArgumentNullException("array");
+                throw new ArgumentNullException(nameof(array));
             }
             if (loadBalance)
             {
@@ -165,11 +165,11 @@ namespace System.Collections.Concurrent
         {
             if (source == null)
             {
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
             }
 
             if ((partitionerOptions & (~EnumerablePartitionerOptions.NoBuffering)) != 0)
-                throw new ArgumentOutOfRangeException("partitionerOptions");
+                throw new ArgumentOutOfRangeException(nameof(partitionerOptions));
 
             return (new DynamicPartitionerForIEnumerable<TSource>(source, partitionerOptions));
         }
@@ -187,7 +187,7 @@ namespace System.Collections.Concurrent
             // load balancing on a busy system if you make it higher than 1.
             int coreOversubscriptionRate = 3;
 
-            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException("toExclusive");
+            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException(nameof(toExclusive));
             long rangeSize = (toExclusive - fromInclusive) /
                 (PlatformHelper.ProcessorCount * coreOversubscriptionRate);
             if (rangeSize == 0) rangeSize = 1;
@@ -205,8 +205,8 @@ namespace System.Collections.Concurrent
         /// less than or equal to 0.</exception>
         public static OrderablePartitioner<Tuple<long, long>> Create(long fromInclusive, long toExclusive, long rangeSize)
         {
-            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException("toExclusive");
-            if (rangeSize <= 0) throw new ArgumentOutOfRangeException("rangeSize");
+            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException(nameof(toExclusive));
+            if (rangeSize <= 0) throw new ArgumentOutOfRangeException(nameof(rangeSize));
             return Partitioner.Create(CreateRanges(fromInclusive, toExclusive, rangeSize), EnumerablePartitionerOptions.NoBuffering); // chunk one range at a time
         }
 
@@ -217,7 +217,7 @@ namespace System.Collections.Concurrent
             long from, to;
             bool shouldQuit = false;
 
-            for (long i = fromInclusive; (i < toExclusive) && !shouldQuit; i += rangeSize)
+            for (long i = fromInclusive; (i < toExclusive) && !shouldQuit; i = unchecked(i + rangeSize))
             {
                 from = i;
                 try { checked { to = i + rangeSize; } }
@@ -244,7 +244,7 @@ namespace System.Collections.Concurrent
             // load balancing on a busy system if you make it higher than 1.
             int coreOversubscriptionRate = 3;
 
-            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException("toExclusive");
+            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException(nameof(toExclusive));
             int rangeSize = (toExclusive - fromInclusive) /
                 (PlatformHelper.ProcessorCount * coreOversubscriptionRate);
             if (rangeSize == 0) rangeSize = 1;
@@ -262,8 +262,8 @@ namespace System.Collections.Concurrent
         /// less than or equal to 0.</exception>
         public static OrderablePartitioner<Tuple<int, int>> Create(int fromInclusive, int toExclusive, int rangeSize)
         {
-            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException("toExclusive");
-            if (rangeSize <= 0) throw new ArgumentOutOfRangeException("rangeSize");
+            if (toExclusive <= fromInclusive) throw new ArgumentOutOfRangeException(nameof(toExclusive));
+            if (rangeSize <= 0) throw new ArgumentOutOfRangeException(nameof(rangeSize));
             return Partitioner.Create(CreateRanges(fromInclusive, toExclusive, rangeSize), EnumerablePartitionerOptions.NoBuffering); // chunk one range at a time
         }
 
@@ -274,7 +274,7 @@ namespace System.Collections.Concurrent
             int from, to;
             bool shouldQuit = false;
 
-            for (int i = fromInclusive; (i < toExclusive) && !shouldQuit; i += rangeSize)
+            for (int i = fromInclusive; (i < toExclusive) && !shouldQuit; i = unchecked(i + rangeSize))
             {
                 from = i;
                 try { checked { to = i + rangeSize; } }
@@ -370,7 +370,7 @@ namespace System.Collections.Concurrent
             /// Abstract property, returns whether or not the shared reader has already read the last 
             /// element of the source data 
             /// </summary>
-            protected abstract bool HasNoElementsLeft { get; set; }
+            protected abstract bool HasNoElementsLeft { get; }
 
             /// <summary>
             /// Get the current element in the current partition. Property required by IEnumerator interface
@@ -381,7 +381,7 @@ namespace System.Collections.Concurrent
 
             /// <summary>
             /// Dispose is abstract, and depends on the type of the source data:
-            /// - For source data type IList and Array, the type of the shared reader is just the dataitself.
+            /// - For source data type IList and Array, the type of the shared reader is just the data itself.
             ///   We don't do anything in Dispose method for IList and Array. 
             /// - For source data type IEnumerable, the type of the shared reader is an enumerator we created.
             ///   Thus we need to dispose this shared reader enumerator, when there is no more active partitions
@@ -401,7 +401,7 @@ namespace System.Collections.Concurrent
             /// <summary>
             /// Get the current element in the current partition. Property required by IEnumerator interface
             /// </summary>
-            Object IEnumerator.Current
+            object IEnumerator.Current
             {
                 get
                 {
@@ -510,7 +510,7 @@ namespace System.Collections.Concurrent
             {
                 if (partitionCount <= 0)
                 {
-                    throw new ArgumentOutOfRangeException("partitionCount");
+                    throw new ArgumentOutOfRangeException(nameof(partitionCount));
                 }
                 IEnumerator<KeyValuePair<long, TSource>>[] partitions
                     = new IEnumerator<KeyValuePair<long, TSource>>[partitionCount];
@@ -955,14 +955,6 @@ namespace System.Collections.Concurrent
                 override protected bool HasNoElementsLeft
                 {
                     get { return _hasNoElementsLeft.Value; }
-                    set
-                    {
-                        //we only set it from false to true once
-                        //we should never set it back in any circumstances
-                        Debug.Assert(value);
-                        Debug.Assert(!_hasNoElementsLeft.Value);
-                        _hasNoElementsLeft.Value = true;
-                    }
                 }
 
                 override public KeyValuePair<long, TSource> Current
@@ -982,7 +974,7 @@ namespace System.Collections.Concurrent
 
                 override public void Dispose()
                 {
-                    // If this is static partitioning, ie. _activePartitionCount != null, since the current partition 
+                    // If this is static partitioning, i.e. _activePartitionCount != null, since the current partition 
                     // is disposed, we decrement the number of active partitions for the shared reader. 
                     if (_activePartitionCount != null && Interlocked.Decrement(ref _activePartitionCount.Value) == 0)
                     {
@@ -990,7 +982,7 @@ namespace System.Collections.Concurrent
                         // reader we created in the _enumerable object.
                         _enumerable.Dispose();
                     }
-                    // If this is dynamic partitioning, ie. _activePartitionCount != null, then _enumerable needs to
+                    // If this is dynamic partitioning, i.e. _activePartitionCount != null, then _enumerable needs to
                     // be disposed explicitly by the user, and we do not need to anything here
                 }
             }
@@ -1039,7 +1031,7 @@ namespace System.Collections.Concurrent
             {
                 if (partitionCount <= 0)
                 {
-                    throw new ArgumentOutOfRangeException("partitionCount");
+                    throw new ArgumentOutOfRangeException(nameof(partitionCount));
                 }
                 IEnumerator<KeyValuePair<long, TSource>>[] partitions
                     = new IEnumerator<KeyValuePair<long, TSource>>[partitionCount];
@@ -1161,10 +1153,6 @@ namespace System.Collections.Concurrent
                     Debug.Assert(_sharedIndex != null);
                     // use the new Volatile.Read method because it is cheaper than Interlocked.Read on AMD64 architecture
                     return Volatile.Read(ref _sharedIndex.Value) >= SourceCount - 1;
-                }
-                set
-                {
-                    Debug.Fail("HasNoElementsLeft_Set should not be called");
                 }
             }
 
@@ -1402,7 +1390,7 @@ namespace System.Collections.Concurrent
             {
                 if (partitionCount <= 0)
                 {
-                    throw new ArgumentOutOfRangeException("partitionCount");
+                    throw new ArgumentOutOfRangeException(nameof(partitionCount));
                 }
 
                 int quotient, remainder;
@@ -1503,7 +1491,7 @@ namespace System.Collections.Concurrent
                 }
             }
 
-            Object IEnumerator.Current
+            object IEnumerator.Current
             {
                 get
                 {
@@ -1634,7 +1622,6 @@ namespace System.Collections.Concurrent
         /// <summary>
         /// A very simple primitive that allows us to share a value across multiple threads.
         /// </summary>
-        /// <typeparam name="TSource"></typeparam>
         private class SharedInt
         {
             internal volatile int Value;

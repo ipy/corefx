@@ -48,6 +48,7 @@ internal static partial class Interop
         // Enum for constants defined for the enum CURLMcode in multi.h
         internal enum CURLMcode : int
         {
+            CURLM_CALL_MULTI_PERFORM = -1,
             CURLM_OK = 0,
             CURLM_BAD_HANDLE = 1,
             CURLM_BAD_EASY_HANDLE = 2,
@@ -61,6 +62,7 @@ internal static partial class Interop
         internal enum CURLMoption : int
         {
             CURLMOPT_PIPELINING = 3,
+            CURLMOPT_MAX_HOST_CONNECTIONS = 7,
         }
 
         internal enum CurlPipe : int
@@ -90,6 +92,11 @@ internal static partial class Interop
             {
                 bool result = MultiDestroy(handle) == CURLMcode.CURLM_OK;
                 SetHandle(IntPtr.Zero);
+
+#if !SYSNETHTTP_NO_OPENSSL
+                Interop.Crypto.ErrClearError(); // Ensure that no SSL errors were left on the queue by libcurl.
+#endif
+
                 return result;
             }
         }

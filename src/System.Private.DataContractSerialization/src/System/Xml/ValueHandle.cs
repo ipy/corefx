@@ -214,7 +214,7 @@ namespace System.Xml
             }
         }
 
-        public Boolean ToBoolean()
+        public bool ToBoolean()
         {
             ValueHandleType type = _type;
             if (type == ValueHandleType.False)
@@ -318,7 +318,7 @@ namespace System.Xml
             return XmlConverter.ToUInt64(GetString());
         }
 
-        public Single ToSingle()
+        public float ToSingle()
         {
             ValueHandleType type = _type;
             if (type == ValueHandleType.Single)
@@ -326,8 +326,11 @@ namespace System.Xml
             if (type == ValueHandleType.Double)
             {
                 double value = GetDouble();
-                if ((value >= Single.MinValue && value <= Single.MaxValue) || double.IsInfinity(value) || double.IsNaN(value))
-                    return (Single)value;
+
+                if ((value >= float.MinValue && value <= float.MaxValue) || !double.IsFinite(value))
+                {
+                    return (float)value;
+                }
             }
             if (type == ValueHandleType.Zero)
                 return 0;
@@ -342,7 +345,7 @@ namespace System.Xml
             return XmlConverter.ToSingle(GetString());
         }
 
-        public Double ToDouble()
+        public double ToDouble()
         {
             ValueHandleType type = _type;
             if (type == ValueHandleType.Double)
@@ -364,7 +367,7 @@ namespace System.Xml
             return XmlConverter.ToDouble(GetString());
         }
 
-        public Decimal ToDecimal()
+        public decimal ToDecimal()
         {
             ValueHandleType type = _type;
             if (type == ValueHandleType.Decimal)
@@ -507,8 +510,6 @@ namespace System.Xml
                     return XmlConverter.ToString(ToDateTime());
                 case ValueHandleType.Empty:
                     return string.Empty;
-                case ValueHandleType.UTF8:
-                    return GetCharsText();
                 case ValueHandleType.Unicode:
                     return GetUnicodeCharsText();
                 case ValueHandleType.EscapedUTF8:
@@ -564,6 +565,55 @@ namespace System.Xml
             return true;
         }
 
+        public void Sign(XmlSigningNodeWriter writer)
+        {
+            switch (_type)
+            {
+                case ValueHandleType.Int8:
+                case ValueHandleType.Int16:
+                case ValueHandleType.Int32:
+                    writer.WriteInt32Text(ToInt());
+                    break;
+                case ValueHandleType.Int64:
+                    writer.WriteInt64Text(GetInt64());
+                    break;
+                case ValueHandleType.UInt64:
+                    writer.WriteUInt64Text(GetUInt64());
+                    break;
+                case ValueHandleType.Single:
+                    writer.WriteFloatText(GetSingle());
+                    break;
+                case ValueHandleType.Double:
+                    writer.WriteDoubleText(GetDouble());
+                    break;
+                case ValueHandleType.Decimal:
+                    writer.WriteDecimalText(GetDecimal());
+                    break;
+                case ValueHandleType.DateTime:
+                    writer.WriteDateTimeText(ToDateTime());
+                    break;
+                case ValueHandleType.Empty:
+                    break;
+                case ValueHandleType.UTF8:
+                    writer.WriteEscapedText(_bufferReader.Buffer, _offset, _length);
+                    break;
+                case ValueHandleType.Base64:
+                    writer.WriteBase64Text(_bufferReader.Buffer, 0, _bufferReader.Buffer, _offset, _length);
+                    break;
+                case ValueHandleType.UniqueId:
+                    writer.WriteUniqueIdText(ToUniqueId());
+                    break;
+                case ValueHandleType.Guid:
+                    writer.WriteGuidText(ToGuid());
+                    break;
+                case ValueHandleType.TimeSpan:
+                    writer.WriteTimeSpanText(ToTimeSpan());
+                    break;
+                default:
+                    writer.WriteEscapedText(GetString());
+                    break;
+            }
+        }
 
         public object[] ToList()
         {
@@ -667,6 +717,7 @@ namespace System.Xml
             int byteCount = _length;
             bool insufficientSpaceInCharsArray = false;
 
+            var encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
             while (true)
             {
                 while (charCount > 0 && byteCount > 0)
@@ -688,7 +739,6 @@ namespace System.Xml
                 int actualByteCount;
                 int actualCharCount;
 
-                UTF8Encoding encoding = new UTF8Encoding(false, true);
                 try
                 {
                     // If we're asking for more than are possibly available, or more than are truly available then we can return the entire thing
@@ -707,7 +757,7 @@ namespace System.Xml
                         // We use a decoder so we don't error if we fall across a character boundary
                         actualCharCount = decoder.GetChars(bytes, byteOffset, actualByteCount, chars, charOffset);
 
-                        // We might've gotten zero characters though if < 4 bytes were requested because
+                        // We might have gotten zero characters though if < 4 bytes were requested because
                         // codepoints from U+0000 - U+FFFF can be up to 3 bytes in UTF-8, and represented as ONE char
                         // codepoints from U+10000 - U+10FFFF (last Unicode codepoint representable in UTF-8) are represented by up to 4 bytes in UTF-8 
                         //                                    and represented as TWO chars (high+low surrogate)

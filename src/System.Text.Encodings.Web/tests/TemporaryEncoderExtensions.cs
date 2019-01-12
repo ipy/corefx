@@ -23,10 +23,10 @@ namespace Microsoft.Framework.WebEncoders
         {
             if (htmlEncoder == null)
             {
-                throw new ArgumentNullException("htmlEncoder");
+                throw new ArgumentNullException(nameof(htmlEncoder));
             }
 
-            if (!String.IsNullOrEmpty(value))
+            if (!string.IsNullOrEmpty(value))
             {
                 htmlEncoder.HtmlEncode(value, 0, value.Length, output);
             }
@@ -39,10 +39,10 @@ namespace Microsoft.Framework.WebEncoders
         {
             if (javaScriptStringEncoder == null)
             {
-                throw new ArgumentNullException("javaScriptStringEncoder");
+                throw new ArgumentNullException(nameof(javaScriptStringEncoder));
             }
 
-            if (!String.IsNullOrEmpty(value))
+            if (!string.IsNullOrEmpty(value))
             {
                 javaScriptStringEncoder.JavaScriptStringEncode(value, 0, value.Length, output);
             }
@@ -59,10 +59,10 @@ namespace Microsoft.Framework.WebEncoders
         {
             if (urlEncoder == null)
             {
-                throw new ArgumentNullException("urlEncoder");
+                throw new ArgumentNullException(nameof(urlEncoder));
             }
 
-            if (!String.IsNullOrEmpty(value))
+            if (!string.IsNullOrEmpty(value))
             {
                 urlEncoder.UrlEncode(value, 0, value.Length, output);
             }

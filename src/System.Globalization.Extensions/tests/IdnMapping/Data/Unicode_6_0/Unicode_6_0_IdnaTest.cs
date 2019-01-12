@@ -11,7 +11,7 @@ namespace System.Globalization.Tests
     /// Class to read data obtained from http://www.unicode.org/Public/idna.  For more information read the information
     /// contained in Data\6.0\IdnaTest.txt
     /// 
-    /// The structure of the data set is a semicolon deliminated list with the following columns:
+    /// The structure of the data set is a semicolon delimited list with the following columns:
     ///
     /// Column 1: type - T for transitional, N for nontransitional, B for both
     /// Column 2: source - the source string to be tested
@@ -24,8 +24,8 @@ namespace System.Globalization.Tests
     {
         public IdnType Type { get; set; }
         public string Source { get; set; }
-        public ConformanceIdnaTestResult GetUnicodeResult { get; set; }
-        public ConformanceIdnaTestResult GetASCIIResult { get; set; }
+        public ConformanceIdnaUnicodeTestResult UnicodeResult { get; set; }
+        public ConformanceIdnaTestResult ASCIIResult { get; set; }
         public int LineNumber { get; set; }
 
         public Unicode_6_0_IdnaTest(string line, int lineNumber)
@@ -34,8 +34,8 @@ namespace System.Globalization.Tests
 
             Type = ConvertStringToType(split[0].Trim());
             Source = EscapedToLiteralString(split[1], lineNumber);
-            GetUnicodeResult = new ConformanceIdnaTestResult(EscapedToLiteralString(split[2], lineNumber), Source);
-            GetASCIIResult = new ConformanceIdnaTestResult(EscapedToLiteralString(split[3], lineNumber), GetUnicodeResult.Value);
+            UnicodeResult = new ConformanceIdnaUnicodeTestResult(EscapedToLiteralString(split[2], lineNumber), Source);
+            ASCIIResult = new ConformanceIdnaTestResult(EscapedToLiteralString(split[3], lineNumber), UnicodeResult.Value);
             LineNumber = lineNumber;
         }
 
@@ -50,7 +50,7 @@ namespace System.Globalization.Tests
                 case "B":
                     return IdnType.Both;
                 default:
-                    throw new ArgumentOutOfRangeException("idnType", "Unknown idnType");
+                    throw new ArgumentOutOfRangeException(nameof(idnType), "Unknown idnType");
             }
         }
 

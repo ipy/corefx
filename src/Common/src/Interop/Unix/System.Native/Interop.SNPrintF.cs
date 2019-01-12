@@ -10,7 +10,7 @@ internal static partial class Interop
     internal static partial class Sys
     {
         /// <summary>
-        /// Takes a string and applies a formatting to it to transfor
+        /// Takes a string and applies a formatting to it to transform
         /// parameters to input values (such as replacing %s in the string with a variable)
         /// </summary>
         /// <param name="str">The output buffer to put the transformed data into</param>
@@ -28,10 +28,10 @@ internal static partial class Interop
         /// On failure, returns a negative value.
         /// </returns>
         [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_SNPrintF", SetLastError = true)]
-        internal static unsafe extern int SNPrintF(byte* str, int size, string format, string arg1);
+        internal static extern unsafe int SNPrintF(byte* str, int size, string format, string arg1);
 
         /// <summary>
-        /// Takes a string and applies a formatting to it to transfor
+        /// Takes a string and applies a formatting to it to transform
         /// parameters to input values (such as replacing %s in the string with a variable)
         /// </summary>
         /// <param name="str">The output buffer to put the transformed data into</param>
@@ -49,6 +49,6 @@ internal static partial class Interop
         /// On failure, returns a negative value.
         /// </returns>
         [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_SNPrintF", SetLastError = true)]
-        internal static unsafe extern int SNPrintF(byte* str, int size, string format, int arg1);
+        internal static extern unsafe int SNPrintF(byte* str, int size, string format, int arg1);
     }
 }

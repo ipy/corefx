@@ -16,42 +16,80 @@ namespace System.Net.Http
 {
     internal sealed class WinHttpRequestState : IDisposable
     {
-        // TODO (Issue 2506): The current locking mechanism doesn't allow any two WinHttp functions executing at
-        // the same time for the same handle. Enahnce locking to prevent only WinHttpCloseHandle being called
-        // during other API execution. E.g. using a Reader/Writer model or, even better, Interlocked functions.
+#if DEBUG
+        private static int s_dbg_allocated = 0;
+        private static int s_dbg_pin = 0;
+        private static int s_dbg_clearSendRequestState = 0;
+        private static int s_dbg_callDispose = 0;
+        private static int s_dbg_operationHandleFree = 0;
 
-        // The _lock object must be used during the execution of any WinHttp function to ensure no race conditions with 
-        // calling WinHttpCloseHandle.
-        private readonly object _lock = new object();
+        private IntPtr s_dbg_requestHandle;
+#endif        
 
         // A GCHandle for this operation object.
         // This is owned by the callback and will be deallocated when the sessionHandle has been closed.
-        private GCHandle _operationHandle = new GCHandle();
-
+        private GCHandle _operationHandle;
+        private WinHttpTransportContext _transportContext;
         private volatile bool _disposed = false; // To detect redundant calls.
 
         public WinHttpRequestState()
         {
-            TransportContext = new WinHttpTransportContext();
-            _operationHandle = GCHandle.Alloc(this);
+#if DEBUG
+            Interlocked.Increment(ref s_dbg_allocated);
+#endif
+        }
+
+        public void Pin()
+        {
+            if (!_operationHandle.IsAllocated)
+            {
+#if DEBUG
+                Interlocked.Increment(ref s_dbg_pin);
+#endif
+                _operationHandle = GCHandle.Alloc(this);
+            }
         }
 
         public static WinHttpRequestState FromIntPtr(IntPtr gcHandle)
         {
             GCHandle stateHandle = GCHandle.FromIntPtr(gcHandle);
             return (WinHttpRequestState)stateHandle.Target;
-        }        
+        }
 
         public IntPtr ToIntPtr()
         {
             return GCHandle.ToIntPtr(_operationHandle);
         }
 
-        public object Lock
+        // TODO (Issue 2506): The current locking mechanism doesn't allow any two WinHttp functions executing at
+        // the same time for the same handle. Enhance locking to prevent only WinHttpCloseHandle being called
+        // during other API execution. E.g. using a Reader/Writer model or, even better, Interlocked functions.
+        // The lock object must be used during the execution of any WinHttp function to ensure no race conditions with 
+        // calling WinHttpCloseHandle.
+        public object Lock => this;
+
+        public void ClearSendRequestState()
         {
-            get
+#if DEBUG
+            Interlocked.Increment(ref s_dbg_clearSendRequestState);
+#endif
+            // Since WinHttpRequestState has a self-referenced strong GCHandle, we
+            // need to clear out object references to break cycles and prevent leaks.
+            Tcs = null;
+            TcsInternalWriteDataToRequestStream = null;
+            CancellationToken = default(CancellationToken);
+            RequestMessage = null;
+            Handler = null;
+            ServerCertificateValidationCallback = null;
+            TransportContext = null;
+            Proxy = null;
+            ServerCredentials = null;
+            DefaultProxyCredentials = null;
+
+            if (RequestHandle != null)
             {
-                return _lock;
+                RequestHandle.Dispose();
+                RequestHandle = null;
             }
         }
 
@@ -63,7 +101,25 @@ namespace System.Net.Http
 
         public WinHttpHandler Handler { get; set; }
 
-        public SafeWinHttpHandle RequestHandle { get; set; }
+        SafeWinHttpHandle _requestHandle;
+        public SafeWinHttpHandle RequestHandle
+        {
+            get
+            {
+                return _requestHandle;
+            }
+
+            set
+            {
+#if DEBUG
+                if (value != null)
+                {
+                    s_dbg_requestHandle = value.DangerousGetHandle();
+                }
+#endif
+                _requestHandle = value;
+            }
+        }
 
         public Exception SavedException { get; set; }
 
@@ -76,7 +132,11 @@ namespace System.Net.Http
             SslPolicyErrors,
             bool> ServerCertificateValidationCallback { get; set; }
 
-        public WinHttpTransportContext TransportContext { get; private set; }
+        public WinHttpTransportContext TransportContext
+        {
+            get { return _transportContext ?? (_transportContext = new WinHttpTransportContext()); }
+            set { _transportContext = value; }
+        }
 
         public WindowsProxyUsePolicy WindowsProxyUsePolicy { get; set; }
 
@@ -92,25 +152,37 @@ namespace System.Net.Http
 
         public bool RetryRequest { get; set; }
 
-        // Important: do not hold _lock while signaling completion of any of below TaskCompletionSources.
-        public TaskCompletionSource<bool> TcsSendRequest { get; set; }
-        public TaskCompletionSource<bool> TcsWriteToRequestStream { get; set; }
+        public RendezvousAwaitable<int> LifecycleAwaitable { get; set; } = new RendezvousAwaitable<int>();
         public TaskCompletionSource<bool> TcsInternalWriteDataToRequestStream { get; set; }
-        public TaskCompletionSource<bool> TcsReceiveResponseHeaders { get; set; }
-        public TaskCompletionSource<int> TcsQueryDataAvailable { get; set; }
-        public TaskCompletionSource<int> TcsReadFromResponseStream { get; set; }
+        public bool AsyncReadInProgress { get; set; }
+
+        // WinHttpResponseStream state.
+        public long? ExpectedBytesToRead { get; set; }
+        public long CurrentBytesRead { get; set; }
+
+        // TODO (Issue 2505): temporary pinned buffer caches of 1 item. Will be replaced by PinnableBufferCache.
+        private GCHandle _cachedReceivePinnedBuffer;
+
+        public void PinReceiveBuffer(byte[] buffer)
+        {
+            if (!_cachedReceivePinnedBuffer.IsAllocated || _cachedReceivePinnedBuffer.Target != buffer)
+            {
+                if (_cachedReceivePinnedBuffer.IsAllocated)
+                {
+                    _cachedReceivePinnedBuffer.Free();
+                }
+
+                _cachedReceivePinnedBuffer = GCHandle.Alloc(buffer, GCHandleType.Pinned);
+            }
+        }
 
         #region IDisposable Members
         private void Dispose(bool disposing)
         {
-            if (WinHttpTraceHelper.IsTraceEnabled())
-            {
-                WinHttpTraceHelper.Trace(
-                    "WinHttpRequestState.Dispose, GCHandle=0x{0:X}, disposed={1}, disposing={2}",
-                    ToIntPtr(),
-                    _disposed,
-                    disposing);
-            }
+#if DEBUG
+            Interlocked.Increment(ref s_dbg_callDispose);
+#endif
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this, $"GCHandle=0x{ToIntPtr().ToString("X")}, disposed={_disposed}, disposing={disposing}");
 
             // Since there is no finalizer and this class is sealed, the disposing parameter should be TRUE.
             Debug.Assert(disposing, "WinHttpRequestState.Dispose() should have disposing=TRUE");
@@ -124,7 +196,19 @@ namespace System.Net.Http
 
             if (_operationHandle.IsAllocated)
             {
+                // This method only gets called when the WinHTTP request handle is fully closed and thus all
+                // async operations are done. So, it is safe at this point to unpin the buffers and release
+                // the strong GCHandle for this object.
+                if (_cachedReceivePinnedBuffer.IsAllocated)
+                {
+                    _cachedReceivePinnedBuffer.Free();
+                    _cachedReceivePinnedBuffer = default(GCHandle);
+                }
+#if DEBUG
+                Interlocked.Increment(ref s_dbg_operationHandleFree);
+#endif
                 _operationHandle.Free();
+                _operationHandle = default(GCHandle);
             }
         }
 

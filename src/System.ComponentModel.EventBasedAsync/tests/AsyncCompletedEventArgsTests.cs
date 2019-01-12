@@ -2,7 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Xunit;
 
 namespace System.ComponentModel.EventBasedAsync.Tests
@@ -28,16 +30,16 @@ namespace System.ComponentModel.EventBasedAsync.Tests
                 return new[]
                 {
                     new object[] { null, false, (Type)null },
-                    new object[] { null, true, typeof(OperationCanceledException) },
+                    new object[] { null, true, typeof(InvalidOperationException) },
                     // dummy exceptions
                     new object[] { new FormatException(), false, typeof(FormatException) },
-                    new object[] { new DllNotFoundException(), true, typeof(OperationCanceledException) }
+                    new object[] { new DllNotFoundException(), true, typeof(DllNotFoundException) }
                 };
             }
         }
 
         [Theory]
-        [MemberData("TestInput")]
+        [MemberData(nameof(TestInput))]
         public static void CtorTest(Exception expectedException, bool expectedCancelled, object expectedState)
         {
             var target = new AsyncCompletedEventArgsTests(expectedException, expectedCancelled, expectedState);
@@ -47,7 +49,7 @@ namespace System.ComponentModel.EventBasedAsync.Tests
         }
 
         [Theory]
-        [MemberData("TestInput")]
+        [MemberData(nameof(TestInput))]
         public static void RaiseExceptionIfNecessaryTest(Exception expectedError, bool cancelled, Type expectedExceptionType)
         {
             var target = new AsyncCompletedEventArgsTests(expectedError, cancelled, null);
@@ -58,10 +60,15 @@ namespace System.ComponentModel.EventBasedAsync.Tests
             }
             else
             {
-                Exception error = Assert.Throws(expectedExceptionType, () => target.RaiseExceptionIfNecessary());
-                if (expectedError != null && !cancelled)
+                if (expectedError != null)
                 {
-                    Assert.Same(expectedError, error);
+                    TargetInvocationException error = Assert.Throws<TargetInvocationException>(() => target.RaiseExceptionIfNecessary());
+                    Assert.Equal(expectedExceptionType, error.InnerException.GetType());
+                    Assert.Same(expectedError, error.InnerException);
+                }
+                else if (cancelled)
+                {
+                    Assert.Throws(expectedExceptionType, () => target.RaiseExceptionIfNecessary());
                 }
             }
         }

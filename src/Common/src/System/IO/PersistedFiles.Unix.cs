@@ -9,25 +9,7 @@ namespace System.IO
 {
     internal static partial class PersistedFiles
     {
-        private static string s_tempProductDirectory;
         private static string s_userProductDirectory;
-
-        /// <summary>
-        /// Get the location of where to store temporary files for a particular aspect of the framework,
-        /// such as "maps".
-        /// </summary>
-        /// <param name="featureName">The directory name for the feature</param>
-        /// <returns>A path within the temp directory for storing temporary files related to the feature.</returns>
-        internal static string GetTempFeatureDirectory(string featureName)
-        {
-            string path = s_tempProductDirectory;
-            if (path == null)
-            {
-                s_tempProductDirectory = path = Path.Combine(Path.GetTempPath(), TopLevelHiddenDirectory, SecondLevelDirectory);
-            }
-
-            return Path.Combine(path, featureName);
-        }
 
         /// <summary>
         /// Get the location of where to persist information for a particular aspect of the framework,
@@ -106,7 +88,7 @@ namespace System.IO
             if (!string.IsNullOrEmpty(userHomeDirectory))
                 return userHomeDirectory;
 
-            // In initialization conditions, however, the "HOME" enviroment variable may 
+            // In initialization conditions, however, the "HOME" environment variable may 
             // not yet be set. For such cases, consult with the password entry.
             unsafe
             {
@@ -115,7 +97,7 @@ namespace System.IO
                 // if we simply couldn't find a home directory for the current user.
                 // In that case, we pass back the null value and let the caller decide
                 // what to do.
-                const int BufLen = 1024;
+                const int BufLen = Interop.Sys.Passwd.InitialBufferSize;
                 byte* stackBuf = stackalloc byte[BufLen];
                 if (TryGetHomeDirectoryFromPasswd(stackBuf, BufLen, out userHomeDirectory))
                     return userHomeDirectory;
@@ -127,7 +109,7 @@ namespace System.IO
                 {
                     lastBufLen *= 2;
                     byte[] heapBuf = new byte[lastBufLen];
-                    fixed (byte* buf = heapBuf)
+                    fixed (byte* buf = &heapBuf[0])
                     {
                         if (TryGetHomeDirectoryFromPasswd(buf, heapBuf.Length, out userHomeDirectory))
                             return userHomeDirectory;

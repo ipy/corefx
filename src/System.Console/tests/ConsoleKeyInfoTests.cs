@@ -19,7 +19,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [MemberData("AllCombinationsOfThreeBools")]
+        [MemberData(nameof(AllCombinationsOfThreeBools))]
         public void Ctor_ValueCtor_ValuesPassedToProperties(bool shift, bool alt, bool ctrl)
         {
             ConsoleKeyInfo cki = new ConsoleKeyInfo('a', ConsoleKey.A, shift, alt, ctrl);
@@ -33,7 +33,7 @@ namespace System.Tests
         }
 
         [Theory]
-        [MemberData("SampleConsoleKeyInfos")]
+        [MemberData(nameof(SampleConsoleKeyInfos))]
         public void Equals_SameData(ConsoleKeyInfo cki)
         {
             ConsoleKeyInfo other = cki; // otherwise compiler warns about comparing the instance with itself
@@ -47,13 +47,21 @@ namespace System.Tests
         }
 
         [Theory]
-        [MemberData("NotEqualConsoleKeyInfos")]
+        [MemberData(nameof(NotEqualConsoleKeyInfos))]
         public void NotEquals_DifferentData(ConsoleKeyInfo left, ConsoleKeyInfo right)
         {
             Assert.False(left == right);
             Assert.False(left.Equals(right));
             Assert.False(left.Equals((object)right));
             Assert.True(left != right);
+        }
+
+        [SkipOnTargetFramework(TargetFrameworkMonikers.NetFramework)] // .NET Framework's hashing algorithm doesn't factor in CKI.Key
+        [Theory]
+        [MemberData(nameof(NotEqualConsoleKeyInfos))]
+        public void HashCodeNotEquals_DifferentData(ConsoleKeyInfo left, ConsoleKeyInfo right)
+        {
+            Assert.NotEqual(left.GetHashCode(), right.GetHashCode());
         }
 
         [Fact]

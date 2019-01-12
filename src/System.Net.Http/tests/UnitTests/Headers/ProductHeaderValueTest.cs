@@ -33,8 +33,8 @@ namespace System.Net.Http.Tests
         [Fact]
         public void Ctor_UseInvalidValues_Throw()
         {
-            Assert.Throws<ArgumentException>(() => { new ProductHeaderValue(null); });
-            Assert.Throws<ArgumentException>(() => { new ProductHeaderValue(string.Empty); });
+            AssertExtensions.Throws<ArgumentException>("name", () => { new ProductHeaderValue(null); });
+            AssertExtensions.Throws<ArgumentException>("name", () => { new ProductHeaderValue(string.Empty); });
             Assert.Throws<FormatException>(() => { new ProductHeaderValue(" x"); });
             Assert.Throws<FormatException>(() => { new ProductHeaderValue("x "); });
             Assert.Throws<FormatException>(() => { new ProductHeaderValue("x y"); });
@@ -135,7 +135,7 @@ namespace System.Net.Http.Tests
         [Fact]
         public void GetProductLength_DifferentInvalidScenarios_AllReturnZero()
         {
-            CheckInvalidGetProductLength(" custom", 0); // no leading whitespaces allowed
+            CheckInvalidGetProductLength(" custom", 0); // no leading whitespace allowed
             CheckInvalidGetProductLength("custom/", 0);
             CheckInvalidGetProductLength("custom/[", 0);
             CheckInvalidGetProductLength("=", 0);

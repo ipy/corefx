@@ -6,7 +6,6 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text;
 
 using Microsoft.Win32.SafeHandles;
 
@@ -14,24 +13,24 @@ internal static partial class Interop
 {
     internal static partial class Crypto
     {
-        internal const int NID_undef = 0;
-
-        internal const int NID_X9_62_prime256v1 = 415; // NIST P-256
-        internal const int NID_secp224r1 = 713; // NIST P-224
-        internal const int NID_secp384r1 = 715; // NIST P-384
-        internal const int NID_secp521r1 = 716; // NIST P-521
-
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_ObjTxt2Obj", CharSet = CharSet.Ansi)]
         internal static extern SafeAsn1ObjectHandle ObjTxt2Obj(string s);
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_ObjObj2Txt")]
-        private static unsafe extern int ObjObj2Txt(byte* buf, int buf_len, IntPtr a);
+        private static extern unsafe int ObjObj2Txt(byte* buf, int buf_len, IntPtr a);
 
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_GetObjectDefinitionByName", CharSet = CharSet.Ansi)]
-        internal static extern IntPtr GetObjectDefinitionByName(string friendlyName);
+        private static extern IntPtr CryptoNative_GetObjectDefinitionByName(string friendlyName);
+        internal static IntPtr GetObjectDefinitionByName(string friendlyName)
+        {
+            IntPtr ret = CryptoNative_GetObjectDefinitionByName(friendlyName);
+            if (ret == IntPtr.Zero)
+            {
+                ErrClearError();
+            }
 
-        [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_ObjSn2Nid", CharSet = CharSet.Ansi)]
-        internal static extern int ObjSn2Nid(string sn);
+            return ret;
+        }
 
         // Returns shared pointers, should not be tracked as a SafeHandle.
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_ObjNid2Obj")]
@@ -62,22 +61,6 @@ internal static partial class Interop
         [DllImport(Libraries.CryptoNative, EntryPoint = "CryptoNative_Asn1StringFree")]
         internal static extern void Asn1StringFree(IntPtr o);
 
-        internal static string GetOidValue(SafeSharedAsn1ObjectHandle asn1Object)
-        {
-            Debug.Assert(asn1Object != null);
-
-            bool added = false;
-            asn1Object.DangerousAddRef(ref added);
-            try
-            {
-                return GetOidValue(asn1Object.DangerousGetHandle());
-            }
-            finally
-            {
-                asn1Object.DangerousRelease();
-            }
-        }
-
         internal static unsafe string GetOidValue(IntPtr asn1ObjectPtr)
         {
             // OBJ_obj2txt returns the number of bytes that should have been in the answer, but it does not accept
@@ -104,7 +87,7 @@ internal static partial class Interop
             // so make sure to leave room for it.
             int initialBytesNeeded = bytesNeeded;
             byte[] bufHeap = new byte[bytesNeeded + 1];
-            fixed (byte* buf = bufHeap)
+            fixed (byte* buf = &bufHeap[0])
             {
                 bytesNeeded = ObjObj2Txt(buf, bufHeap.Length, asn1ObjectPtr);
 
@@ -125,17 +108,6 @@ internal static partial class Interop
 
                 return Marshal.PtrToStringAnsi((IntPtr)buf, bytesNeeded);
             }
-        }
-    }
-}
-
-namespace Microsoft.Win32.SafeHandles
-{
-    internal class SafeSharedAsn1ObjectHandle : SafeInteriorHandle
-    {
-        private SafeSharedAsn1ObjectHandle() :
-            base(IntPtr.Zero, ownsHandle: true)
-        {
         }
     }
 }

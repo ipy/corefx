@@ -12,7 +12,7 @@ using Microsoft.Win32;
 namespace System.Net.Sockets
 {
     // AcceptOverlappedAsyncResult - used to take care of storage for async Socket BeginAccept call.
-    internal partial class AcceptOverlappedAsyncResult : BaseOverlappedAsyncResult
+    internal sealed partial class AcceptOverlappedAsyncResult : BaseOverlappedAsyncResult
     {
         private Socket _acceptedSocket;
 
@@ -22,16 +22,14 @@ namespace System.Net.Sockets
             {
                 // *nix does not support the reuse of an existing socket as the accepted
                 // socket.
-                Debug.Assert(value == null);
+                Debug.Assert(value == null, $"Unexpected value: {value}");
             }
         }
 
-        public void CompletionCallback(int acceptedFileDescriptor, byte[] socketAddress, int socketAddressLen, SocketError errorCode)
+        public void CompletionCallback(IntPtr acceptedFileDescriptor, byte[] socketAddress, int socketAddressLen, SocketError errorCode)
         {
-            // TODO: receive bytes on accepted socket if requested
-
             _buffer = null;
-            _localBytesTransferred = 0;
+            _numBytes = 0;
 
 			if (errorCode == SocketError.Success)
 			{
@@ -39,7 +37,7 @@ namespace System.Net.Sockets
 				System.Buffer.BlockCopy(socketAddress, 0, remoteSocketAddress.Buffer, 0, socketAddressLen);
 
 				_acceptedSocket = _listenSocket.CreateAcceptSocket(
-					SafeCloseSocket.CreateSocket(acceptedFileDescriptor),
+					SafeSocketHandle.CreateSocket(acceptedFileDescriptor),
 					_listenSocket._rightEndPoint.Create(remoteSocketAddress));
 			}
 
@@ -48,6 +46,7 @@ namespace System.Net.Sockets
 
         internal override object PostCompletion(int numBytes)
         {
+            _numBytes = numBytes;
             return (SocketError)ErrorCode == SocketError.Success ? _acceptedSocket : null;
         }
     }

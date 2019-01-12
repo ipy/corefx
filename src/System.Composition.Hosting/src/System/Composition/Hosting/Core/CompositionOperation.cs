@@ -2,10 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Composition;
 using System.Collections.Generic;
 using System.Threading;
-using Microsoft.Internal;
 
 namespace System.Composition.Hosting.Core
 {
@@ -27,13 +25,20 @@ namespace System.Composition.Hosting.Core
         /// context, for the specified activator.
         /// </summary>
         /// <param name="outermostLifetimeContext">Context in which to begin the operation (the operation can flow
-        /// to the parents of the context if requried).</param>
+        /// to the parents of the context if required).</param>
         /// <param name="compositionRootActivator">Activator that will drive the operation.</param>
         /// <returns>The composed object graph.</returns>
         public static object Run(LifetimeContext outermostLifetimeContext, CompositeActivator compositionRootActivator)
         {
-            Requires.NotNull(outermostLifetimeContext, "outermostLifetimeContext");
-            Requires.NotNull(compositionRootActivator, "compositionRootActivator");
+            if (outermostLifetimeContext == null)
+            {
+                throw new ArgumentNullException(nameof(outermostLifetimeContext));
+            }
+
+            if (compositionRootActivator == null)
+            {
+                throw new ArgumentNullException(nameof(compositionRootActivator));
+            }
 
             using (var operation = new CompositionOperation())
             {
@@ -45,13 +50,13 @@ namespace System.Composition.Hosting.Core
 
         /// <summary>
         /// Called during the activation process to specify an action that can run after all
-        /// prerequesite part dependencies have been satisfied.
+        /// prerequisite part dependencies have been satisfied.
         /// </summary>
         /// <param name="action">Action to run.</param>
         public void AddNonPrerequisiteAction(Action action)
         {
             if (action == null)
-                throw new ArgumentNullException("action");
+                throw new ArgumentNullException(nameof(action));
 
             if (_nonPrerequisiteActions == null)
                 _nonPrerequisiteActions = new List<Action>();
@@ -66,7 +71,10 @@ namespace System.Composition.Hosting.Core
         /// <param name="action">Action to run.</param>
         public void AddPostCompositionAction(Action action)
         {
-            Requires.NotNull(action, "action");
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
 
             if (_postCompositionActions == null)
                 _postCompositionActions = new List<Action>();
@@ -76,7 +84,10 @@ namespace System.Composition.Hosting.Core
 
         internal void EnterSharingLock(object sharingLock)
         {
-            Assumes.NotNull(sharingLock, "Sharing lock is required");
+            if (sharingLock == null)
+            {
+                throw new ArgumentException(SR.Sharing_Lock_Required);
+            }
 
             if (_sharingLock == null)
             {
@@ -84,7 +95,10 @@ namespace System.Composition.Hosting.Core
                 Monitor.Enter(sharingLock);
             }
 
-            Assumes.IsTrue(_sharingLock == sharingLock, "Sharing lock already taken in this operation.");
+            if (_sharingLock != sharingLock)
+            {
+                throw new Exception(SR.Sharing_Lock_Taken);
+            }
         }
 
         private void Complete()

@@ -20,12 +20,12 @@ namespace System.Diagnostics
                                          object[] args, object data1, object[] data)
         {
             if (source == null)
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
 
-            return String.Equals(_src, source);
+            return string.Equals(_src, source);
         }
 
-        public String Source
+        public string Source
         {
             get
             {
@@ -34,7 +34,7 @@ namespace System.Diagnostics
             set
             {
                 if (value == null)
-                    throw new ArgumentNullException("source");
+                    throw new ArgumentNullException(nameof(Source));
                 _src = value;
             }
         }

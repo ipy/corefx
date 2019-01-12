@@ -6,7 +6,13 @@ using System.Diagnostics;
 
 namespace System.Reflection.Metadata
 {
-    public struct MethodDebugInformation
+    /// <summary>
+    /// Debug information associated with a method definition. Stored in debug metadata.
+    /// </summary>
+    /// <remarks>
+    /// See https://github.com/dotnet/corefx/blob/master/src/System.Reflection.Metadata/specs/PortablePdb-Metadata.md#methoddebuginformation-table-0x31.
+    /// </remarks>
+    public readonly struct MethodDebugInformation
     {
         private readonly MetadataReader _reader;
 
@@ -22,37 +28,22 @@ namespace System.Reflection.Metadata
             _rowId = handle.RowId;
         }
 
-        private MethodDebugInformationHandle Handle
-        {
-            get { return MethodDebugInformationHandle.FromRowId(_rowId); }
-        }
+        private MethodDebugInformationHandle Handle => MethodDebugInformationHandle.FromRowId(_rowId);
 
         /// <summary>
-        /// Returns a blob encoding sequence points.
-        /// Use <see cref="GetSequencePoints()"/> to decode.
+        /// Returns a blob encoding sequence points, or nil if the method doesn't have sequence points.
+        /// Use <see cref="GetSequencePoints()"/> to decode the blob.
         /// </summary>
-        public BlobHandle SequencePointsBlob
-        {
-            get
-            {
-                return _reader.MethodDebugInformationTable.GetSequencePoints(Handle);
-            }
-        }
+        public BlobHandle SequencePointsBlob => _reader.MethodDebugInformationTable.GetSequencePoints(Handle);
 
         /// <summary>
-        /// The document containing the first sequence point of the method, 
-        /// or nil if the method doesn't have sequence points.
+        /// Handle of the single document containing all sequence points of the method, 
+        /// or nil if the method doesn't have sequence points or spans multiple documents.
         /// </summary>
-        public DocumentHandle Document
-        {
-            get
-            {
-                return _reader.MethodDebugInformationTable.GetDocument(Handle);
-            }
-        }
+        public DocumentHandle Document => _reader.MethodDebugInformationTable.GetDocument(Handle);
 
         /// <summary>
-        /// Returns local signature handle.
+        /// Returns local signature handle, or nil if the method doesn't define any local variables.
         /// </summary>
         public StandaloneSignatureHandle LocalSignature
         {
@@ -66,10 +57,13 @@ namespace System.Reflection.Metadata
                 return StandaloneSignatureHandle.FromRowId(_reader.GetBlobReader(SequencePointsBlob).ReadCompressedInteger());
             }
         }
-
+        
+        /// <summary>
+        /// Returns a collection of sequence points decoded from <see cref="SequencePointsBlob"/>.
+        /// </summary>
         public SequencePointCollection GetSequencePoints()
         {
-            return new SequencePointCollection(_reader.BlobStream.GetMemoryBlock(SequencePointsBlob), Document);
+            return new SequencePointCollection(_reader.BlobHeap.GetMemoryBlock(SequencePointsBlob), Document);
         }
 
         /// <summary>

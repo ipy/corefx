@@ -2,22 +2,22 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Runtime.CompilerServices;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace System
 {
     /// <summary>Static helper class for performance tests</summary>
     public class PerfUtils
     {
-        private Random rand;
+        private Random _rand;
 
         /// <summary>
         /// Initializes a new PerfUtils object with the default random seed.
         /// </summary>
         public PerfUtils()
         {
-            rand = new Random(1234132);
+            _rand = new Random(1234132);
         }
 
         /// <summary>
@@ -27,18 +27,31 @@ namespace System
         /// </summary>
         public PerfUtils(int seed)
         {
-            rand = new Random(seed);
+            _rand = new Random(seed);
         }
 
         /// <summary>
-        /// Helper method to create a string containing a number of random
+        /// Helper method to create a string containing a number of 
         /// characters equal to the specified length
         /// </summary>
         public string CreateString(int length)
         {
-            byte[] bytes = new byte[length];
-            rand.NextBytes(bytes);
-            return System.Convert.ToBase64String(bytes);
+            char[] str = new char[length];
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                // Add path separator so folders aren't too long.
+                if (i % 20 == 0)
+                {
+                    str[i] = Path.DirectorySeparatorChar;
+                }
+                else
+                {
+                    str[i] = 'a';
+                }
+            }
+
+            return new string(str);
         }
 
         /// <summary>Gets a test file full path that is associated with the call site.</summary>
@@ -49,7 +62,7 @@ namespace System
         {
             return Path.Combine(Path.GetTempPath(), string.Format(
                 index.HasValue ? "{0}_{1}_{2}_{3}" : "{0}_{1}_{2}",
-                memberName ?? "TestBase", lineNumber, Path.GetRandomFileName(), 
+                memberName ?? "TestBase", lineNumber, Path.GetRandomFileName(),
                 index.GetValueOrDefault()));
         }
     }

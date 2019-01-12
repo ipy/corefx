@@ -42,6 +42,35 @@ namespace System.Linq.Tests
                     yield return new object[] { size, iteration };
         }
 
+        private static int[] QuickSortWorstCase(int n)
+        {
+            int OddPos(int k)
+            {
+                int s = k;
+                while (s * 2 < n)
+                    s *= 2;
+                return (n - 1) % s + 1;
+            }
+
+            int[] a = new int[n];
+            for (int x = 1; x <= n; x++)
+            {
+                if (x % 2 == 0)
+                {
+                    a[x / 2 - 1] = x;
+                }
+                else if (x == n)
+                {
+                    a[n / 2] = x;
+                }
+                else
+                {
+                    a[n - OddPos(x)] = x;
+                }
+            }
+            return a;
+        }
+
         private class BaseClass
         {
             public int Value;
@@ -56,42 +85,42 @@ namespace System.Linq.Tests
         #region Perf Tests
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Select(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Select(o => o + 1));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void SelectSelect(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Select(o => o + 1).Select(o => o - 1));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Where(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Where(o => o >= 0));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void WhereWhere(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Where(o => o >= 0).Where(o => o >= -1));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void WhereSelect(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Where(o => o >= 0).Select(o => o + 1));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Cast_ToBaseClass(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Func<IEnumerable<ChildClass>, IEnumerable<BaseClass>> linqApply = col => col.Cast<BaseClass>();
@@ -100,7 +129,7 @@ namespace System.Linq.Tests
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Cast_SameType(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Func<IEnumerable<int>, IEnumerable<int>> linqApply = col => col.Cast<int>();
@@ -109,70 +138,70 @@ namespace System.Linq.Tests
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void OrderBy(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.OrderBy(o => -o));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void OrderByDescending(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.OrderByDescending(o => -o));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void OrderByThenBy(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.OrderBy(o => -o).ThenBy(o => o));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperDataNoWrapper")]
+        [MemberData(nameof(IterationSizeWrapperDataNoWrapper))]
         public void Range(int size, int iteration)
         {
             Perf_LinqTestBase.Measure<int>(1, iteration, Perf_LinqTestBase.WrapperType.NoWrap, col => Enumerable.Range(0, size));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperDataNoWrapper")]
+        [MemberData(nameof(IterationSizeWrapperDataNoWrapper))]
         public void Repeat(int size, int iteration)
         {
             Perf_LinqTestBase.Measure<int>(1, iteration, Perf_LinqTestBase.WrapperType.NoWrap, col => Enumerable.Repeat(0, size));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Reverse(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Reverse());
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Skip(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Skip(1));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void Take(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Take(size - 1));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void SkipTake(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             Perf_LinqTestBase.Measure<int>(size, iteration, wrapType, col => col.Skip(1).Take(size - 2));
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void ToArray(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             int[] array = Enumerable.Range(0, size).ToArray();
@@ -180,7 +209,7 @@ namespace System.Linq.Tests
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void ToList(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             int[] array = Enumerable.Range(0, size).ToArray();
@@ -188,11 +217,53 @@ namespace System.Linq.Tests
         }
 
         [Benchmark]
-        [MemberData("IterationSizeWrapperData")]
+        [MemberData(nameof(IterationSizeWrapperData))]
         public void ToDictionary(int size, int iteration, Perf_LinqTestBase.WrapperType wrapType)
         {
             int[] array = Enumerable.Range(0, size).ToArray();
             Perf_LinqTestBase.MeasureMaterializationToDictionary<int>(Perf_LinqTestBase.Wrap(array, wrapType), iteration);
+        }
+
+        [Benchmark]
+        [MemberData(nameof(IterationSizeWrapperData))]
+        public void Contains_ElementNotFound(int size, int iterationCount, Perf_LinqTestBase.WrapperType wrapType)
+        {
+            IEnumerable<int> source = Perf_LinqTestBase.Wrap(Enumerable.Range(0, size).ToArray(), wrapType);
+
+            foreach (BenchmarkIteration iteration in Benchmark.Iterations)
+            {
+                using (iteration.StartMeasurement())
+                {
+                    for (int i = 0; i < iterationCount; i++)
+                    {
+                        source.Contains(size + 1);
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        [MemberData(nameof(IterationSizeWrapperData))]
+        public void Contains_FirstElementMatches(int size, int iterationCount, Perf_LinqTestBase.WrapperType wrapType)
+        {
+            IEnumerable<int> source = Perf_LinqTestBase.Wrap(Enumerable.Range(0, size).ToArray(), wrapType);
+
+            foreach (BenchmarkIteration iteration in Benchmark.Iterations)
+            {
+                using (iteration.StartMeasurement())
+                {
+                    for (int i = 0; i < iterationCount; i++)
+                    {
+                        source.Contains(0);
+                    }
+                }
+            }
+        }
+
+        [Benchmark]
+        public void OrderBy_TakeOne()
+        {
+            Perf_LinqTestBase.MeasureIteration(QuickSortWorstCase(10000).OrderBy(i => i).Take(1), 10);
         }
 
         #endregion

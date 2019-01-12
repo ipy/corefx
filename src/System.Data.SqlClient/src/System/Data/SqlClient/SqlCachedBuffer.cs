@@ -12,6 +12,7 @@ using System.Xml;
 using System.Data.SqlTypes;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Data.Common;
 
 namespace System.Data.SqlClient
 {
@@ -39,7 +40,7 @@ namespace System.Data.SqlClient
         }
 
         // Reads off from the network buffer and caches bytes. Only reads one column value in the current row.
-        static internal bool TryCreate(SqlMetaDataPriv metadata, TdsParser parser, TdsParserStateObject stateObj, out SqlCachedBuffer buffer)
+        internal static bool TryCreate(SqlMetaDataPriv metadata, TdsParser parser, TdsParserStateObject stateObj, out SqlCachedBuffer buffer)
         {
             int cb = 0;
             ulong plplength;
@@ -92,7 +93,7 @@ namespace System.Data.SqlClient
             // Need to find out if we should add byte order mark or not. 
             // We need to add this if we are getting ntext xml, not if we are getting binary xml
             // Binary Xml always begins with the bytes 0xDF and 0xFF
-            // If we aren't getting these, then we are getting unicode xml
+            // If we aren't getting these, then we are getting Unicode xml
             if ((byteArr.Length < 2) || (byteArr[0] != 0xDF) || (byteArr[1] != 0xFF))
             {
                 Debug.Assert(cachedBytes.Count == 0);
@@ -112,7 +113,7 @@ namespace System.Data.SqlClient
 
             if (_cachedBytes.Count == 0)
             {
-                return String.Empty;
+                return string.Empty;
             }
             SqlXml sxml = new SqlXml(ToStream());
             return sxml.Value;
@@ -136,7 +137,7 @@ namespace System.Data.SqlClient
         [MethodImpl(MethodImplOptions.NoInlining)]
         internal XmlReader ToXmlReader()
         {
-            return SqlXml.CreateSqlXmlReader(ToStream(), closeInput: false);
+            return SqlTypeWorkarounds.SqlXmlCreateSqlXmlReader(ToStream(), closeInput: false);
         }
 
         public bool IsNull
@@ -146,5 +147,7 @@ namespace System.Data.SqlClient
                 return (_cachedBytes == null) ? true : false;
             }
         }
+
+
     }
 }

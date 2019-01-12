@@ -2,33 +2,25 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-
-
-//------------------------------------------------------------------------------
-
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
-#if MANAGED_SNI
-using System.Data.SqlClient.SNI;
-#endif
+using System.Security;
+using System.Runtime.InteropServices;
 
 namespace System.Data.SqlClient
 {
-    using Res = System.SR;
-
     sealed internal class LastIOTimer
     {
         internal long _value;
     }
 
-    sealed internal class TdsParserStateObject
+    internal abstract class TdsParserStateObject
     {
         private const int AttentionTimeoutSeconds = 5;
 
@@ -40,8 +32,7 @@ namespace System.Data.SqlClient
         private const long CheckConnectionWindow = 50000;
 
 
-        private readonly TdsParser _parser;                            // TdsParser pointer  
-        private SNIHandle _sessionHandle = null;              // the SNI handle we're to work on
+        protected readonly TdsParser _parser;                            // TdsParser pointer  
         private readonly WeakReference _owner = new WeakReference(null);   // the owner of this session, used to track when it's been orphaned
         internal SqlDataReader.SharedState _readerState;                    // susbset of SqlDataReader state (if it is the owner) necessary for parsing abandoned results in TDS
         private int _activateCount;                     // 0 when we're in the pool, 1 when we're not, all others are an error
@@ -63,9 +54,10 @@ namespace System.Data.SqlClient
         internal int _outBytesUsed = TdsEnums.HEADER_LEN; // number of bytes used in internal write buffer -
                                                           // - initialize past header
                                                           // In buffer variables
-        private byte[] _inBuff;                                      // internal read buffer - initialize on login
+        protected byte[] _inBuff;                         // internal read buffer - initialize on login
         internal int _inBytesUsed = 0;                   // number of bytes used in internal read buffer
         internal int _inBytesRead = 0;                   // number of bytes read into internal read buffer
+
         internal int _inBytesPacket = 0;                   // number of bytes left in packet
 
         // Packet state variables
@@ -84,21 +76,10 @@ namespace System.Data.SqlClient
         internal bool _bulkCopyWriteTimeout = false;                // Set to trun when _bulkCopyOpeperationInProgress is trun and write timeout happens
 
         // SNI variables                                                     // multiple resultsets in one batch.
-        private SNIPacket _sniPacket = null;                // Will have to re-vamp this for MARS
-        internal SNIPacket _sniAsyncAttnPacket = null;                // Packet to use to send Attn
-        private WritePacketCache _writePacketCache = new WritePacketCache(); // Store write packets that are ready to be re-used
-#if MANAGED_SNI
-        private Dictionary<SNIPacket, SNIPacket> _pendingWritePackets = new Dictionary<SNIPacket, SNIPacket>(); // Stores write packets that have been sent to SNI, but have not yet finished writing (i.e. we are waiting for SNI's callback)
-#else
-        private Dictionary<IntPtr, SNIPacket> _pendingWritePackets = new Dictionary<IntPtr, SNIPacket>(); // Stores write packets that have been sent to SNI, but have not yet finished writing (i.e. we are waiting for SNI's callback)
-#endif // MANAGED_SNI
-        private object _writePacketLockObject = new object();        // Used to synchronize access to _writePacketCache and _pendingWritePackets
+        
+        protected readonly object _writePacketLockObject = new object();        // Used to synchronize access to _writePacketCache and _pendingWritePackets
 
         // Async variables
-#if MANAGED_SNI
-#else
-        private GCHandle _gcHandle;                                    // keeps this object alive until we're closed.
-#endif // MANAGED_SNI
         private int _pendingCallbacks;                            // we increment this before each async read/write call and decrement it in the callback.  We use this to determine when to release the GcHandle...
 
         // Timeout variables
@@ -111,6 +92,10 @@ namespace System.Data.SqlClient
 
         private readonly LastIOTimer _lastSuccessfulIOTimer;
 
+        // secure password information to be stored
+        //  At maximum number of secure string that need to be stored is two; one for login password and the other for new change password
+        private SecureString[] _securePasswords = new SecureString[2] { null, null };
+        private int[] _securePasswordOffsetsInBuffer = new int[2];
 
         // This variable is used to track whether another thread has requested a cancel.  The
         // synchronization points are
@@ -126,7 +111,7 @@ namespace System.Data.SqlClient
         // 3) post session close - no attention is allowed
         private bool _cancelled;
         private const int _waitForCancellationLockPollTimeout = 100;
-
+        private WeakReference _cancellationOwner = new WeakReference(null);
 
         internal bool _hasOpenResult = false;
         // Cache the transaction for which this command was executed so upon completion we can
@@ -193,9 +178,9 @@ namespace System.Data.SqlClient
         internal SqlErrorCollection _preAttentionErrors;
         internal SqlErrorCollection _preAttentionWarnings;
 
-        volatile private TaskCompletionSource<object> _writeCompletionSource = null;
-        volatile private int _asyncWriteCount = 0;
-        volatile private Exception _delayedWriteAsyncCallbackException = null; // set by write async callback if completion source is not yet created
+        private volatile TaskCompletionSource<object> _writeCompletionSource = null;
+        protected volatile int _asyncWriteCount = 0;
+        private volatile Exception _delayedWriteAsyncCallbackException = null; // set by write async callback if completion source is not yet created
 
         // _readingcount is incremented when we are about to read.
         // We check the parser state afterwards.
@@ -264,7 +249,7 @@ namespace System.Data.SqlClient
             _lastSuccessfulIOTimer = new LastIOTimer();
         }
 
-        internal TdsParserStateObject(TdsParser parser, SNIHandle physicalConnection, bool async)
+        internal TdsParserStateObject(TdsParser parser, TdsParserStateObject physicalConnection, bool async)
         {
             // Construct a MARS session
             Debug.Assert(null != parser, "no parser?");
@@ -280,14 +265,9 @@ namespace System.Data.SqlClient
             // Determine packet size based on physical connection buffer lengths.
             SetPacketSize(_parser._physicalStateObj._outBuff.Length);
 
-#if MANAGED_SNI
-            _sessionHandle = SNIProxy.Singleton.CreateMarsHandle(this, physicalConnection, _outBuff.Length, async);
-#else
-            SNINativeMethodWrapper.ConsumerInfo myInfo = CreateConsumerInfo(async);
-            _sessionHandle = new SNIHandle(myInfo, physicalConnection);
-#endif // MANAGED_SNI
+            CreateSessionHandle(physicalConnection, async);
 
-            if (_sessionHandle.Status != TdsEnums.SNI_SUCCESS)
+            if (IsFailedHandle())
             {
                 AddError(parser.ProcessSNIError(this));
                 ThrowExceptionAndWarning();
@@ -327,14 +307,6 @@ namespace System.Data.SqlClient
             }
         }
 #endif
-
-        internal SNIHandle Handle
-        {
-            get
-            {
-                return _sessionHandle;
-            }
-        }
 
         internal bool HasOpenResult
         {
@@ -380,6 +352,8 @@ namespace System.Data.SqlClient
             }
         }
 
+        internal abstract uint DisabeSsl();
+
         internal bool HasOwner
         {
             get
@@ -396,6 +370,8 @@ namespace System.Data.SqlClient
             }
         }
 
+        internal abstract uint EnableMars(ref uint info);
+
         internal SniContext SniContext
         {
             get
@@ -411,19 +387,14 @@ namespace System.Data.SqlClient
             }
         }
 
-        internal UInt32 Status
+        internal abstract uint Status
         {
-            get
-            {
-                if (_sessionHandle != null)
-                {
-                    return _sessionHandle.Status;
-                }
-                else
-                {
-                    return TdsEnums.SNI_UNINITIALIZED;
-                }
-            }
+            get;
+        }
+
+        internal abstract SessionHandle SessionHandle
+        {
+            get;
         }
 
         internal bool TimeoutHasExpired
@@ -458,7 +429,7 @@ namespace System.Data.SqlClient
             int remaining;
             if (0 != _timeoutMilliseconds)
             {
-                remaining = (int)Math.Min((long)Int32.MaxValue, _timeoutMilliseconds);
+                remaining = (int)Math.Min((long)int.MaxValue, _timeoutMilliseconds);
                 _timeoutTime = TdsParserStaticMethods.GetTimeout(_timeoutMilliseconds);
                 _timeoutMilliseconds = 0;
             }
@@ -546,7 +517,7 @@ namespace System.Data.SqlClient
                 }
 
                 // read the null bitmap compression information from TDS
-                if (!stateObj.TryReadByteArray(_nullBitmap, 0, _nullBitmap.Length))
+                if (!stateObj.TryReadByteArray(_nullBitmap, _nullBitmap.Length))
                 {
                     return false;
                 }
@@ -576,7 +547,7 @@ namespace System.Data.SqlClient
 
             /// <summary>
             /// If this method returns true, the value is guaranteed to be null. This is not true vice versa: 
-            /// if the bitmat value is false (if this method returns false), the value can be either null or non-null - no guarantee in this case.
+            /// if the bitmap value is false (if this method returns false), the value can be either null or non-null - no guarantee in this case.
             /// To determine whether it is null or not, read it from the TDS (per NBCROW design spec, for IMAGE/TEXT/NTEXT columns server might send
             /// bitmap = 0, when the actual value is null).
             /// </summary>
@@ -604,8 +575,8 @@ namespace System.Data.SqlClient
         internal void Activate(object owner)
         {
             Debug.Assert(_parser.MARSOn, "Can not activate a non-MARS connection");
-            Owner = owner; // must assign an owner for reclaimation to work
-            int result = Interlocked.Increment(ref _activateCount);   // must have non-zero activation count for reclaimation to work too.
+            Owner = owner; // must assign an owner for reclamation to work
+            int result = Interlocked.Increment(ref _activateCount);   // must have non-zero activation count for reclamation to work too.
             Debug.Assert(result == 1, "invalid deactivate count");
         }
 
@@ -613,8 +584,9 @@ namespace System.Data.SqlClient
         // cancel request.
         internal void Cancel(object caller)
         {
-            Debug.Assert(!(caller is int), "Incorrectly calling this API using the caller's objectID");
-            Debug.Assert(_owner.Target == caller, "Someone other than the stateObj's owner is attempting to cancel");
+            Debug.Assert(caller != null, "Null caller for Cancel!");
+            Debug.Assert(caller is SqlCommand || caller is SqlDataReader, "Calling API with invalid caller type: " + caller.GetType());
+
             bool hasLock = false;
             try
             {
@@ -627,14 +599,14 @@ namespace System.Data.SqlClient
                       // This lock is also protecting against concurrent close and async continuations
 
                         // Ensure that, once we have the lock, that we are still the owner
-                        if ((!_cancelled) && (_owner.Target == caller))
+                        if ((!_cancelled) && (_cancellationOwner.Target == caller))
                         {
                             _cancelled = true;
 
                             if (_pendingData && !_attentionSent)
                             {
                                 bool hasParserLock = false;
-                                // Keep looping until we have the parser lock (and so are allowed to write), or the conneciton closes\breaks
+                                // Keep looping until we have the parser lock (and so are allowed to write), or the connection closes\breaks
                                 while ((!hasParserLock) && (_parser.State != TdsParserState.Closed) && (_parser.State != TdsParserState.Broken))
                                 {
                                     try
@@ -698,7 +670,7 @@ namespace System.Data.SqlClient
             }
         }
 
-        public void CheckSetResetConnectionState(UInt32 error, CallbackType callbackType)
+        public void CheckSetResetConnectionState(uint error, CallbackType callbackType)
         {
             // Should only be called for MARS - that is the only time we need to take
             // the ResetConnection lock!
@@ -751,12 +723,13 @@ namespace System.Data.SqlClient
         private void ResetCancelAndProcessAttention()
         {
             // This method is shared by CloseSession initiated by DataReader.Close or completed
-            // command execution, as well as the session reclaimation code for cases where the
+            // command execution, as well as the session reclamation code for cases where the
             // DataReader is opened and then GC'ed.
             lock (this)
             {
                 // Reset cancel state.
                 _cancelled = false;
+                _cancellationOwner.Target = null;
 
                 if (_attentionSent)
                 {
@@ -770,68 +743,47 @@ namespace System.Data.SqlClient
             }
         }
 
-#if MANAGED_SNI
-        internal void CreateConnectionHandle(string serverName, bool ignoreSniOpenTimeout, long timerExpire, out byte[] instanceName, byte[] spnBuffer, bool flushCache, bool async, bool parallel)
-        {
-            _sessionHandle = SNIProxy.Singleton.CreateConnectionHandle(this, serverName, ignoreSniOpenTimeout, timerExpire, out instanceName, spnBuffer, flushCache, async, parallel);
-            if(_sessionHandle == null)
-            {
-                _parser.ProcessSNIError(this);
-            }
-            else if (async)
-            {
-                // Create call backs and allocate to the session handle
-                SNIAsyncCallback ReceiveAsyncCallbackDispatcher = new SNIAsyncCallback(ReadAsyncCallback);
-                SNIAsyncCallback SendAsyncCallbackDispatcher = new SNIAsyncCallback(WriteAsyncCallback);
-                _sessionHandle.SetAsyncCallbacks(ReceiveAsyncCallbackDispatcher, SendAsyncCallbackDispatcher);
-            }
-        }
+        internal abstract void CreatePhysicalSNIHandle(string serverName, bool ignoreSniOpenTimeout, long timerExpire, out byte[] instanceName, ref byte[] spnBuffer, bool flushCache, bool async, bool fParallel, bool isIntegratedSecurity = false);
 
-#else
-        private SNINativeMethodWrapper.ConsumerInfo CreateConsumerInfo(bool async)
-        {
-            SNINativeMethodWrapper.ConsumerInfo myInfo = new SNINativeMethodWrapper.ConsumerInfo();
+        internal abstract uint SniGetConnectionId(ref Guid clientConnectionId);
 
-            Debug.Assert(_outBuff.Length == _inBuff.Length, "Unexpected unequal buffers.");
+        internal abstract bool IsFailedHandle();
 
-            myInfo.defaultBufferSize = _outBuff.Length; // Obtain packet size from outBuff size.
+        protected abstract void CreateSessionHandle(TdsParserStateObject physicalConnection, bool async);
 
-            if (async)
-            {
-                myInfo.readDelegate = SNILoadHandle.SingletonInstance.ReadAsyncCallbackDispatcher;
-                myInfo.writeDelegate = SNILoadHandle.SingletonInstance.WriteAsyncCallbackDispatcher;
-                _gcHandle = GCHandle.Alloc(this, GCHandleType.Normal);
-                myInfo.key = (IntPtr)_gcHandle;
-            }
-            return myInfo;
-        }
+        protected abstract void FreeGcHandle(int remaining, bool release);
 
-        internal void CreatePhysicalSNIHandle(string serverName, bool ignoreSniOpenTimeout, long timerExpire, out byte[] instanceName, byte[] spnBuffer, bool flushCache, bool async, bool fParallel)
-        {
-            SNINativeMethodWrapper.ConsumerInfo myInfo = CreateConsumerInfo(async);
+        internal abstract uint EnableSsl(ref uint info);
 
-            // Translate to SNI timeout values (Int32 milliseconds)
-            long timeout;
-            if (Int64.MaxValue == timerExpire)
-            {
-                timeout = Int32.MaxValue;
-            }
-            else
-            {
-                timeout = ADP.TimerRemainingMilliseconds(timerExpire);
-                if (timeout > Int32.MaxValue)
-                {
-                    timeout = Int32.MaxValue;
-                }
-                else if (0 > timeout)
-                {
-                    timeout = 0;
-                }
-            }
+        internal abstract uint WaitForSSLHandShakeToComplete();
 
-            _sessionHandle = new SNIHandle(myInfo, serverName, spnBuffer, ignoreSniOpenTimeout, checked((int)timeout), out instanceName, flushCache, !async, fParallel);
-        }
-#endif // MANAGED_SNI
+        internal abstract void Dispose();
+
+        internal abstract void DisposePacketCache();
+
+        internal abstract bool IsPacketEmpty(PacketHandle readPacket);
+
+        internal abstract PacketHandle ReadSyncOverAsync(int timeoutRemaining, out uint error);
+
+        internal abstract PacketHandle ReadAsync(SessionHandle handle, out uint error);
+
+        internal abstract uint CheckConnection();
+
+        internal abstract uint SetConnectionBufferSize(ref uint unsignedPacketSize);
+
+        internal abstract void ReleasePacket(PacketHandle syncReadPacket);
+
+        protected abstract uint SNIPacketGetData(PacketHandle packet, byte[] _inBuff, ref uint dataSize);
+
+        internal abstract PacketHandle GetResetWritePacket();
+
+        internal abstract void ClearAllWritePackets();
+
+        internal abstract PacketHandle AddPacketToPendingList(PacketHandle packet);
+
+        protected abstract void RemovePacketFromPendingList(PacketHandle pointer);
+
+        internal abstract uint GenerateSspiClientContext(byte[] receivedBuff, uint receivedLength, ref byte[] sendBuff, ref uint sendLength, byte[] _sniSpnBuffer);
 
         internal bool Deactivate()
         {
@@ -844,7 +796,7 @@ namespace System.Data.SqlClient
                 {
                     if (_pendingData)
                     {
-                        Parser.DrainData(this); // This may throw - taking us to catch block.
+                        Parser.DrainData(this); // This may throw - taking us to catch block.c
                     }
 
                     if (HasOpenResult)
@@ -872,7 +824,7 @@ namespace System.Data.SqlClient
             if (_parser.MARSOn)
             {
                 // We only care about the activation count for MARS connections
-                int result = Interlocked.Decrement(ref _activateCount);   // must have non-zero activation count for reclaimation to work too.
+                int result = Interlocked.Decrement(ref _activateCount);   // must have non-zero activation count for reclamation to work too.
                 Debug.Assert(result == 0, "invalid deactivate count");
             }
             Owner = null;
@@ -894,40 +846,21 @@ namespace System.Data.SqlClient
             }
             _hasOpenResult = false;
         }
-
+        
         internal int DecrementPendingCallbacks(bool release)
         {
             int remaining = Interlocked.Decrement(ref _pendingCallbacks);
 
-#if !MANAGED_SNI
-            if ((0 == remaining || release) && _gcHandle.IsAllocated)
-            {
-                _gcHandle.Free();
-            }
-#endif // !MANAGED_SNI
+            FreeGcHandle(remaining, release);
 
             // NOTE: TdsParserSessionPool may call DecrementPendingCallbacks on a TdsParserStateObject which is already disposed
             // This is not dangerous (since the stateObj is no longer in use), but we need to add a workaround in the assert for it
-            Debug.Assert((remaining == -1 && _sessionHandle == null) || (0 <= remaining && remaining < 3), string.Format("_pendingCallbacks values is invalid after decrementing: {0}", remaining));
+            Debug.Assert((remaining == -1 && SessionHandle.IsNull) || (0 <= remaining && remaining < 3), string.Format("_pendingCallbacks values is invalid after decrementing: {0}", remaining));
             return remaining;
         }
 
-        internal void Dispose()
+        internal void DisposeCounters()
         {
-#if MANAGED_SNI		
-            SNIPacket packetHandle = _sniPacket;
-            SNIHandle sessionHandle = _sessionHandle;
-            SNIPacket asyncAttnPacket = _sniAsyncAttnPacket;
-#else
-            SafeHandle packetHandle = _sniPacket;
-            SafeHandle sessionHandle = _sessionHandle;
-            SafeHandle asyncAttnPacket = _sniAsyncAttnPacket;
-#endif // MANAGED_SNI
-
-            _sniPacket = null;
-            _sessionHandle = null;
-            _sniAsyncAttnPacket = null;
-
             Timer networkPacketTimeout = _networkPacketTimeout;
             if (networkPacketTimeout != null)
             {
@@ -947,43 +880,9 @@ namespace System.Data.SqlClient
                 // handle to complete.
                 SpinWait.SpinUntil(() => Volatile.Read(ref _readingCount) == 0);
             }
-
-            if (null != sessionHandle || null != packetHandle)
-            {
-                try { }
-                finally
-                {
-                    if (packetHandle != null)
-                    {
-                        packetHandle.Dispose();
-                    }
-                    if (asyncAttnPacket != null)
-                    {
-                        asyncAttnPacket.Dispose();
-                    }
-                    if (sessionHandle != null)
-                    {
-                        sessionHandle.Dispose();
-                        DecrementPendingCallbacks(true); // Will dispose of GC handle.
-                    }
-                }
-            }
-
-            if (_writePacketCache != null)
-            {
-                lock (_writePacketLockObject)
-                {
-                    try { }
-                    finally
-                    {
-                        _writePacketCache.Dispose();
-                        // Do not set _writePacketCache to null, just in case a WriteAsyncCallback completes after this point
-                    }
-                }
-            }
         }
 
-        internal Int32 IncrementAndObtainOpenResultCount(SqlInternalTransaction transaction)
+        internal int IncrementAndObtainOpenResultCount(SqlInternalTransaction transaction)
         {
             _hasOpenResult = true;
 
@@ -1029,6 +928,10 @@ namespace System.Data.SqlClient
             }
         }
 
+        internal void StartSession(object cancellationOwner)
+        {
+            _cancellationOwner.Target = cancellationOwner;
+        }
 
         internal void ThrowExceptionAndWarning(bool callerHasConnectionLock = false, bool asyncClose = false)
         {
@@ -1258,7 +1161,7 @@ namespace System.Data.SqlClient
                         int remainingData = _inBytesRead - _inBytesUsed;
                         if ((temp.Length < _inBytesUsed + remainingData) || (_inBuff.Length < remainingData))
                         {
-                            string errormessage = Res.GetString(Res.SQL_InvalidInternalPacketSize) + ' ' + temp.Length + ", " + _inBytesUsed + ", " + remainingData + ", " + _inBuff.Length;
+                            string errormessage = SR.GetString(SR.SQL_InvalidInternalPacketSize) + ' ' + temp.Length + ", " + _inBytesUsed + ", " + remainingData + ", " + _inBuff.Length;
                             throw SQL.InvalidInternalPacketSize(errormessage);
                         }
                         Buffer.BlockCopy(temp, _inBytesUsed, _inBuff, 0, remainingData);
@@ -1292,7 +1195,7 @@ namespace System.Data.SqlClient
         // Buffer read methods - data values //
         ///////////////////////////////////////
 
-        // look at the next byte without pulling it off the wire, don't just returun _inBytesUsed since we may
+        // look at the next byte without pulling it off the wire, don't just return _inBytesUsed since we may
         // have to go to the network to get the next byte.
         internal bool TryPeekByte(out byte value)
         {
@@ -1311,15 +1214,14 @@ namespace System.Data.SqlClient
 
         // Takes a byte array, an offset, and a len and fills the array from the offset to len number of
         // bytes from the in buffer.
-        public bool TryReadByteArray(byte[] buff, int offset, int len)
+        public bool TryReadByteArray(Span<byte> buff, int len)
         {
-            int ignored;
-            return TryReadByteArray(buff, offset, len, out ignored);
+            return TryReadByteArray(buff, len, out _);
         }
 
         // NOTE: This method must be retriable WITHOUT replaying a snapshot
         // Every time you call this method increment the offset and decrease len by the value of totalRead
-        public bool TryReadByteArray(byte[] buff, int offset, int len, out int totalRead)
+        public bool TryReadByteArray(Span<byte> buff, int len, out int totalRead)
         {
             totalRead = 0;
 
@@ -1342,7 +1244,7 @@ namespace System.Data.SqlClient
             }
 #endif
 
-            Debug.Assert(buff == null || buff.Length >= len, "Invalid length sent to ReadByteArray()!");
+            Debug.Assert(buff.IsEmpty || buff.Length >= len, "Invalid length sent to ReadByteArray()!");
 
             // loop through and read up to array length
             while (len > 0)
@@ -1357,9 +1259,11 @@ namespace System.Data.SqlClient
 
                 int bytesToRead = Math.Min(len, Math.Min(_inBytesPacket, _inBytesRead - _inBytesUsed));
                 Debug.Assert(bytesToRead > 0, "0 byte read in TryReadByteArray");
-                if (buff != null)
+                if (!buff.IsEmpty)
                 {
-                    Buffer.BlockCopy(_inBuff, _inBytesUsed, buff, offset + totalRead, bytesToRead);
+                    var copyFrom = new ReadOnlySpan<byte>(_inBuff, _inBytesUsed, bytesToRead);
+                    Span<byte> copyTo = buff.Slice(totalRead, bytesToRead);
+                    copyFrom.CopyTo(copyTo);
                 }
 
                 totalRead += bytesToRead;
@@ -1379,7 +1283,6 @@ namespace System.Data.SqlClient
             }
 
             AssertValidState();
-
             return true;
         }
 
@@ -1440,7 +1343,7 @@ namespace System.Data.SqlClient
                 // If the char isn't fully in the buffer, or if it isn't fully in the packet,
                 // then use ReadByteArray since the logic is there to take care of that.
 
-                if (!TryReadByteArray(_bTmp, 0, 2))
+                if (!TryReadByteArray(_bTmp, 2))
                 {
                     value = '\0';
                     return false;
@@ -1477,9 +1380,9 @@ namespace System.Data.SqlClient
                 // If the int16 isn't fully in the buffer, or if it isn't fully in the packet,
                 // then use ReadByteArray since the logic is there to take care of that.
 
-                if (!TryReadByteArray(_bTmp, 0, 2))
+                if (!TryReadByteArray(_bTmp, 2))
                 {
-                    value = default(short);
+                    value = default;
                     return false;
                 }
 
@@ -1511,7 +1414,7 @@ namespace System.Data.SqlClient
                 // If the int isn't fully in the buffer, or if it isn't fully in the packet,
                 // then use ReadByteArray since the logic is there to take care of that.
 
-                if (!TryReadByteArray(_bTmp, 0, 4))
+                if (!TryReadByteArray(_bTmp, 4))
                 {
                     value = 0;
                     return false;
@@ -1554,7 +1457,7 @@ namespace System.Data.SqlClient
                 // then use ReadByteArray since the logic is there to take care of that.
 
                 int bytesRead = 0;
-                if (!TryReadByteArray(_bTmp, _bTmpRead, 8 - _bTmpRead, out bytesRead))
+                if (!TryReadByteArray(_bTmp.AsSpan(_bTmpRead), 8 - _bTmpRead, out bytesRead))
                 {
                     Debug.Assert(_bTmpRead + bytesRead <= 8, "Read more data than required");
                     _bTmpRead += bytesRead;
@@ -1596,9 +1499,9 @@ namespace System.Data.SqlClient
                 // If the uint16 isn't fully in the buffer, or if it isn't fully in the packet,
                 // then use ReadByteArray since the logic is there to take care of that.
 
-                if (!TryReadByteArray(_bTmp, 0, 2))
+                if (!TryReadByteArray(_bTmp, 2))
                 {
-                    value = default(ushort);
+                    value = default;
                     return false;
                 }
 
@@ -1640,7 +1543,7 @@ namespace System.Data.SqlClient
                 // then use ReadByteArray since the logic is there to take care of that.
 
                 int bytesRead = 0;
-                if (!TryReadByteArray(_bTmp, _bTmpRead, 4 - _bTmpRead, out bytesRead))
+                if (!TryReadByteArray(_bTmp.AsSpan(_bTmpRead), 4 - _bTmpRead, out bytesRead))
                 {
                     Debug.Assert(_bTmpRead + bytesRead <= 4, "Read more data than required");
                     _bTmpRead += bytesRead;
@@ -1679,9 +1582,9 @@ namespace System.Data.SqlClient
                 // If the float isn't fully in the buffer, or if it isn't fully in the packet,
                 // then use ReadByteArray since the logic is there to take care of that.
 
-                if (!TryReadByteArray(_bTmp, 0, 4))
+                if (!TryReadByteArray(_bTmp, 4))
                 {
-                    value = default(float);
+                    value = default;
                     return false;
                 }
 
@@ -1712,9 +1615,9 @@ namespace System.Data.SqlClient
                 // If the double isn't fully in the buffer, or if it isn't fully in the packet,
                 // then use ReadByteArray since the logic is there to take care of that.
 
-                if (!TryReadByteArray(_bTmp, 0, 8))
+                if (!TryReadByteArray(_bTmp, 8))
                 {
-                    value = default(double);
+                    value = default;
                     return false;
                 }
 
@@ -1751,7 +1654,7 @@ namespace System.Data.SqlClient
                     _bTmp = new byte[cBytes];
                 }
 
-                if (!TryReadByteArray(_bTmp, 0, cBytes))
+                if (!TryReadByteArray(_bTmp, cBytes))
                 {
                     value = null;
                     return false;
@@ -1809,7 +1712,7 @@ namespace System.Data.SqlClient
 
             if (isPlp)
             {
-                if (!TryReadPlpBytes(ref buf, 0, Int32.MaxValue, out length))
+                if (!TryReadPlpBytes(ref buf, 0, int.MaxValue, out length))
                 {
                     value = null;
                     return false;
@@ -1826,7 +1729,7 @@ namespace System.Data.SqlClient
                         _bTmp = new byte[length];
                     }
 
-                    if (!TryReadByteArray(_bTmp, 0, length))
+                    if (!TryReadByteArray(_bTmp, length))
                     {
                         value = null;
                         return false;
@@ -1865,7 +1768,7 @@ namespace System.Data.SqlClient
 
         // Reads the length of either the entire data or the length of the next chunk in a
         //   partially length prefixed data
-        // After this call, call  ReadPlpBytes/ReadPlpUnicodeChars untill the specified length of data
+        // After this call, call  ReadPlpBytes/ReadPlpUnicodeChars until the specified length of data
         // is consumed. Repeat this until ReadPlpLength returns 0 in order to read the
         // entire stream.
         // When this function returns 0, it means the data stream is read completely and the
@@ -1934,7 +1837,7 @@ namespace System.Data.SqlClient
 
             int value;
             int bytesToRead = (int)Math.Min(_longlenleft, (ulong)len);
-            bool result = TryReadByteArray(buff, offset, bytesToRead, out value);
+            bool result = TryReadByteArray(buff.AsSpan(offset), bytesToRead, out value);
             _longlenleft -= (ulong)bytesToRead;
             if (!result) { throw SQL.SynchronousCallMayNotPend(); }
             return value;
@@ -1942,11 +1845,11 @@ namespace System.Data.SqlClient
 
         // Reads the requested number of bytes from a plp data stream, or the entire data if
         // requested length is -1 or larger than the actual length of data. First call to this method
-        //  should be preceeded by a call to ReadPlpLength or ReadDataLength.
+        //  should be preceded by a call to ReadPlpLength or ReadDataLength.
         // Returns the actual bytes read.
         // NOTE: This method must be retriable WITHOUT replaying a snapshot
-        // Every time you call this method increment the offst and decrease len by the value of totalBytesRead
-        internal bool TryReadPlpBytes(ref byte[] buff, int offst, int len, out int totalBytesRead)
+        // Every time you call this method increment the offset and decrease len by the value of totalBytesRead
+        internal bool TryReadPlpBytes(ref byte[] buff, int offset, int len, out int totalBytesRead)
         {
             int bytesRead = 0;
             int bytesLeft;
@@ -1958,7 +1861,7 @@ namespace System.Data.SqlClient
                 Debug.Assert(_longlenleft == 0);
                 if (buff == null)
                 {
-                    buff = new byte[0];
+                    buff = Array.Empty<byte>();
                 }
 
                 AssertValidState();
@@ -1969,7 +1872,7 @@ namespace System.Data.SqlClient
             Debug.Assert((_longlen != TdsEnums.SQL_PLP_NULL),
                     "Out of sync plp read request");
 
-            Debug.Assert((buff == null && offst == 0) || (buff.Length >= offst + len), "Invalid length sent to ReadPlpBytes()!");
+            Debug.Assert((buff == null && offset == 0) || (buff.Length >= offset + len), "Invalid length sent to ReadPlpBytes()!");
             bytesLeft = len;
 
             // If total length is known up front, allocate the whole buffer in one shot instead of realloc'ing and copying over each time
@@ -2002,20 +1905,20 @@ namespace System.Data.SqlClient
             while (bytesLeft > 0)
             {
                 int bytesToRead = (int)Math.Min(_longlenleft, (ulong)bytesLeft);
-                if (buff.Length < (offst + bytesToRead))
+                if (buff.Length < (offset + bytesToRead))
                 {
                     // Grow the array
-                    newbuf = new byte[offst + bytesToRead];
-                    Buffer.BlockCopy(buff, 0, newbuf, 0, offst);
+                    newbuf = new byte[offset + bytesToRead];
+                    Buffer.BlockCopy(buff, 0, newbuf, 0, offset);
                     buff = newbuf;
                 }
 
-                bool result = TryReadByteArray(buff, offst, bytesToRead, out bytesRead);
+                bool result = TryReadByteArray(buff.AsSpan(offset), bytesToRead, out bytesRead);
                 Debug.Assert(bytesRead <= bytesLeft, "Read more bytes than we needed");
                 Debug.Assert((ulong)bytesRead <= _longlenleft, "Read more bytes than is available");
 
                 bytesLeft -= bytesRead;
-                offst += bytesRead;
+                offset += bytesRead;
                 totalBytesRead += bytesRead;
                 _longlenleft -= (ulong)bytesRead;
                 if (!result)
@@ -2056,8 +1959,8 @@ namespace System.Data.SqlClient
 
             while (num > 0)
             {
-                cbSkip = (int)Math.Min((long)Int32.MaxValue, num);
-                if (!TryReadByteArray(null, 0, cbSkip))
+                cbSkip = (int)Math.Min((long)int.MaxValue, num);
+                if (!TryReadByteArray(Span<byte>.Empty, cbSkip))
                 {
                     return false;
                 }
@@ -2071,7 +1974,7 @@ namespace System.Data.SqlClient
         internal bool TrySkipBytes(int num)
         {
             Debug.Assert(_syncOverAsync || !_asyncReadWithoutSnapshot, "This method is not safe to call when doing sync over async");
-            return TryReadByteArray(null, 0, num);
+            return TryReadByteArray(Span<byte>.Empty, num);
         }
 
         /////////////////////////////////////////
@@ -2166,13 +2069,9 @@ namespace System.Data.SqlClient
                 throw ADP.ClosedConnectionError();
             }
 
-#if MANAGED_SNI
-            SNIPacket readPacket = null;
-#else
-            IntPtr readPacket = IntPtr.Zero;
-#endif // MANAGED_SNI
+            PacketHandle readPacket = default;
 
-            UInt32 error;
+            uint error;
 
             bool shouldDecrement = false;
             try
@@ -2180,17 +2079,7 @@ namespace System.Data.SqlClient
                 Interlocked.Increment(ref _readingCount);
                 shouldDecrement = true;
 
-                SNIHandle handle = Handle;
-                if (handle == null)
-                {
-                    throw ADP.ClosedConnectionError();
-                }
-
-#if MANAGED_SNI
-                error = SNIProxy.Singleton.ReadSyncOverAsync(handle, out readPacket, GetTimeoutRemaining());
-#else
-                error = SNINativeMethodWrapper.SNIReadSyncOverAsync(handle, ref readPacket, GetTimeoutRemaining());
-#endif // MANAGED_SNI
+                readPacket = ReadSyncOverAsync(GetTimeoutRemaining(), out error);
 
                 Interlocked.Decrement(ref _readingCount);
                 shouldDecrement = false;
@@ -2202,11 +2091,8 @@ namespace System.Data.SqlClient
 
                 if (TdsEnums.SNI_SUCCESS == error)
                 { // Success - process results!
-#if MANAGED_SNI				
-                    Debug.Assert(readPacket != null, "ReadNetworkPacket cannot be null in syncronous operation!");
-#else					
-                    Debug.Assert(IntPtr.Zero != readPacket, "ReadNetworkPacket cannot be null in syncronous operation!");
-#endif // MANAGED_SNI
+
+                    Debug.Assert(!IsPacketEmpty(readPacket), "ReadNetworkPacket cannot be null in synchronous operation!");
 
                     ProcessSniPacket(readPacket, 0);
 #if DEBUG
@@ -2221,11 +2107,9 @@ namespace System.Data.SqlClient
                 }
                 else
                 { // Failure!
-#if MANAGED_SNI
-                    Debug.Assert(readPacket == null || readPacket.IsInvalid, "unexpected readPacket without corresponding SNIPacketRelease");
-#else
-                    Debug.Assert(IntPtr.Zero == readPacket, "unexpected readPacket without corresponding SNIPacketRelease");
-#endif // MANAGED_SNI
+
+                    Debug.Assert(!IsValidPacket(readPacket), "unexpected readPacket without corresponding SNIPacketRelease");
+                    
                     ReadSniError(this, error);
                 }
             }
@@ -2236,18 +2120,10 @@ namespace System.Data.SqlClient
                     Interlocked.Decrement(ref _readingCount);
                 }
 
-#if MANAGED_SNI
-                if (readPacket != null)
+                if (!IsPacketEmpty(readPacket))
                 {
-                    readPacket.Dispose();
+                    ReleasePacket(readPacket);
                 }
-#else
-                if (readPacket != IntPtr.Zero)
-                {
-                    // Be sure to release packet, otherwise it will be leaked by native.
-                    SNINativeMethodWrapper.SNIPacketRelease(readPacket);
-                }
-#endif // MANAGED_SNI
 
                 AssertValidState();
             }
@@ -2393,6 +2269,7 @@ namespace System.Data.SqlClient
 
         internal void ReadSni(TaskCompletionSource<object> completion)
         {
+
             Debug.Assert(_networkPacketTaskSource == null || ((_asyncReadWithoutSnapshot) && (_networkPacketTaskSource.Task.IsCompleted)), "Pending async call or failed to replay snapshot when calling ReadSni");
             _networkPacketTaskSource = completion;
 
@@ -2413,13 +2290,10 @@ namespace System.Data.SqlClient
             }
 #endif
 
-#if MANAGED_SNI
-            SNIPacket readPacket = null;
-#else
-            IntPtr readPacket = IntPtr.Zero;
-#endif // MANAGED_SNI
 
-            UInt32 error = 0;
+            PacketHandle readPacket = default;
+
+            uint error = 0;
 
             try
             {
@@ -2427,7 +2301,11 @@ namespace System.Data.SqlClient
 
                 if (_networkPacketTimeout == null)
                 {
-                    _networkPacketTimeout = new Timer(OnTimeout, null, Timeout.Infinite, Timeout.Infinite);
+                    _networkPacketTimeout = ADP.UnsafeCreateTimer(
+                        new TimerCallback(OnTimeout),
+                        null,
+                        Timeout.Infinite,
+                        Timeout.Infinite);
                 }
 
                 // -1 == Infinite
@@ -2439,57 +2317,37 @@ namespace System.Data.SqlClient
                     ChangeNetworkPacketTimeout(msecsRemaining, Timeout.Infinite);
                 }
 
-                SNIHandle handle = null;
+                Interlocked.Increment(ref _readingCount);
 
-                try { }
-                finally
+                SessionHandle handle = SessionHandle;
+                if (!handle.IsNull)
                 {
-                    Interlocked.Increment(ref _readingCount);
+                    IncrementPendingCallbacks();
 
-                    handle = Handle;
-                    if (handle != null)
+                    readPacket = ReadAsync(handle, out error);
+
+                    if (!(TdsEnums.SNI_SUCCESS == error || TdsEnums.SNI_SUCCESS_IO_PENDING == error))
                     {
-                        IncrementPendingCallbacks();
-
-#if MANAGED_SNI
-                        error = SNIProxy.Singleton.ReadAsync(handle, ref readPacket);
-#else
-                        error = SNINativeMethodWrapper.SNIReadAsync(handle, ref readPacket);
-#endif // MANAGED_SNI
-
-                        if (!(TdsEnums.SNI_SUCCESS == error || TdsEnums.SNI_SUCCESS_IO_PENDING == error))
-                        {
-                            DecrementPendingCallbacks(false); // Failure - we won't receive callback!
-                        }
+                        DecrementPendingCallbacks(false); // Failure - we won't receive callback!
                     }
-
-                    Interlocked.Decrement(ref _readingCount);
                 }
 
-                if (handle == null)
+                Interlocked.Decrement(ref _readingCount);
+
+                if (handle.IsNull)
                 {
                     throw ADP.ClosedConnectionError();
                 }
 
                 if (TdsEnums.SNI_SUCCESS == error)
                 { // Success - process results!
-#if MANAGED_SNI
-                    Debug.Assert(!readPacket.IsInvalid, "ReadNetworkPacket should not have been null on this async operation!");
+                    Debug.Assert(IsValidPacket(readPacket), "ReadNetworkPacket should not have been null on this async operation!");
                     // Evaluate this condition for MANAGED_SNI. This may not be needed because the network call is happening Async and only the callback can receive a success.
-                    ReadAsyncCallback(readPacket, 0);
-#else
-                    Debug.Assert(IntPtr.Zero != readPacket, "ReadNetworkPacket should not have been null on this async operation!");
                     ReadAsyncCallback(IntPtr.Zero, readPacket, 0);
-#endif // MANAGED_SNI
-
                 }
                 else if (TdsEnums.SNI_SUCCESS_IO_PENDING != error)
                 { // FAILURE!
-#if MANAGED_SNI
-                    Debug.Assert(readPacket == null || readPacket.IsInvalid, "unexpected readPacket without corresponding SNIPacketRelease");
-#else
-                    Debug.Assert(IntPtr.Zero == readPacket, "unexpected readPacket without corresponding SNIPacketRelease");
-#endif // MANAGED_SNI
+                    Debug.Assert(IsPacketEmpty(readPacket), "unexpected readPacket without corresponding SNIPacketRelease");
 
                     ReadSniError(this, error);
 #if DEBUG
@@ -2515,19 +2373,20 @@ namespace System.Data.SqlClient
             }
             finally
             {
-#if !MANAGED_SNI
-                if (readPacket != IntPtr.Zero)
+                if (!TdsParserStateObjectFactory.UseManagedSNI)
                 {
-                    // Be sure to release packet, otherwise it will be leaked by native.
-                    SNINativeMethodWrapper.SNIPacketRelease(readPacket);
+                    if (!IsPacketEmpty(readPacket))
+                    {
+                        // Be sure to release packet, otherwise it will be leaked by native.
+                        ReleasePacket(readPacket);
+                    }
                 }
-#endif // MANAGED_SNI
                 AssertValidState();
             }
         }
 
         /// <summary>
-        /// Checks to see if the underlying connection is still alive (used by connection pool resilency)
+        /// Checks to see if the underlying connection is still alive (used by connection pool resiliency)
         /// NOTE: This is not safe to do on a connection that is currently in use
         /// NOTE: This will mark the connection as broken if it is found to be dead
         /// </summary>
@@ -2556,52 +2415,24 @@ namespace System.Data.SqlClient
                 }
                 else
                 {
-                    UInt32 error;
-#if MANAGED_SNI					
-                    SNIPacket readPacket = null;
-#else					
-                    IntPtr readPacket = IntPtr.Zero;
-#endif // MANAGED_SNI
+                    uint error;
+                    SniContext = SniContext.Snix_Connect;
+                    error = CheckConnection();
 
-                    try
+                    if ((error != TdsEnums.SNI_SUCCESS) && (error != TdsEnums.SNI_WAIT_TIMEOUT))
                     {
-                        SniContext = SniContext.Snix_Connect;
-#if MANAGED_SNI						
-                        error = SNIProxy.Singleton.CheckConnection(Handle);
-#else						
-                        error = SNINativeMethodWrapper.SNICheckConnection(Handle);
-#endif // MANAGED_SNI
-
-                        if ((error != TdsEnums.SNI_SUCCESS) && (error != TdsEnums.SNI_WAIT_TIMEOUT))
+                        // Connection is dead
+                        isAlive = false;
+                        if (throwOnException)
                         {
-                            // Connection is dead
-                            isAlive = false;
-                            if (throwOnException)
-                            {
-                                // Get the error from SNI so that we can throw the correct exception
-                                AddError(_parser.ProcessSNIError(this));
-                                ThrowExceptionAndWarning();
-                            }
-                        }
-                        else
-                        {
-                            _lastSuccessfulIOTimer._value = DateTime.UtcNow.Ticks;
+                            // Get the error from SNI so that we can throw the correct exception
+                            AddError(_parser.ProcessSNIError(this));
+                            ThrowExceptionAndWarning();
                         }
                     }
-                    finally
+                    else
                     {
-#if MANAGED_SNI			
-                        if (readPacket != null)
-                        {
-                            readPacket.Dispose();
-                        }
-#else
-                        if (readPacket != IntPtr.Zero)
-                        {
-                            // Be sure to release packet, otherwise it will be leaked by native.
-                            SNINativeMethodWrapper.SNIPacketRelease(readPacket);
-                        }
-#endif // MANAGED_SNI
+                        _lastSuccessfulIOTimer._value = DateTime.UtcNow.Ticks;
                     }
                 }
             }
@@ -2627,20 +2458,12 @@ namespace System.Data.SqlClient
                 return true;
             }
 
-            UInt32 error = TdsEnums.SNI_SUCCESS;
+            uint error = TdsEnums.SNI_SUCCESS;
             SniContext = SniContext.Snix_Connect;
             try
             {
                 Interlocked.Increment(ref _readingCount);
-                SNIHandle handle = Handle;
-                if (handle != null)
-                {
-#if MANAGED_SNI				
-                    error = SNIProxy.Singleton.CheckConnection(handle);
-#else					
-                    error = SNINativeMethodWrapper.SNICheckConnection(handle);
-#endif // MANAGED_SNI
-                }
+                error = CheckConnection();
             }
             finally
             {
@@ -2650,7 +2473,7 @@ namespace System.Data.SqlClient
         }
 
         // This method should only be called by ReadSni!  If not - it may have problems with timeouts!
-        private void ReadSniError(TdsParserStateObject stateObj, UInt32 error)
+        private void ReadSniError(TdsParserStateObject stateObj, uint error)
         {
             if (TdsEnums.SNI_WAIT_TIMEOUT == error)
             {
@@ -2673,11 +2496,7 @@ namespace System.Data.SqlClient
                         {
                             stateObj.SendAttention(mustTakeWriteLock: true);
 
-#if MANAGED_SNI
-                            SNIPacket syncReadPacket = null;
-#else
-                            IntPtr syncReadPacket = IntPtr.Zero;
-#endif
+                            PacketHandle syncReadPacket = default;
 
                             bool shouldDecrement = false;
                             try
@@ -2685,21 +2504,7 @@ namespace System.Data.SqlClient
                                 Interlocked.Increment(ref _readingCount);
                                 shouldDecrement = true;
 
-                                SNIHandle handle = Handle;
-                                if (handle == null)
-                                {
-                                    throw ADP.ClosedConnectionError();
-                                }
-
-#if MANAGED_SNI
-                                if (_parser.MARSOn)
-                                {
-                                    IncrementPendingCallbacks();
-                                }
-                                error = SNIProxy.Singleton.ReadSyncOverAsync(handle, out syncReadPacket, stateObj.GetTimeoutRemaining());
-#else								
-                                error = SNINativeMethodWrapper.SNIReadSyncOverAsync(handle, ref syncReadPacket, stateObj.GetTimeoutRemaining());
-#endif // MANAGED_SNI
+                                syncReadPacket = ReadSyncOverAsync(stateObj.GetTimeoutRemaining(), out error);
 
                                 Interlocked.Decrement(ref _readingCount);
                                 shouldDecrement = false;
@@ -2712,11 +2517,7 @@ namespace System.Data.SqlClient
                                 }
                                 else
                                 {
-#if MANAGED_SNI
-                                    Debug.Assert(syncReadPacket == null || syncReadPacket.IsInvalid, "unexpected syncReadPacket without corresponding SNIPacketRelease");
-#else									
-                                    Debug.Assert(IntPtr.Zero == syncReadPacket, "unexpected syncReadPacket without corresponding SNIPacketRelease");
-#endif // MANAGED_SNI
+                                    Debug.Assert(!IsValidPacket(syncReadPacket), "unexpected syncReadPacket without corresponding SNIPacketRelease");
                                     fail = true; // Subsequent read failed, time to give up.
                                 }
                             }
@@ -2727,18 +2528,10 @@ namespace System.Data.SqlClient
                                     Interlocked.Decrement(ref _readingCount);
                                 }
 
-#if MANAGED_SNI
-                                if (syncReadPacket != null)
+                                if (!IsPacketEmpty(syncReadPacket))
                                 {
-                                    syncReadPacket.Dispose();
+                                    ReleasePacket(syncReadPacket);
                                 }
-#else
-                                if (syncReadPacket != IntPtr.Zero)
-                                {
-                                    // Be sure to release packet, otherwise it will be leaked by native.
-                                    SNINativeMethodWrapper.SNIPacketRelease(syncReadPacket);
-                                }
-#endif // MANAGED_SNI
                             }
                         }
                         else
@@ -2775,17 +2568,13 @@ namespace System.Data.SqlClient
             AssertValidState();
         }
 
-#if MANAGED_SNI		
-        public void ProcessSniPacket(SNIPacket packet, UInt32 error)
-#else		
-        public void ProcessSniPacket(IntPtr packet, UInt32 error)
-#endif // MANAGED_SNI
+        public void ProcessSniPacket(PacketHandle packet, uint error)
         {
             if (error != 0)
             {
                 if ((_parser.State == TdsParserState.Closed) || (_parser.State == TdsParserState.Broken))
                 {
-                    // Do nothing with with callback if closed or broken and error not 0 - callback can occur
+                    // Do nothing with callback if closed or broken and error not 0 - callback can occur
                     // after connection has been closed.  PROBLEM IN NETLIB - DESIGN FLAW.
                     return;
                 }
@@ -2795,19 +2584,16 @@ namespace System.Data.SqlClient
             }
             else
             {
-                UInt32 dataSize = 0;
-#if MANAGED_SNI				
-                UInt32 getDataError = SNIProxy.Singleton.PacketGetData(packet, _inBuff, ref dataSize);
-#else				
-                UInt32 getDataError = SNINativeMethodWrapper.SNIPacketGetData(packet, _inBuff, ref dataSize);
-#endif // MANAGED_SNI
+                uint dataSize = 0;
+
+                uint getDataError = SNIPacketGetData(packet, _inBuff, ref dataSize);
 
                 if (getDataError == TdsEnums.SNI_SUCCESS)
                 {
                     if (_inBuff.Length < dataSize)
                     {
                         Debug.Assert(true, "Unexpected dataSize on Read");
-                        throw SQL.InvalidInternalPacketSize(Res.GetString(Res.SqlMisc_InvalidArraySizeMessage));
+                        throw SQL.InvalidInternalPacketSize(SR.GetString(SR.SqlMisc_InvalidArraySizeMessage));
                     }
 
                     _lastSuccessfulIOTimer._value = DateTime.UtcNow.Ticks;
@@ -2855,11 +2641,38 @@ namespace System.Data.SqlClient
             }
         }
 
-#if MANAGED_SNI
-        public void ReadAsyncCallback(SNIPacket packet, UInt32 error)
-        { 
-#else		
-        public void ReadAsyncCallback(IntPtr key, IntPtr packet, UInt32 error)
+        private void SetBufferSecureStrings()
+        {
+            if (_securePasswords != null)
+            {
+                for (int i = 0; i < _securePasswords.Length; i++)
+                {
+                    if (_securePasswords[i] != null)
+                    {
+                        IntPtr str = IntPtr.Zero;
+                        try
+                        {
+                            str = Marshal.SecureStringToBSTR(_securePasswords[i]);
+                            byte[] data = new byte[_securePasswords[i].Length * 2];
+                            Marshal.Copy(str, data, 0, _securePasswords[i].Length * 2);
+                            TdsParserStaticMethods.ObfuscatePassword(data);
+                            data.CopyTo(_outBuff, _securePasswordOffsetsInBuffer[i]);
+                        }
+                        finally
+                        {
+                            Marshal.ZeroFreeBSTR(str);
+                        }
+                    }
+                }
+            }
+        }
+
+        public void ReadAsyncCallback(PacketHandle packet, uint error)
+        {
+            ReadAsyncCallback(IntPtr.Zero, packet, error);
+        }
+
+        public void ReadAsyncCallback(IntPtr key, PacketHandle packet, uint error)
         {
             // Key never used.
             // Note - it's possible that when native calls managed that an asynchronous exception
@@ -2870,7 +2683,6 @@ namespace System.Data.SqlClient
             //    to the outstanding GCRoot until AppDomain.Unload.
             // We live with the above for the time being due to the constraints of the current
             // reliability infrastructure provided by the CLR.
-#endif
 
             TaskCompletionSource<object> source = _networkPacketTaskSource;
 #if DEBUG
@@ -2890,11 +2702,8 @@ namespace System.Data.SqlClient
             bool processFinallyBlock = true;
             try
             {
-#if MANAGED_SNI
-                Debug.Assert(packet.IsInvalid || (!packet.IsInvalid && source != null), "AsyncResult null on callback");
-#else
-                Debug.Assert(IntPtr.Zero == packet || IntPtr.Zero != packet && source != null, "AsyncResult null on callback");
-#endif // MANAGED_SNI
+                Debug.Assert(CheckPacket(packet, source) && source != null, "AsyncResult null on callback");
+
                 if (_parser.MARSOn)
                 { // Only take reset lock on MARS and Async.
                     CheckSetResetConnectionState(error, CallbackType.Read);
@@ -2911,7 +2720,7 @@ namespace System.Data.SqlClient
             }
             finally
             {
-                // pendingCallbacks may be 2 after decrementing, this indicates that a fatal timeout is occuring, and therefore we shouldn't complete the task
+                // pendingCallbacks may be 2 after decrementing, this indicates that a fatal timeout is occurring, and therefore we shouldn't complete the task
                 int pendingCallbacks = DecrementPendingCallbacks(false); // may dispose of GC handle.
                 if ((processFinallyBlock) && (source != null) && (pendingCallbacks < 2))
                 {
@@ -2942,6 +2751,8 @@ namespace System.Data.SqlClient
                 AssertValidState();
             }
         }
+
+        protected abstract bool CheckPacket(PacketHandle packet, TaskCompletionSource<object> source);
 
         private void ReadAsyncCallbackCaptureException(TaskCompletionSource<object> source)
         {
@@ -2987,11 +2798,12 @@ namespace System.Data.SqlClient
 
 #pragma warning disable 0420 // a reference to a volatile field will not be treated as volatile
 
-#if MANAGED_SNI
-        public void WriteAsyncCallback(SNIPacket packet, UInt32 sniError)
-#else
-        public void WriteAsyncCallback(IntPtr key, IntPtr packet, UInt32 sniError)
-#endif // MANAGED_SNI
+        public void WriteAsyncCallback(PacketHandle packet, uint sniError)
+        {
+            WriteAsyncCallback(IntPtr.Zero, packet, sniError);
+        }
+
+        public void WriteAsyncCallback(IntPtr key, PacketHandle packet, uint sniError)
         { // Key never used.
             RemovePacketFromPendingList(packet);
             try
@@ -3079,7 +2891,34 @@ namespace System.Data.SqlClient
         // Network/Packet Writing & Processing //
         /////////////////////////////////////////
 
+        internal void WriteSecureString(SecureString secureString)
+        {
+            Debug.Assert(_securePasswords[0] == null || _securePasswords[1] == null, "There are more than two secure passwords");
 
+            int index = _securePasswords[0] != null ? 1 : 0;
+
+            _securePasswords[index] = secureString;
+            _securePasswordOffsetsInBuffer[index] = _outBytesUsed;
+
+            // loop through and write the entire array
+            int lengthInBytes = secureString.Length * 2;
+
+            // It is guaranteed both secure password and secure change password should fit into the first packet
+            // Given current TDS format and implementation it is not possible that one of secure string is the last item and exactly fill up the output buffer
+            //  if this ever happens and it is correct situation, the packet needs to be written out after _outBytesUsed is update
+            Debug.Assert((_outBytesUsed + lengthInBytes) < _outBuff.Length, "Passwords cannot be splited into two different packet or the last item which fully fill up _outBuff!!!");
+
+            _outBytesUsed += lengthInBytes;
+        }
+
+        internal void ResetSecurePasswordsInformation()
+        {
+            for (int i = 0; i < _securePasswords.Length; ++i)
+            {
+                _securePasswords[i] = null;
+                _securePasswordOffsetsInBuffer[i] = 0;
+            }
+        }
 
         internal Task WaitForAccumulatedWrites()
         {
@@ -3142,17 +2981,35 @@ namespace System.Data.SqlClient
             _outBuff[_outBytesUsed++] = b;
         }
 
-        //
-        // Takes a byte array and writes it to the buffer.
-        //
-        internal Task WriteByteArray(Byte[] b, int len, int offsetBuffer, bool canAccumulate = true, TaskCompletionSource<object> completion = null)
+
+        internal Task WriteByteSpan(ReadOnlySpan<byte> span, bool canAccumulate = true, TaskCompletionSource<object> completion = null)
         {
+            return WriteBytes(span, span.Length, 0, canAccumulate, completion);
+        }
+
+        internal Task WriteByteArray(byte[] b, int len, int offsetBuffer, bool canAccumulate = true, TaskCompletionSource<object> completion = null)
+        {
+            return WriteBytes(ReadOnlySpan<byte>.Empty, len, offsetBuffer, canAccumulate, completion, b);
+        }
+
+        //
+        // Takes a span or a byte array and writes it to the buffer
+        // If you pass in a span and a null array then the span wil be used.
+        // If you pass in a non-null array then the array will be used and the span is ignored.
+        // if the span cannot be written into the current packet then the remaining contents of the span are copied to a 
+        //  new heap allocated array that will used to callback into the method to continue the write operation.
+        private Task WriteBytes(ReadOnlySpan<byte> b, int len, int offsetBuffer, bool canAccumulate = true, TaskCompletionSource<object> completion = null, byte[] array = null)
+        {
+            if (array != null)
+            {
+                b = new ReadOnlySpan<byte>(array, offsetBuffer, len);
+            }
             try
             {
                 bool async = _parser._asyncWrite;  // NOTE: We are capturing this now for the assert after the Task is returned, since WritePacket will turn off async if there is an exception
                 Debug.Assert(async || _asyncWriteCount == 0);
                 // Do we have to send out in packet size chunks, or can we rely on netlib layer to break it up?
-                // would prefer to to do something like:
+                // would prefer to do something like:
                 //
                 // if (len > what we have room for || len > out buf)
                 //   flush buffer
@@ -3161,26 +3018,31 @@ namespace System.Data.SqlClient
 
                 int offset = offsetBuffer;
 
-                Debug.Assert(b.Length >= len, "Invalid length sent to WriteByteArray()!");
+                Debug.Assert(b.Length >= len, "Invalid length sent to WriteBytes()!");
 
                 // loop through and write the entire array
                 do
                 {
                     if ((_outBytesUsed + len) > _outBuff.Length)
                     {
-                        // If the remainder of the string won't fit into the buffer, then we have to put
+                        // If the remainder of the data won't fit into the buffer, then we have to put
                         // whatever we can into the buffer, and flush that so we can then put more into
                         // the buffer on the next loop of the while.
 
                         int remainder = _outBuff.Length - _outBytesUsed;
 
                         // write the remainder
-                        Buffer.BlockCopy(b, offset, _outBuff, _outBytesUsed, remainder);
+                        Span<byte> copyTo = _outBuff.AsSpan(_outBytesUsed, remainder);
+                        ReadOnlySpan<byte> copyFrom = b.Slice(0, remainder);
 
-                        // handle counters
+                        Debug.Assert(copyTo.Length == copyFrom.Length, $"copyTo.Length:{copyTo.Length} and copyFrom.Length{copyFrom.Length:D} should be the same");
+
+                        copyFrom.CopyTo(copyTo);
+
                         offset += remainder;
                         _outBytesUsed += remainder;
                         len -= remainder;
+                        b = b.Slice(remainder, len);
 
                         Task packetTask = WritePacket(TdsEnums.SOFTFLUSH, canAccumulate);
 
@@ -3193,16 +3055,35 @@ namespace System.Data.SqlClient
                                 completion = new TaskCompletionSource<object>();
                                 task = completion.Task; // we only care about return from topmost call, so do not access Task property in other cases
                             }
-                            WriteByteArraySetupContinuation(b, len, completion, offset, packetTask);
+
+                            if (array == null)
+                            {
+                                byte[] tempArray = new byte[len];
+                                Span<byte> copyTempTo = tempArray.AsSpan();
+
+                                Debug.Assert(copyTempTo.Length == b.Length, $"copyTempTo.Length:{copyTempTo.Length} and copyTempFrom.Length:{b.Length:D} should be the same");
+
+                                b.CopyTo(copyTempTo);
+                                array = tempArray;
+                                offset = 0;
+                            }
+
+                            WriteBytesSetupContinuation(array, len, completion, offset, packetTask);
                             return task;
                         }
                     }
                     else
-                    { //((stateObj._outBytesUsed + len) <= stateObj._outBuff.Length )
+                    {
+                        //((stateObj._outBytesUsed + len) <= stateObj._outBuff.Length )
                         // Else the remainder of the string will fit into the buffer, so copy it into the
                         // buffer and then break out of the loop.
 
-                        Buffer.BlockCopy(b, offset, _outBuff, _outBytesUsed, len);
+                        Span<byte> copyTo = _outBuff.AsSpan(_outBytesUsed, len);
+                        ReadOnlySpan<byte> copyFrom = b.Slice(0, len);
+
+                        Debug.Assert(copyTo.Length == copyFrom.Length, $"copyTo.Length:{copyTo.Length} and copyFrom.Length:{copyFrom.Length:D} should be the same");
+
+                        copyFrom.CopyTo(copyTo);
 
                         // handle out buffer bytes used counter
                         _outBytesUsed += len;
@@ -3230,12 +3111,13 @@ namespace System.Data.SqlClient
             }
         }
 
-        // This is in its own method to avoid always allocating the lambda in WriteByteArray
-        private void WriteByteArraySetupContinuation(Byte[] b, int len, TaskCompletionSource<object> completion, int offset, Task packetTask)
+        // This is in its own method to avoid always allocating the lambda in WriteBytes
+        private void WriteBytesSetupContinuation(byte[] array, int len, TaskCompletionSource<object> completion, int offset, Task packetTask)
         {
             AsyncHelper.ContinueTask(packetTask, completion,
-                () => WriteByteArray(b, len: len, offsetBuffer: offset, canAccumulate: false, completion: completion),
-                connectionToDoom: _parser.Connection);
+                () => WriteBytes(ReadOnlySpan<byte>.Empty, len: len, offsetBuffer: offset, canAccumulate: false, completion: completion, array),
+                connectionToDoom: _parser.Connection
+            );
         }
 
         // Dumps contents of buffer to SNI for network write.
@@ -3249,7 +3131,7 @@ namespace System.Data.SqlClient
             if (
                 // This appears to be an optimization to avoid writing empty packets in Yukon
                 // However, since we don't know the version prior to login IsYukonOrNewer was always false prior to login
-                // So removing the IsYukonOrNewer check causes issues since the login packet happens to to meet the rest of the conditions below
+                // So removing the IsYukonOrNewer check causes issues since the login packet happens to meet the rest of the conditions below
                 // So we need to avoid this check prior to login completing
                 _parser.State == TdsParserState.OpenLoggedIn &&
                 !_bulkCopyOpperationInProgress && // ignore the condition checking for bulk copy
@@ -3284,7 +3166,7 @@ namespace System.Data.SqlClient
             else
             {
                 status = TdsEnums.ST_EOM;
-                Debug.Assert(false, String.Format((IFormatProvider)null, "Unexpected argument {0,-2:x2} to WritePacket", flushMode));
+                Debug.Assert(false, string.Format((IFormatProvider)null, "Unexpected argument {0,-2:x2} to WritePacket", flushMode));
             }
 
             _outBuff[0] = _outputMessageType;         // Message Type
@@ -3333,7 +3215,7 @@ namespace System.Data.SqlClient
 
 #pragma warning disable 0420 // a reference to a volatile field will not be treated as volatile
 
-        private Task SNIWritePacket(SNIHandle handle, SNIPacket packet, out UInt32 sniError, bool canAccumulate, bool callerHasConnectionLock)
+        private Task SNIWritePacket(PacketHandle packet, out uint sniError, bool canAccumulate, bool callerHasConnectionLock)
         {
             // Check for a stored exception
             var delayedException = Interlocked.Exchange(ref _delayedWriteAsyncCallbackException, null);
@@ -3344,10 +3226,9 @@ namespace System.Data.SqlClient
 
             Task task = null;
             _writeCompletionSource = null;
-#if MANAGED_SNI
-#else
-            IntPtr packetPointer = IntPtr.Zero;
-#endif // MANAGED_SNI
+
+            PacketHandle packetPointer = EmptyReadPacket;
+
             bool sync = !_parser._asyncWrite;
             if (sync && _asyncWriteCount > 0)
             { // for example, SendAttention while there are writes pending
@@ -3368,24 +3249,18 @@ namespace System.Data.SqlClient
             if (!sync)
             {
                 // Add packet to the pending list (since the callback can happen any time after we call SNIWritePacket)
-#if MANAGED_SNI
-                AddPacketToPendingList(packet);
-#else
                 packetPointer = AddPacketToPendingList(packet);
-#endif // MANAGED_SNI
             }
+
             // Async operation completion may be delayed (success pending).
             try
             {
             }
             finally
             {
-#if MANAGED_SNI
-                sniError = SNIProxy.Singleton.WritePacket(handle, packet, sync);
-#else
-                sniError = SNINativeMethodWrapper.SNIWritePacket(handle, packet, sync);
-#endif // MANAGED_SNI
+                sniError = WritePacket(packet, sync);
             }
+
             if (sniError == TdsEnums.SNI_SUCCESS_IO_PENDING)
             {
                 Debug.Assert(!sync, "Completion should be handled in SniManagedWwrapper");
@@ -3459,13 +3334,8 @@ namespace System.Data.SqlClient
                     if (!sync)
                     {
                         // Since there will be no callback, remove the packet from the pending list
-#if MANAGED_SNI
-                        Debug.Assert(!packet.IsInvalid, "Packet added to list has an invalid pointer, can not remove from pending list");
-                        RemovePacketFromPendingList(packet);
-#else
-                        Debug.Assert(packetPointer != IntPtr.Zero, "Packet added to list has an invalid pointer, can not remove from pending list");
+                        Debug.Assert(IsValidPacket(packetPointer), "Packet added to list has an invalid pointer, can not remove from pending list");
                         RemovePacketFromPendingList(packetPointer);
-#endif // MANAGED_SNI
                     }
                 }
                 else
@@ -3477,6 +3347,10 @@ namespace System.Data.SqlClient
             }
             return task;
         }
+
+        internal abstract bool IsValidPacket(PacketHandle packetPointer);
+
+        internal abstract uint WritePacket(PacketHandle packet, bool sync);
 
 #pragma warning restore 0420
 
@@ -3493,14 +3367,8 @@ namespace System.Data.SqlClient
                     return;
                 }
 
-                SNIPacket attnPacket = new SNIPacket(Handle);
-                _sniAsyncAttnPacket = attnPacket;
+                PacketHandle attnPacket = CreateAndSetAttentionPacket();
 
-#if MANAGED_SNI
-                SNIProxy.Singleton.PacketSetData(attnPacket, SQL.AttentionHeader, TdsEnums.HEADER_LEN);
-#else
-                SNINativeMethodWrapper.SNIPacketSetData(attnPacket, SQL.AttentionHeader, TdsEnums.HEADER_LEN);
-#endif // MANAGED_SNI
                 try
                 {
                     // Dev11 #344723: SqlClient stress hang System_Data!Tcp::ReadSync via a call to SqlDataReader::Close
@@ -3528,9 +3396,9 @@ namespace System.Data.SqlClient
                                 return;
                             }
 
-                            UInt32 sniError;
+                            uint sniError;
                             _parser._asyncWrite = false; // stop async write 
-                            SNIWritePacket(Handle, attnPacket, out sniError, canAccumulate: false, callerHasConnectionLock: false);
+                            SNIWritePacket(attnPacket, out sniError, canAccumulate: false, callerHasConnectionLock: false);
                         }
                         finally
                         {
@@ -3557,19 +3425,21 @@ namespace System.Data.SqlClient
             }
         }
 
+        internal abstract PacketHandle CreateAndSetAttentionPacket();
+
+        internal abstract void SetPacketData(PacketHandle packet, byte[] buffer, int bytesUsed);
+
         private Task WriteSni(bool canAccumulate)
         {
             // Prepare packet, and write to packet.
-            SNIPacket packet = GetResetWritePacket();
-#if MANAGED_SNI
-            SNIProxy.Singleton.PacketSetData(packet, _outBuff, _outBytesUsed);
-#else
-            SNINativeMethodWrapper.SNIPacketSetData(packet, _outBuff, _outBytesUsed);
-#endif // MANAGED_SNI
+            PacketHandle packet = GetResetWritePacket();
+
+            SetBufferSecureStrings();
+            SetPacketData(packet, _outBuff, _outBytesUsed);
 
             uint sniError;
             Debug.Assert(Parser.Connection._parserLock.ThreadMayHaveLock(), "Thread is writing without taking the connection lock");
-            Task task = SNIWritePacket(Handle, packet, out sniError, canAccumulate, callerHasConnectionLock: true);
+            Task task = SNIWritePacket(packet, out sniError, canAccumulate, callerHasConnectionLock: true);
 
             // Check to see if the timeout has occurred.  This time out code is special case code to allow BCP writes to timeout. Eventually we should make all writes timeout.
             if (_bulkCopyOpperationInProgress && 0 == GetTimeoutRemaining())
@@ -3601,7 +3471,7 @@ namespace System.Data.SqlClient
                 // We wanted to encrypt entire login channel, but there is
                 // currently no mechanism to communicate this.  Removing encryption post 1st packet
                 // is a hard-coded agreement between client and server.  We need some mechanism or
-                // common change to be able to make this change in a non-breaking fasion.
+                // common change to be able to make this change in a non-breaking fashion.
                 _parser.RemoveEncryption();                        // Remove the SSL Provider.
                 _parser.EncryptionOptions = EncryptionOptions.OFF; // Turn encryption off.
 
@@ -3616,105 +3486,6 @@ namespace System.Data.SqlClient
             AssertValidState();
             return task;
         }
-
-        internal SNIPacket GetResetWritePacket()
-        {
-            if (_sniPacket != null)
-            {
-#if MANAGED_SNI
-                SNIProxy.Singleton.PacketReset(_sessionHandle, true, _sniPacket);
-#else
-                SNINativeMethodWrapper.SNIPacketReset(Handle, SNINativeMethodWrapper.IOType.WRITE, _sniPacket, SNINativeMethodWrapper.ConsumerNumber.SNI_Consumer_SNI);
-#endif // MANAGED_SNI
-            }
-            else
-            {
-                lock (_writePacketLockObject)
-                {
-                    _sniPacket = _writePacketCache.Take(Handle);
-                }
-            }
-            return _sniPacket;
-        }
-
-        internal void ClearAllWritePackets()
-        {
-            if (_sniPacket != null)
-            {
-                _sniPacket.Dispose();
-                _sniPacket = null;
-            }
-            lock (_writePacketLockObject)
-            {
-                Debug.Assert(_pendingWritePackets.Count == 0 && _asyncWriteCount == 0, "Should not clear all write packets if there are packets pending");
-                _writePacketCache.Clear();
-            }
-        }
-
-#if MANAGED_SNI
-        private void AddPacketToPendingList(SNIPacket packet) {
-        /*
-            Debug.Assert(packet == _sniPacket, "Adding a packet other than the current packet to the pending list");
-            _sniPacket = null;
-            
-            lock (_writePacketLockObject) {
-                _pendingWritePackets.Add(packet, packet);
-            }
-            */
-        }
-
-        private void RemovePacketFromPendingList(SNIPacket packet) {
-        /*
-            SNIPacket recoveredPacket = null;
-
-            lock (_writePacketLockObject) {
-                if (_pendingWritePackets.TryGetValue(packet, out recoveredPacket)) {
-                    _pendingWritePackets.Remove(recoveredPacket);
-                    _writePacketCache.Add(recoveredPacket);
-                }
-#if DEBUG
-                else {
-                    Debug.Assert(false, "Removing a packet from the pending list that was never added to it");
-                }
-#endif // DEBUG
-            }
-        */
-        }
-#else
-        private IntPtr AddPacketToPendingList(SNIPacket packet)
-        {
-            Debug.Assert(packet == _sniPacket, "Adding a packet other than the current packet to the pending list");
-            _sniPacket = null;
-            IntPtr pointer = packet.DangerousGetHandle();
-
-            lock (_writePacketLockObject)
-            {
-                _pendingWritePackets.Add(pointer, packet);
-            }
-
-            return pointer;
-        }
-
-        private void RemovePacketFromPendingList(IntPtr pointer)
-        {
-            SNIPacket recoveredPacket;
-
-            lock (_writePacketLockObject)
-            {
-                if (_pendingWritePackets.TryGetValue(pointer, out recoveredPacket))
-                {
-                    _pendingWritePackets.Remove(pointer);
-                    _writePacketCache.Add(recoveredPacket);
-                }
-#if DEBUG
-                else
-                {
-                    Debug.Assert(false, "Removing a packet from the pending list that was never added to it");
-                }
-#endif
-            }
-        }
-#endif
 
         //////////////////////////////////////////////
         // Statistics, Tracing, and related methods //
@@ -3873,6 +3644,7 @@ namespace System.Data.SqlClient
             }
         }
 
+        protected abstract PacketHandle EmptyReadPacket { get; }
 
         /// <summary>
         /// Gets the full list of errors and warnings (including the pre-attention ones), then wipes all error and warning lists
@@ -4078,55 +3850,6 @@ namespace System.Data.SqlClient
 #endif
         }
 
-#if MANAGED_SNI
-    internal sealed class WritePacketCache : IDisposable {
-            private bool _disposed;
-            private Stack<SNIPacket> _packets;
-
-            public WritePacketCache() {
-                _disposed = false;
-                _packets = new Stack<SNIPacket>();
-            }
-
-            public SNIPacket Take(SNIHandle sniHandle) {
-                SNIPacket packet;
-                if (_packets.Count > 0) {
-                    // Success - reset the packet
-                    packet = _packets.Pop();
-                    SNIProxy.Singleton.PacketReset(sniHandle, true, packet);
-                }
-                else {
-                    // Failed to take a packet - create a new one
-                    packet = new SNIPacket(sniHandle);
-                }
-                return packet;
-            }
-
-            public void Add(SNIPacket packet) {
-                if (!_disposed) {
-                    _packets.Push(packet);
-                }
-                else {
-                    // If we're disposed, then get rid of any packets added to us
-                    packet.Dispose();
-                }
-            }
-
-            public void Clear() {
-                while (_packets.Count > 0) {
-                    _packets.Pop().Dispose();
-                }
-            }
-
-            public void Dispose() {
-                if (!_disposed) {
-                    _disposed = true;
-                    Clear();
-                }
-            }
-        }
-#endif // MANAGED_SNI
-
         private class StateSnapshot
         {
             private List<PacketData> _snapshotInBuffs;
@@ -4195,7 +3918,7 @@ namespace System.Data.SqlClient
 
             internal void PushBuffer(byte[] buffer, int read)
             {
-                Debug.Assert(!_snapshotInBuffs.Any(b => object.ReferenceEquals(b, buffer)));
+                Debug.Assert(!_snapshotInBuffs.Any(b => object.ReferenceEquals(b.Buffer, buffer)));
 
                 PacketData packetData = new PacketData();
                 packetData.Buffer = buffer;
@@ -4255,7 +3978,7 @@ namespace System.Data.SqlClient
                 _snapshotLongLen = _stateObj._longlen;
                 _snapshotLongLenLeft = _stateObj._longlenleft;
                 _snapshotCleanupMetaData = _stateObj._cleanupMetaData;
-                // _cleanupAltMetaDataSetArray must be cloned bofore it is updated
+                // _cleanupAltMetaDataSetArray must be cloned before it is updated
                 _snapshotCleanupAltMetaDataSetArray = _stateObj._cleanupAltMetaDataSetArray;
                 _snapshotHasOpenResult = _stateObj._hasOpenResult;
                 _snapshotReceivedColumnMetadata = _stateObj._receivedColMetaData;
@@ -4265,7 +3988,7 @@ namespace System.Data.SqlClient
                 _rollingPendCount = 0;
                 _stateObj._lastStack = null;
                 Debug.Assert(_stateObj._bTmpRead == 0, "Has partially read data when snapshot taken");
-                Debug.Assert(_stateObj._partialHeaderBytesRead == 0, "Has partially read header when shapshot taken");
+                Debug.Assert(_stateObj._partialHeaderBytesRead == 0, "Has partially read header when snapshot taken");
 #endif
 
                 PushBuffer(_stateObj._inBuff, _stateObj._inBytesRead);
@@ -4308,6 +4031,7 @@ namespace System.Data.SqlClient
                 ResetSnapshotState();
             }
         }
+
         /*
 
         // leave this in. comes handy if you have to do Console.WriteLine style debugging ;)

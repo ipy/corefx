@@ -14,16 +14,14 @@ namespace System.IO.Pipes
     /// </summary>
     public sealed partial class AnonymousPipeClientStream : PipeStream
     {
-        [SecuritySafeCritical]
         [SuppressMessage("Microsoft.Naming", "CA1720:IdentifiersShouldNotContainTypeNames", MessageId = "string", Justification = "By design")]
-        public AnonymousPipeClientStream(String pipeHandleAsString)
+        public AnonymousPipeClientStream(string pipeHandleAsString)
             : this(PipeDirection.In, pipeHandleAsString)
         {
         }
 
-        [SecurityCritical]
         [SuppressMessage("Microsoft.Naming", "CA1720:IdentifiersShouldNotContainTypeNames", MessageId = "string", Justification = "By design")]
-        public AnonymousPipeClientStream(PipeDirection direction, String pipeHandleAsString)
+        public AnonymousPipeClientStream(PipeDirection direction, string pipeHandleAsString)
             : base(direction, 0)
         {
             if (direction == PipeDirection.InOut)
@@ -32,7 +30,7 @@ namespace System.IO.Pipes
             }
             if (pipeHandleAsString == null)
             {
-                throw new ArgumentNullException("pipeHandleAsString");
+                throw new ArgumentNullException(nameof(pipeHandleAsString));
             }
 
             // Initialize SafePipeHandle from String and check if it's valid. First see if it's parseable
@@ -40,20 +38,19 @@ namespace System.IO.Pipes
             bool parseable = long.TryParse(pipeHandleAsString, out result);
             if (!parseable)
             {
-                throw new ArgumentException(SR.Argument_InvalidHandle, "pipeHandleAsString");
+                throw new ArgumentException(SR.Argument_InvalidHandle, nameof(pipeHandleAsString));
             }
 
             // next check whether the handle is invalid
             SafePipeHandle safePipeHandle = new SafePipeHandle((IntPtr)result, true);
             if (safePipeHandle.IsInvalid)
             {
-                throw new ArgumentException(SR.Argument_InvalidHandle, "pipeHandleAsString");
+                throw new ArgumentException(SR.Argument_InvalidHandle, nameof(pipeHandleAsString));
             }
 
             Init(direction, safePipeHandle);
         }
 
-        [SecurityCritical]
         public AnonymousPipeClientStream(PipeDirection direction, SafePipeHandle safePipeHandle)
             : base(direction, 0)
         {
@@ -63,17 +60,16 @@ namespace System.IO.Pipes
             }
             if (safePipeHandle == null)
             {
-                throw new ArgumentNullException("safePipeHandle");
+                throw new ArgumentNullException(nameof(safePipeHandle));
             }
             if (safePipeHandle.IsInvalid)
             {
-                throw new ArgumentException(SR.Argument_InvalidHandle, "safePipeHandle");
+                throw new ArgumentException(SR.Argument_InvalidHandle, nameof(safePipeHandle));
             }
 
             Init(direction, safePipeHandle);
         }
 
-        [SecuritySafeCritical]
         private void Init(PipeDirection direction, SafePipeHandle safePipeHandle)
         {
             Debug.Assert(direction != PipeDirection.InOut, "anonymous pipes are unidirectional, caller should have verified before calling Init");
@@ -93,20 +89,18 @@ namespace System.IO.Pipes
         // which P/Invokes (and sometimes fails).
         public override PipeTransmissionMode TransmissionMode
         {
-            [SecurityCritical]
             get { return PipeTransmissionMode.Byte; }
         }
 
         public override PipeTransmissionMode ReadMode
         {
-            [SecurityCritical]
             set
             {
                 CheckPipePropertyOperations();
 
                 if (value < PipeTransmissionMode.Byte || value > PipeTransmissionMode.Message)
                 {
-                    throw new ArgumentOutOfRangeException("value", SR.ArgumentOutOfRange_TransmissionModeByteOrMsg);
+                    throw new ArgumentOutOfRangeException(nameof(value), SR.ArgumentOutOfRange_TransmissionModeByteOrMsg);
                 }
                 if (value == PipeTransmissionMode.Message)
                 {

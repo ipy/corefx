@@ -27,10 +27,10 @@ namespace System.Data.SqlClient
             _currentTask = null;
             _disposalTokenSource = new CancellationTokenSource();
 
-            // Safely safely convert the CommandTimeout from seconds to milliseconds
+            // Safely convert the CommandTimeout from seconds to milliseconds
             if ((reader.Command != null) && (reader.Command.CommandTimeout != 0))
             {
-                _readTimeout = (int)Math.Min((long)reader.Command.CommandTimeout * 1000L, (long)Int32.MaxValue);
+                _readTimeout = (int)Math.Min((long)reader.Command.CommandTimeout * 1000L, (long)int.MaxValue);
             }
             else
             {
@@ -83,7 +83,7 @@ namespace System.Data.SqlClient
                 }
                 else
                 {
-                    throw ADP.ArgumentOutOfRange("value");
+                    throw ADP.ArgumentOutOfRange(nameof(value));
                 }
             }
         }
@@ -230,6 +230,12 @@ namespace System.Data.SqlClient
             return completion.Task;
         }
 
+        public override IAsyncResult BeginRead(byte[] array, int offset, int count, AsyncCallback asyncCallback, object asyncState) =>
+            TaskToApm.Begin(ReadAsync(array, offset, count, CancellationToken.None), asyncCallback, asyncState);
+
+        public override int EndRead(IAsyncResult asyncResult) =>
+            TaskToApm.End<int>(asyncResult);
+
         public override long Seek(long offset, IO.SeekOrigin origin)
         {
             throw ADP.NotSupported();
@@ -274,24 +280,24 @@ namespace System.Data.SqlClient
         }
 
         /// <summary>
-        /// Checks the the parameters passed into a Read() method are valid
+        /// Checks the parameters passed into a Read() method are valid
         /// </summary>
         /// <param name="buffer"></param>
-        /// <param name="index"></param>
+        /// <param name="offset"></param>
         /// <param name="count"></param>
         internal static void ValidateReadParameters(byte[] buffer, int offset, int count)
         {
             if (buffer == null)
             {
-                throw ADP.ArgumentNull(ADP.ParameterBuffer);
+                throw ADP.ArgumentNull(nameof(buffer));
             }
             if (offset < 0)
             {
-                throw ADP.ArgumentOutOfRange(ADP.ParameterOffset);
+                throw ADP.ArgumentOutOfRange(nameof(offset));
             }
             if (count < 0)
             {
-                throw ADP.ArgumentOutOfRange(ADP.ParameterCount);
+                throw ADP.ArgumentOutOfRange(nameof(count));
             }
             try
             {

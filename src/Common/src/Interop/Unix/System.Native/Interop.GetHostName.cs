@@ -11,7 +11,7 @@ internal static partial class Interop
     internal static partial class Sys
     {
         [DllImport(Libraries.SystemNative, EntryPoint = "SystemNative_GetHostName", SetLastError = true)]
-        private unsafe static extern int GetHostName(byte* name, int nameLength);
+        private static extern unsafe int GetHostName(byte* name, int nameLength);
 
         internal static unsafe string GetHostName()
         {
@@ -30,6 +30,9 @@ internal static partial class Interop
                 Debug.Fail("gethostname failed");
                 throw new InvalidOperationException(string.Format("gethostname returned {0}", err));
             }
+
+            // If the hostname is truncated, it is unspecified whether the returned buffer includes a terminating null byte.
+            name[ArrLength - 1] = 0;
 
             return Marshal.PtrToStringAnsi((IntPtr)name);
         }

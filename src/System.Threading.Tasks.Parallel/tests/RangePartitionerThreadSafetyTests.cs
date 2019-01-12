@@ -15,12 +15,12 @@
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+
 using Xunit;
 
 namespace System.Threading.Tasks.Tests
 {
-
-    public class RangePartitionerThreadSafetyTests
+    public static class RangePartitionerThreadSafetyTests
     {
         /// <summary>
         /// Make sure that range Partitioner.Create can be called from multiple threads
@@ -134,12 +134,12 @@ namespace System.Threading.Tasks.Tests
                 while (e1.MoveNext())
                 {
                     // 'actual' ran out of elements before expected.
-                    Assert.True(e2.MoveNext(), String.Format("Partitioner returned fewer elements. Next element expected: {0}", e1.Current));
+                    Assert.True(e2.MoveNext(), string.Format("Partitioner returned fewer elements. Next element expected: {0}", e1.Current));
 
                     Assert.Equal(e1.Current, e2.Current);
                 }
 
-                Assert.False(e2.MoveNext(), String.Format("Partitioner returned more elements. Next element returned by partitioner: {0}", e2.Current));
+                Assert.False(e2.MoveNext(), string.Format("Partitioner returned more elements. Next element returned by partitioner: {0}", e2.Current));
             }
         }
 

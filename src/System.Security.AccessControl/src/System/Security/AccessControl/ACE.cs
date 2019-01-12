@@ -10,9 +10,9 @@
 ===========================================================*/
 
 using System;
-using System.Security.Principal;
+using System.Diagnostics;
 using System.Globalization;
-using System.Diagnostics.Contracts;
+using System.Security.Principal;
 
 namespace System.Security.AccessControl
 {
@@ -73,7 +73,7 @@ namespace System.Security.AccessControl
         #region Private Members
 
         //
-        // The 'byte' type is used to accomodate user-defined,
+        // The 'byte' type is used to accommodate user-defined,
         // as well as well-known ACE types.
         //
 
@@ -114,12 +114,12 @@ namespace System.Security.AccessControl
 
             if (binaryForm == null)
             {
-                throw new ArgumentNullException("binaryForm");
+                throw new ArgumentNullException(nameof(binaryForm));
             }
             else if (offset < 0)
             {
                 throw new ArgumentOutOfRangeException(
-                    "offset",
+nameof(offset),
                      SR.ArgumentOutOfRange_NeedNonNegNum);
             }
             else if (binaryForm.Length - offset < BinaryLength)
@@ -129,7 +129,7 @@ namespace System.Security.AccessControl
                 //
 
                 throw new ArgumentOutOfRangeException(
-                    "binaryForm",
+nameof(binaryForm),
                      SR.ArgumentOutOfRange_ArrayTooSmall);
             }
             else if (Length > ushort.MaxValue)
@@ -139,7 +139,7 @@ namespace System.Security.AccessControl
                 // Indicates a bug in the implementation, not in user's code.
                 //
 
-                Contract.Assert(false, "Length > ushort.MaxValue");
+                Debug.Assert(false, "Length > ushort.MaxValue");
                 // Replacing SystemException with InvalidOperationException. It's not a perfect fit,
                 // but it's the best exception type available to indicate a failure because
                 // of a bug in the ACE itself.
@@ -148,7 +148,7 @@ namespace System.Security.AccessControl
 
             binaryForm[offset + 0] = (byte)AceType;
             binaryForm[offset + 1] = (byte)AceFlags;
-            binaryForm[offset + 2] = (byte)(Length >> 0);
+            binaryForm[offset + 2] = unchecked((byte)(Length >> 0));
             binaryForm[offset + 3] = (byte)(Length >> 8);
         }
 
@@ -193,7 +193,7 @@ namespace System.Security.AccessControl
             {
                 throw new ArgumentException(
                      SR.Arg_EnumAtLeastOneFlag,
-                    "auditFlags");
+nameof(auditFlags));
             }
 
             return flags;
@@ -245,12 +245,12 @@ namespace System.Security.AccessControl
         {
             if (binaryForm == null)
             {
-                throw new ArgumentNullException("binaryForm");
+                throw new ArgumentNullException(nameof(binaryForm));
             }
             else if (offset < 0)
             {
                 throw new ArgumentOutOfRangeException(
-                    "offset",
+nameof(offset),
                      SR.ArgumentOutOfRange_NeedNonNegNum);
             }
             else if (binaryForm.Length - offset < HeaderLength)
@@ -260,7 +260,7 @@ namespace System.Security.AccessControl
                 //
 
                 throw new ArgumentOutOfRangeException(
-                    "binaryForm",
+nameof(binaryForm),
                      SR.ArgumentOutOfRange_ArrayTooSmall);
             }
             else if ((binaryForm[offset + 3] << 8) + (binaryForm[offset + 2] << 0) > binaryForm.Length - offset)
@@ -271,7 +271,7 @@ namespace System.Security.AccessControl
                 //
 
                 throw new ArgumentOutOfRangeException(
-                    "binaryForm",
+nameof(binaryForm),
                      SR.ArgumentOutOfRange_ArrayTooSmall);
             }
         }
@@ -410,7 +410,7 @@ namespace System.Security.AccessControl
 
             throw new ArgumentException(
                  SR.ArgumentException_InvalidAceBinaryForm,
-                "binaryForm");
+nameof(binaryForm));
         }
 
         #endregion
@@ -688,9 +688,8 @@ namespace System.Security.AccessControl
         {
             if (securityIdentifier == null)
             {
-                throw new ArgumentNullException("securityIdentifier");
+                throw new ArgumentNullException(nameof(securityIdentifier));
             }
-            Contract.EndContractBlock();
 
             //
             // The values are set by invoking the properties.
@@ -739,9 +738,8 @@ namespace System.Security.AccessControl
             {
                 if (value == null)
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
-                Contract.EndContractBlock();
 
                 _sid = value;
             }
@@ -787,10 +785,9 @@ namespace System.Security.AccessControl
             if (type <= AceType.MaxDefinedAceType)
             {
                 throw new ArgumentOutOfRangeException(
-                    "type",
+nameof(type),
                      SR.ArgumentOutOfRange_InvalidUserDefinedAceType);
             }
-            Contract.EndContractBlock();
 
             SetOpaque(opaque);
         }
@@ -852,13 +849,13 @@ namespace System.Security.AccessControl
                 if (opaque.Length > MaxOpaqueLength)
                 {
                     throw new ArgumentOutOfRangeException(
-                        "opaque",
+nameof(opaque),
                         string.Format(CultureInfo.CurrentCulture, SR.ArgumentOutOfRange_ArrayLength, 0, MaxOpaqueLength));
                 }
                 else if (opaque.Length % 4 != 0)
                 {
                     throw new ArgumentOutOfRangeException(
-                        "opaque",
+nameof(opaque),
                         string.Format(CultureInfo.CurrentCulture, SR.ArgumentOutOfRange_ArrayLengthMultiple, 4));
                 }
             }
@@ -888,7 +885,7 @@ namespace System.Security.AccessControl
             {
                 if (OpaqueLength > MaxOpaqueLength)
                 {
-                    Contract.Assert(false, "OpaqueLength somehow managed to exceed MaxOpaqueLength");
+                    Debug.Assert(false, "OpaqueLength somehow managed to exceed MaxOpaqueLength");
                     // Replacing SystemException with InvalidOperationException. It's not a perfect fit,
                     // but it's the best exception type available to indicate a failure because
                     // of a bug in the ACE itself.
@@ -986,11 +983,11 @@ namespace System.Security.AccessControl
             //
 
             accessMask =
-                (int)(
+                unchecked((int)(
                 (((uint)binaryForm[baseOffset + 0]) << 0) +
                 (((uint)binaryForm[baseOffset + 1]) << 8) +
                 (((uint)binaryForm[baseOffset + 2]) << 16) +
-                (((uint)binaryForm[baseOffset + 3]) << 24));
+                (((uint)binaryForm[baseOffset + 3]) << 24)));
 
             offsetLocal += AccessMaskLength;
 
@@ -1066,11 +1063,13 @@ namespace System.Security.AccessControl
             //
             // Store the access mask in the big-endian format
             //
-
-            binaryForm[baseOffset + 0] = (byte)(AccessMask >> 0);
-            binaryForm[baseOffset + 1] = (byte)(AccessMask >> 8);
-            binaryForm[baseOffset + 2] = (byte)(AccessMask >> 16);
-            binaryForm[baseOffset + 3] = (byte)(AccessMask >> 24);
+            unchecked
+            {
+                binaryForm[baseOffset + 0] = (byte)(AccessMask >> 0);
+                binaryForm[baseOffset + 1] = (byte)(AccessMask >> 8);
+                binaryForm[baseOffset + 2] = (byte)(AccessMask >> 16);
+                binaryForm[baseOffset + 3] = (byte)(AccessMask >> 24);
+            }
 
             offsetLocal += AccessMaskLength;
 
@@ -1203,7 +1202,7 @@ namespace System.Security.AccessControl
                     // Indicates a bug in the implementation, not in user's code
                     //
 
-                    Contract.Assert(false, "Invalid ACE type");
+                    Debug.Assert(false, "Invalid ACE type");
                     // Replacing SystemException with InvalidOperationException. It's not a perfect fit,
                     // but it's the best exception type available to indicate a failure because
                     // of a bug in the ACE itself.
@@ -1303,13 +1302,13 @@ namespace System.Security.AccessControl
                 if (opaque.Length > MaxOpaqueLengthInternal)
                 {
                     throw new ArgumentOutOfRangeException(
-                        "opaque",
+nameof(opaque),
                         string.Format(CultureInfo.CurrentCulture, SR.ArgumentOutOfRange_ArrayLength, 0, MaxOpaqueLengthInternal));
                 }
                 else if (opaque.Length % 4 != 0)
                 {
                     throw new ArgumentOutOfRangeException(
-                        "opaque",
+nameof(opaque),
                         string.Format(CultureInfo.CurrentCulture, SR.ArgumentOutOfRange_ArrayLengthMultiple, 4));
                 }
             }
@@ -1424,7 +1423,7 @@ namespace System.Security.AccessControl
                 default:
 
                     throw new ArgumentOutOfRangeException(
-                        "qualifier",
+nameof(qualifier),
                         SR.ArgumentOutOfRange_Enum);
             }
         }
@@ -1622,10 +1621,13 @@ namespace System.Security.AccessControl
             // Store the access mask in the big-endian format
             //
 
-            binaryForm[baseOffset + 0] = (byte)(AccessMask >> 0);
-            binaryForm[baseOffset + 1] = (byte)(AccessMask >> 8);
-            binaryForm[baseOffset + 2] = (byte)(AccessMask >> 16);
-            binaryForm[baseOffset + 3] = (byte)(AccessMask >> 24);
+            unchecked
+            {
+                binaryForm[baseOffset + 0] = (byte)(AccessMask >> 0);
+                binaryForm[baseOffset + 1] = (byte)(AccessMask >> 8);
+                binaryForm[baseOffset + 2] = (byte)(AccessMask >> 16);
+                binaryForm[baseOffset + 3] = (byte)(AccessMask >> 24);
+            }
 
             offsetLocal += AccessMaskLength;
 
@@ -1644,7 +1646,7 @@ namespace System.Security.AccessControl
             {
                 if (OpaqueLength > MaxOpaqueLengthInternal)
                 {
-                    Contract.Assert(false, "OpaqueLength somehow managed to exceed MaxOpaqueLength");
+                    Debug.Assert(false, "OpaqueLength somehow managed to exceed MaxOpaqueLength");
                     // Replacing SystemException with InvalidOperationException. It's not a perfect fit,
                     // but it's the best exception type available to indicate a failure because
                     // of a bug in the ACE itself.
@@ -1808,7 +1810,7 @@ namespace System.Security.AccessControl
                 default:
 
                     throw new ArgumentOutOfRangeException(
-                        "qualifier",
+nameof(qualifier),
                         SR.ArgumentOutOfRange_Enum);
             }
         }
@@ -1949,11 +1951,11 @@ namespace System.Security.AccessControl
             int offsetLocal = 0;
 
             accessMask =
-                (int)(
+                unchecked((int)(
                 (((uint)binaryForm[baseOffset + 0]) << 0) +
                 (((uint)binaryForm[baseOffset + 1]) << 8) +
                 (((uint)binaryForm[baseOffset + 2]) << 16) +
-                (((uint)binaryForm[baseOffset + 3]) << 24));
+                (((uint)binaryForm[baseOffset + 3]) << 24)));
 
             offsetLocal += AccessMaskLength;
 
@@ -2158,11 +2160,13 @@ namespace System.Security.AccessControl
             //
             // Store the access mask in the big-endian format
             //
-
-            binaryForm[baseOffset + 0] = (byte)(AccessMask >> 0);
-            binaryForm[baseOffset + 1] = (byte)(AccessMask >> 8);
-            binaryForm[baseOffset + 2] = (byte)(AccessMask >> 16);
-            binaryForm[baseOffset + 3] = (byte)(AccessMask >> 24);
+            unchecked
+            {
+                binaryForm[baseOffset + 0] = (byte)(AccessMask >> 0);
+                binaryForm[baseOffset + 1] = (byte)(AccessMask >> 8);
+                binaryForm[baseOffset + 2] = (byte)(AccessMask >> 16);
+                binaryForm[baseOffset + 3] = (byte)(AccessMask >> 24);
+            }
 
             offsetLocal += AccessMaskLength;
 
@@ -2208,7 +2212,7 @@ namespace System.Security.AccessControl
             {
                 if (OpaqueLength > MaxOpaqueLengthInternal)
                 {
-                    Contract.Assert(false, "OpaqueLength somehow managed to exceed MaxOpaqueLength");
+                    Debug.Assert(false, "OpaqueLength somehow managed to exceed MaxOpaqueLength");
                     // Replacing SystemException with InvalidOperationException. It's not a perfect fit,
                     // but it's the best exception type available to indicate a failure because
                     // of a bug in the ACE itself.

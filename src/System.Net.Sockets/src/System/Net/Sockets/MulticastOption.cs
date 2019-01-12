@@ -2,8 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System.Net;
-
 namespace System.Net.Sockets
 {
     // Contains option values for IP multicast packets.
@@ -19,12 +17,12 @@ namespace System.Net.Sockets
         {
             if (group == null)
             {
-                throw new ArgumentNullException("group");
+                throw new ArgumentNullException(nameof(group));
             }
 
             if (mcint == null)
             {
-                throw new ArgumentNullException("mcint");
+                throw new ArgumentNullException(nameof(mcint));
             }
 
             Group = group;
@@ -35,12 +33,12 @@ namespace System.Net.Sockets
         {
             if (group == null)
             {
-                throw new ArgumentNullException("group");
+                throw new ArgumentNullException(nameof(group));
             }
 
             if (interfaceIndex < 0 || interfaceIndex > 0x00FFFFFF)
             {
-                throw new ArgumentOutOfRangeException("interfaceIndex");
+                throw new ArgumentOutOfRangeException(nameof(interfaceIndex));
             }
 
             Group = group;
@@ -52,7 +50,7 @@ namespace System.Net.Sockets
         {
             if (group == null)
             {
-                throw new ArgumentNullException("group");
+                throw new ArgumentNullException(nameof(group));
             }
 
             Group = group;
@@ -97,7 +95,7 @@ namespace System.Net.Sockets
             {
                 if (value < 0 || value > 0x00FFFFFF)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _localAddress = null;
@@ -118,12 +116,12 @@ namespace System.Net.Sockets
         {
             if (group == null)
             {
-                throw new ArgumentNullException("group");
+                throw new ArgumentNullException(nameof(group));
             }
 
             if (ifindex < 0 || ifindex > 0x00000000FFFFFFFF)
             {
-                throw new ArgumentOutOfRangeException("ifindex");
+                throw new ArgumentOutOfRangeException(nameof(ifindex));
             }
 
             Group = group;
@@ -136,7 +134,7 @@ namespace System.Net.Sockets
         {
             if (group == null)
             {
-                throw new ArgumentNullException("group");
+                throw new ArgumentNullException(nameof(group));
             }
 
             Group = group;
@@ -154,7 +152,7 @@ namespace System.Net.Sockets
             {
                 if (value == null)
                 {
-                    throw new ArgumentNullException("value");
+                    throw new ArgumentNullException(nameof(value));
                 }
 
                 _group = value;
@@ -172,7 +170,7 @@ namespace System.Net.Sockets
             {
                 if (value < 0 || value > 0x00000000FFFFFFFF)
                 {
-                    throw new ArgumentOutOfRangeException("value");
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 }
 
                 _interface = value;

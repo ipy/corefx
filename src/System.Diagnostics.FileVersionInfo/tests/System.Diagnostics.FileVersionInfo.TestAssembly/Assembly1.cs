@@ -10,18 +10,24 @@ using System.Reflection;
 [assembly:AssemblyCompanyAttribute("The name of the company.")]
 // FileDescription
 [assembly:AssemblyTitleAttribute("My File")]
-// FileVersion & ProductVersion
+// FileVersion
 [assembly:AssemblyFileVersionAttribute("4.3.2.1")]
+// ProductVersion (overrides FileVersion to be the ProductVersion)
+[assembly: AssemblyInformationalVersionAttribute("1.2.3-beta.4")]
 // LegalCopyright
 [assembly:AssemblyCopyrightAttribute("Copyright, you betcha!")]
 // LegalTrademarks
 [assembly:AssemblyTrademarkAttribute("TM")]
 // Product
 [assembly:AssemblyProductAttribute("The greatest product EVER")]
-public class Test
+
+namespace System.Diagnostics.Tests
 {
-  public static void Main()
-  {
-  }
+    public class Test
+    {
+        public static void Main()
+        {
+        }
+    }
 }
 

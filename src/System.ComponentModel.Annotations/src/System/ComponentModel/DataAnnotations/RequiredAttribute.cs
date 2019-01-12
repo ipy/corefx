@@ -35,7 +35,7 @@ namespace System.ComponentModel.DataAnnotations
         /// <returns>
         ///     <c>false</c> if the <paramref name="value" /> is null or an empty string. If
         ///     <see cref="RequiredAttribute.AllowEmptyStrings" />
-        ///     then <c>false</c> is returned only if <paramref name="vale" /> is null.
+        ///     then <c>false</c> is returned only if <paramref name="value" /> is null.
         /// </returns>
         public override bool IsValid(object value)
         {
@@ -45,13 +45,7 @@ namespace System.ComponentModel.DataAnnotations
             }
 
             // only check string length if empty strings are not allowed
-            var stringValue = value as string;
-            if (stringValue != null && !AllowEmptyStrings)
-            {
-                return stringValue.Trim().Length != 0;
-            }
-
-            return true;
+            return AllowEmptyStrings || !(value is string stringValue) || stringValue.Trim().Length != 0;
         }
     }
 }

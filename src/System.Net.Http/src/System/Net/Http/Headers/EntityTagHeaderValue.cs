@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
-using System.Diagnostics.Contracts;
 
 namespace System.Net.Http.Headers
 {
@@ -47,7 +46,7 @@ namespace System.Net.Http.Headers
         {
             if (string.IsNullOrEmpty(tag))
             {
-                throw new ArgumentException(SR.net_http_argument_empty_string, "tag");
+                throw new ArgumentException(SR.net_http_argument_empty_string, nameof(tag));
             }
             int length = 0;
             if ((HttpRuleParser.GetQuotedStringLength(tag, 0, out length) != HttpParseResult.Parsed) ||
@@ -64,7 +63,7 @@ namespace System.Net.Http.Headers
 
         private EntityTagHeaderValue(EntityTagHeaderValue source)
         {
-            Contract.Requires(source != null);
+            Debug.Assert(source != null);
 
             _tag = source._tag;
             _isWeak = source._isWeak;
@@ -125,7 +124,7 @@ namespace System.Net.Http.Headers
 
         internal static int GetEntityTagLength(string input, int startIndex, out EntityTagHeaderValue parsedValue)
         {
-            Contract.Requires(startIndex >= 0);
+            Debug.Assert(startIndex >= 0);
 
             parsedValue = null;
 
@@ -134,7 +133,7 @@ namespace System.Net.Http.Headers
                 return 0;
             }
 
-            // Caller must remove leading whitespaces. If not, we'll return 0.
+            // Caller must remove leading whitespace. If not, we'll return 0.
             bool isWeak = false;
             int current = startIndex;
 
@@ -171,7 +170,7 @@ namespace System.Net.Http.Headers
                 parsedValue = new EntityTagHeaderValue();
                 if (tagLength == input.Length)
                 {
-                    // Most of the time we'll have strong ETags without leading/trailing whitespaces.
+                    // Most of the time we'll have strong ETags without leading/trailing whitespace.
                     Debug.Assert(startIndex == 0);
                     Debug.Assert(!isWeak);
                     parsedValue._tag = input;

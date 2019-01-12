@@ -7,7 +7,7 @@ using Xunit;
 
 namespace System.Drawing.PrimitivesTests
 {
-    public class SizeTests
+    public partial class SizeTests
     {
         [Fact]
         public void DefaultConstructorTest()
@@ -26,6 +26,12 @@ namespace System.Drawing.PrimitivesTests
             Size s2 = new Size(new Point(width, height));
 
             Assert.Equal(s1, s2);
+
+            s1.Width = 10;
+            Assert.Equal(10, s1.Width);
+
+            s1.Height = -10;
+            Assert.Equal(-10, s1.Height);
         }
 
         [Fact]
@@ -88,9 +94,13 @@ namespace System.Drawing.PrimitivesTests
         {
             Size sz1 = new Size(width, height);
             Size sz2 = new Size(height, width);
+            Size addExpected, subExpected;
 
-            Size addExpected = new Size(width + height, height + width);
-            Size subExpected = new Size(width - height, height - width);
+            unchecked
+            {
+                addExpected = new Size(width + height, height + width);
+                subExpected = new Size(width - height, height - width);
+            }
 
             Assert.Equal(addExpected, sz1 + sz2);
             Assert.Equal(subExpected, sz1 - sz2);
@@ -106,9 +116,14 @@ namespace System.Drawing.PrimitivesTests
         public void PointFMathematicalTest(float width, float height)
         {
             SizeF szF = new SizeF(width, height);
-            Size pCeiling = new Size((int)Math.Ceiling(width), (int)Math.Ceiling(height));
-            Size pTruncate = new Size((int)width, (int)height);
-            Size pRound = new Size((int)Math.Round(width), (int)Math.Round(height));
+            Size pCeiling, pTruncate, pRound;
+
+            unchecked
+            {
+                pCeiling = new Size((int)Math.Ceiling(width), (int)Math.Ceiling(height));
+                pTruncate = new Size((int)width, (int)height);
+                pRound = new Size((int)Math.Round(width), (int)Math.Round(height));
+            }
 
             Assert.Equal(pCeiling, Size.Ceiling(szF));
             Assert.Equal(pRound, Size.Round(szF));
@@ -123,7 +138,7 @@ namespace System.Drawing.PrimitivesTests
         public void EqualityTest(int width, int height)
         {
             Size p1 = new Size(width, height);
-            Size p2 = new Size(width - 1, height - 1);
+            Size p2 = new Size(unchecked(width - 1), unchecked(height - 1));
             Size p3 = new Size(width, height);
 
             Assert.True(p1 == p3);
@@ -134,7 +149,29 @@ namespace System.Drawing.PrimitivesTests
             Assert.False(p1.Equals(p2));
             Assert.False(p2.Equals(p3));
 
+            Assert.True(p1.Equals((object)p3));
+            Assert.False(p1.Equals((object)p2));
+            Assert.False(p2.Equals((object)p3));
+
             Assert.Equal(p1.GetHashCode(), p3.GetHashCode());
+        }
+
+        [Fact]
+        public static void EqualityTest_NotSize()
+        {
+            var size = new Size(0, 0);
+            Assert.False(size.Equals(null));
+            Assert.False(size.Equals(0));
+            Assert.False(size.Equals(new SizeF(0, 0)));
+        }
+
+        [Fact]
+        public static void GetHashCodeTest()
+        {
+            var size = new Size(10, 10);
+            Assert.Equal(size.GetHashCode(), new Size(10, 10).GetHashCode());
+            Assert.NotEqual(size.GetHashCode(), new Size(20, 10).GetHashCode());
+            Assert.NotEqual(size.GetHashCode(), new Size(10, 20).GetHashCode());
         }
 
         [Fact]

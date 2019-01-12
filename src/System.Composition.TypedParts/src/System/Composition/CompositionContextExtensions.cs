@@ -4,7 +4,6 @@
 
 using System.Composition.Convention;
 using System.Composition.Hosting;
-using System.Composition.Runtime;
 using System.Composition.TypedParts;
 using System.Composition.TypedParts.ActivationFeatures;
 using System.Composition.TypedParts.Util;
@@ -46,9 +45,9 @@ namespace System.Composition
 
         private static void SatisfyImportsInternal(this CompositionContext exportProvider, object objectWithLooseImports, AttributedModelProvider conventions)
         {
-            if (exportProvider == null) throw new ArgumentNullException("exportProvider");
-            if (objectWithLooseImports == null) throw new ArgumentNullException("objectWithLooseImports");
-            if (conventions == null) throw new ArgumentNullException("conventions");
+            if (exportProvider == null) throw new ArgumentNullException(nameof(exportProvider));
+            if (objectWithLooseImports == null) throw new ArgumentNullException(nameof(objectWithLooseImports));
+            if (conventions == null) throw new ArgumentNullException(nameof(conventions));
 
             var objType = objectWithLooseImports.GetType();
 
@@ -65,8 +64,8 @@ namespace System.Composition
                     }
                     else if (!importInfo.AllowDefault)
                     {
-                        throw new CompositionFailedException(string.Format(
-                            Properties.Resources.CompositionContextExtensions_MissingDependency, pi.Name, objectWithLooseImports));
+                        throw new CompositionFailedException(SR.Format(
+                            SR.CompositionContextExtensions_MissingDependency, pi.Name, objectWithLooseImports));
                     }
                 }
             }

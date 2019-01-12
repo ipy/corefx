@@ -38,18 +38,16 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         public void NonSecureRequest_AddNoCertificates_CertificateContextNotSet()
         {
             using (var handler = new WinHttpHandler())
+            using (HttpResponseMessage response = SendRequestHelper.Send(
+                handler,
+                () => { },
+                TestServer.FakeServerEndpoint))
             {
-                using (HttpResponseMessage response = SendRequestHelper.Send(
-                    handler,
-                    () => { },
-                    TestServer.FakeServerEndpoint))
-                {
-                    Assert.Equal(0, APICallHistory.WinHttpOptionClientCertContext.Count);
-                }
+                Assert.Equal(0, APICallHistory.WinHttpOptionClientCertContext.Count);
             }
         }
 
-        [Theory, MemberData("ValidClientCertificates")]
+        [Theory, MemberData(nameof(ValidClientCertificates))]
         public void NonSecureRequest_AddValidCertificate_CertificateContextNotSet(X509Certificate2 certificate)
         {
             using (var handler = new WinHttpHandler())
@@ -69,19 +67,17 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
         public void SecureRequest_AddNoCertificates_NullCertificateContextSet()
         {
             using (var handler = new WinHttpHandler())
+            using (HttpResponseMessage response = SendRequestHelper.Send(
+                handler,
+                () => { },
+                TestServer.FakeSecureServerEndpoint))
             {
-                using (HttpResponseMessage response = SendRequestHelper.Send(
-                    handler,
-                    () => { },
-                    TestServer.FakeSecureServerEndpoint))
-                {
-                    Assert.Equal(1, APICallHistory.WinHttpOptionClientCertContext.Count);
-                    Assert.Equal(IntPtr.Zero, APICallHistory.WinHttpOptionClientCertContext[0]);
-                }
+                Assert.Equal(1, APICallHistory.WinHttpOptionClientCertContext.Count);
+                Assert.Equal(IntPtr.Zero, APICallHistory.WinHttpOptionClientCertContext[0]);
             }
         }
 
-        [Theory, MemberData("ValidClientCertificates")]
+        [Theory, MemberData(nameof(ValidClientCertificates))]
         public void SecureRequest_AddValidCertificate_ValidCertificateContextSet(X509Certificate2 certificate)
         {
             using (var handler = new WinHttpHandler())
@@ -98,7 +94,7 @@ namespace System.Net.Http.WinHttpHandlerUnitTests
             }
         }
 
-        [Theory, MemberData("InvalidClientCertificates")]
+        [Theory, MemberData(nameof(InvalidClientCertificates))]
         public void SecureRequest_AddInvalidCertificate_NullCertificateContextSet(X509Certificate2 certificate)
         {
             using (var handler = new WinHttpHandler())

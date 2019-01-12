@@ -66,7 +66,7 @@ namespace System.Linq.Parallel.Tests
         }
 
         /// <summary>
-        /// Get a a combination of partitioned data sources, degree of parallelism, expected resulting dop,
+        /// Get a combination of partitioned data sources, degree of parallelism, expected resulting dop,
         /// query to execute on the data source, and mode of execution.
         /// </summary>
         /// <param name="dop">A set of the desired degrees of parallelism to be employed.</param>
@@ -89,7 +89,7 @@ namespace System.Linq.Parallel.Tests
                 var partitionedRanges = new Labeled<ParallelQuery<int>>[]
                 {
                     Labeled.Label("ParallelEnumerable.Range", ParallelEnumerable.Range(0, count)),
-                    Labeled.Label("Partitioner.Create", Partitioner.Create(UnorderedSources.GetRangeArray(0, count), loadBalance: false).AsParallel())
+                    Labeled.Label("Partitioner.Create", Partitioner.Create(Enumerable.Range(0, count).ToArray(), loadBalance: false).AsParallel())
                 };
 
                 // For each source and mode, get both unordered and ordered queries that should easily parallelize for all execution modes
@@ -137,7 +137,7 @@ namespace System.Linq.Parallel.Tests
 
         // Check that some queries run in parallel by default, and some require forcing.
         [Theory]
-        [MemberData("WithExecutionModeQueryData", new int[] { 1, 4 })] // DOP of 1 to verify sequential and 4 to verify parallel
+        [MemberData(nameof(WithExecutionModeQueryData), new[] { 1, 4 })] // DOP of 1 to verify sequential and 4 to verify parallel
         public static void WithExecutionMode(
             Labeled<ParallelQuery<int>> labeled,
             int requestedDop, int expectedDop,
@@ -150,15 +150,15 @@ namespace System.Linq.Parallel.Tests
         }
 
         [Theory]
-        [MemberData("Ranges", (object)(new int[] { 2 }), MemberType = typeof(UnorderedSources))]
+        [MemberData(nameof(UnorderedSources.Ranges), new[] { 2 }, MemberType = typeof(UnorderedSources))]
         public static void WithExecutionMode_ArgumentException(Labeled<ParallelQuery<int>> labeled, int count)
         {
             ParallelQuery<int> query = labeled.Item;
-            Assert.Throws<ArgumentException>(() => query.WithExecutionMode((ParallelExecutionMode)2));
+            AssertExtensions.Throws<ArgumentException>(null, () => query.WithExecutionMode((ParallelExecutionMode)2));
         }
 
         [Theory]
-        [MemberData("AllExecutionModes_Multiple")]
+        [MemberData(nameof(AllExecutionModes_Multiple))]
         public static void WithExecutionMode_Multiple(ParallelExecutionMode first, ParallelExecutionMode second)
         {
             Assert.Throws<InvalidOperationException>(() => ParallelEnumerable.Range(0, 1).WithExecutionMode(first).WithExecutionMode(second));
@@ -167,7 +167,7 @@ namespace System.Linq.Parallel.Tests
         [Fact]
         public static void WithExecutionMode_ArgumentNullException()
         {
-            Assert.Throws<ArgumentNullException>(() => ((ParallelQuery<int>)null).WithExecutionMode(ParallelExecutionMode.Default));
+            AssertExtensions.Throws<ArgumentNullException>("source", () => ((ParallelQuery<int>)null).WithExecutionMode(ParallelExecutionMode.Default));
         }
 
         /// <summary>Tracks all of the Tasks from which AddCurrent is called.</summary>

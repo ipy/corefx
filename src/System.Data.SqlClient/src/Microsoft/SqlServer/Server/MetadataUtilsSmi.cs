@@ -2,10 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-
-
-//------------------------------------------------------------------------------
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -14,6 +10,7 @@ using System.Data.Common;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace Microsoft.SqlServer.Server
 {
@@ -71,66 +68,68 @@ namespace Microsoft.SqlServer.Server
             SqlDbType.NVarChar,             // System.Data.SqlTypes.SqlChars
             SqlDbType.VarBinary,            // System.Data.SqlTypes.SqlBytes
             SqlDbType.Xml,                  // System.Data.SqlTypes.SqlXml
+            SqlDbType.Structured,           // System.Data.DataTable
             SqlDbType.Structured,           // System.Collections.IEnumerable, used for TVPs it must return IDataRecord
             SqlDbType.Structured,           // System.Collections.Generic.IEnumerable<Microsoft.SqlServer.Server.SqlDataRecord>
             SqlDbType.Time,                 // System.TimeSpan
             SqlDbType.DateTimeOffset,       // System.DateTimeOffset
         };
 
-        // Hash table to map from clr type object to ExtendedClrTypeCodeMap enum
-        // this HashTable should only be accessed from DetermineExtendedTypeCode and class ctor for setup.
-        private static readonly Hashtable s_typeToExtendedTypeCodeMap;
+        // Dictionary to map from clr type object to ExtendedClrTypeCodeMap enum.
+        // This dictionary should only be accessed from DetermineExtendedTypeCode and class ctor for setup.
+        private static readonly Dictionary<Type, ExtendedClrTypeCode> s_typeToExtendedTypeCodeMap = CreateTypeToExtendedTypeCodeMap();
 
-
-        static MetaDataUtilsSmi()
+        private static Dictionary<Type, ExtendedClrTypeCode> CreateTypeToExtendedTypeCodeMap()
         {
-            // Set up type mapping hash table
+            int Count = 42;
             // Keep this initialization list in the same order as ExtendedClrTypeCode for ease in validating!
-            Hashtable ht = new Hashtable(42);
-            ht.Add(typeof(System.Boolean), ExtendedClrTypeCode.Boolean);
-            ht.Add(typeof(System.Byte), ExtendedClrTypeCode.Byte);
-            ht.Add(typeof(System.Char), ExtendedClrTypeCode.Char);
-            ht.Add(typeof(System.DateTime), ExtendedClrTypeCode.DateTime);
-            ht.Add(typeof(System.DBNull), ExtendedClrTypeCode.DBNull);
-            ht.Add(typeof(System.Decimal), ExtendedClrTypeCode.Decimal);
-            ht.Add(typeof(System.Double), ExtendedClrTypeCode.Double);
-            // lookup code will handle special-case null-ref, omitting the addition of ExtendedTypeCode.Empty
-            ht.Add(typeof(System.Int16), ExtendedClrTypeCode.Int16);
-            ht.Add(typeof(System.Int32), ExtendedClrTypeCode.Int32);
-            ht.Add(typeof(System.Int64), ExtendedClrTypeCode.Int64);
-            ht.Add(typeof(System.SByte), ExtendedClrTypeCode.SByte);
-            ht.Add(typeof(System.Single), ExtendedClrTypeCode.Single);
-            ht.Add(typeof(System.String), ExtendedClrTypeCode.String);
-            ht.Add(typeof(System.UInt16), ExtendedClrTypeCode.UInt16);
-            ht.Add(typeof(System.UInt32), ExtendedClrTypeCode.UInt32);
-            ht.Add(typeof(System.UInt64), ExtendedClrTypeCode.UInt64);
-            ht.Add(typeof(System.Object), ExtendedClrTypeCode.Object);
-            ht.Add(typeof(System.Byte[]), ExtendedClrTypeCode.ByteArray);
-            ht.Add(typeof(System.Char[]), ExtendedClrTypeCode.CharArray);
-            ht.Add(typeof(System.Guid), ExtendedClrTypeCode.Guid);
-            ht.Add(typeof(SqlBinary), ExtendedClrTypeCode.SqlBinary);
-            ht.Add(typeof(SqlBoolean), ExtendedClrTypeCode.SqlBoolean);
-            ht.Add(typeof(SqlByte), ExtendedClrTypeCode.SqlByte);
-            ht.Add(typeof(SqlDateTime), ExtendedClrTypeCode.SqlDateTime);
-            ht.Add(typeof(SqlDouble), ExtendedClrTypeCode.SqlDouble);
-            ht.Add(typeof(SqlGuid), ExtendedClrTypeCode.SqlGuid);
-            ht.Add(typeof(SqlInt16), ExtendedClrTypeCode.SqlInt16);
-            ht.Add(typeof(SqlInt32), ExtendedClrTypeCode.SqlInt32);
-            ht.Add(typeof(SqlInt64), ExtendedClrTypeCode.SqlInt64);
-            ht.Add(typeof(SqlMoney), ExtendedClrTypeCode.SqlMoney);
-            ht.Add(typeof(SqlDecimal), ExtendedClrTypeCode.SqlDecimal);
-            ht.Add(typeof(SqlSingle), ExtendedClrTypeCode.SqlSingle);
-            ht.Add(typeof(SqlString), ExtendedClrTypeCode.SqlString);
-            ht.Add(typeof(SqlChars), ExtendedClrTypeCode.SqlChars);
-            ht.Add(typeof(SqlBytes), ExtendedClrTypeCode.SqlBytes);
-            ht.Add(typeof(SqlXml), ExtendedClrTypeCode.SqlXml);
-            ht.Add(typeof(DbDataReader), ExtendedClrTypeCode.DbDataReader);
-            ht.Add(typeof(IEnumerable<SqlDataRecord>), ExtendedClrTypeCode.IEnumerableOfSqlDataRecord);
-            ht.Add(typeof(System.TimeSpan), ExtendedClrTypeCode.TimeSpan);
-            ht.Add(typeof(System.DateTimeOffset), ExtendedClrTypeCode.DateTimeOffset);
-            s_typeToExtendedTypeCodeMap = ht;
+            var dictionary = new Dictionary<Type, ExtendedClrTypeCode>(Count)
+            {
+                { typeof(bool), ExtendedClrTypeCode.Boolean },
+                { typeof(byte), ExtendedClrTypeCode.Byte },
+                { typeof(char), ExtendedClrTypeCode.Char },
+                { typeof(DateTime), ExtendedClrTypeCode.DateTime },
+                { typeof(DBNull), ExtendedClrTypeCode.DBNull },
+                { typeof(decimal), ExtendedClrTypeCode.Decimal },
+                { typeof(double), ExtendedClrTypeCode.Double },
+                // lookup code will handle special-case null-ref, omitting the addition of ExtendedTypeCode.Empty
+                { typeof(short), ExtendedClrTypeCode.Int16 },
+                { typeof(int), ExtendedClrTypeCode.Int32 },
+                { typeof(long), ExtendedClrTypeCode.Int64 },
+                { typeof(sbyte), ExtendedClrTypeCode.SByte },
+                { typeof(float), ExtendedClrTypeCode.Single },
+                { typeof(string), ExtendedClrTypeCode.String },
+                { typeof(ushort), ExtendedClrTypeCode.UInt16 },
+                { typeof(uint), ExtendedClrTypeCode.UInt32 },
+                { typeof(ulong), ExtendedClrTypeCode.UInt64 },
+                { typeof(object), ExtendedClrTypeCode.Object },
+                { typeof(byte[]), ExtendedClrTypeCode.ByteArray },
+                { typeof(char[]), ExtendedClrTypeCode.CharArray },
+                { typeof(Guid), ExtendedClrTypeCode.Guid },
+                { typeof(SqlBinary), ExtendedClrTypeCode.SqlBinary },
+                { typeof(SqlBoolean), ExtendedClrTypeCode.SqlBoolean },
+                { typeof(SqlByte), ExtendedClrTypeCode.SqlByte },
+                { typeof(SqlDateTime), ExtendedClrTypeCode.SqlDateTime },
+                { typeof(SqlDouble), ExtendedClrTypeCode.SqlDouble },
+                { typeof(SqlGuid), ExtendedClrTypeCode.SqlGuid },
+                { typeof(SqlInt16), ExtendedClrTypeCode.SqlInt16 },
+                { typeof(SqlInt32), ExtendedClrTypeCode.SqlInt32 },
+                { typeof(SqlInt64), ExtendedClrTypeCode.SqlInt64 },
+                { typeof(SqlMoney), ExtendedClrTypeCode.SqlMoney },
+                { typeof(SqlDecimal), ExtendedClrTypeCode.SqlDecimal },
+                { typeof(SqlSingle), ExtendedClrTypeCode.SqlSingle },
+                { typeof(SqlString), ExtendedClrTypeCode.SqlString },
+                { typeof(SqlChars), ExtendedClrTypeCode.SqlChars },
+                { typeof(SqlBytes), ExtendedClrTypeCode.SqlBytes },
+                { typeof(SqlXml), ExtendedClrTypeCode.SqlXml },
+                { typeof(DataTable), ExtendedClrTypeCode.DataTable },
+                { typeof(DbDataReader), ExtendedClrTypeCode.DbDataReader },
+                { typeof(IEnumerable<SqlDataRecord>), ExtendedClrTypeCode.IEnumerableOfSqlDataRecord },
+                { typeof(TimeSpan), ExtendedClrTypeCode.TimeSpan },
+                { typeof(DateTimeOffset), ExtendedClrTypeCode.DateTimeOffset },
+            };
+            return dictionary;
         }
-
 
         internal static bool IsCharOrXmlType(SqlDbType type)
         {
@@ -170,24 +169,22 @@ namespace Microsoft.SqlServer.Server
                     metaData.SqlDbType == SqlDbType.Udt;
         }
 
-
-
         // If we know we're only going to use this object to assign to a specific SqlDbType back end object,
         //  we can save some processing time by only checking for the few valid types that can be assigned to the dbType.
         //  This assumes a switch statement over SqlDbType is faster than getting the ClrTypeCode and iterating over a
         //  series of if statements, or using a hash table. 
         // NOTE: the form of these checks is taking advantage of a feature of the JIT compiler that is supposed to
         //      optimize checks of the form '(xxx.GetType() == typeof( YYY ))'.  The JIT team claimed at one point that
-        //      this doesn't even instantiate a Type instance, thus was the fastest method for individual comparisions.
-        //      Given that there's a known SqlDbType, thus a minimal number of comparisions, it's likely this is faster
+        //      this doesn't even instantiate a Type instance, thus was the fastest method for individual comparisons.
+        //      Given that there's a known SqlDbType, thus a minimal number of comparisons, it's likely this is faster
         //      than the other approaches considered (both GetType().GetTypeCode() switch and hash table using Type keys
         //      must instantiate a Type object.  The typecode switch also degenerates into a large if-then-else for
         //      all but the primitive clr types.
         internal static ExtendedClrTypeCode DetermineExtendedTypeCodeForUseWithSqlDbType(
                 SqlDbType dbType,
                 bool isMultiValued,
-                object value
-        )
+                object value,
+                Type udtType)
         {
             ExtendedClrTypeCode extendedCode = ExtendedClrTypeCode.Invalid;
 
@@ -205,7 +202,7 @@ namespace Microsoft.SqlServer.Server
                 switch (dbType)
                 {
                     case SqlDbType.BigInt:
-                        if (value.GetType() == typeof(Int64))
+                        if (value.GetType() == typeof(long))
                             extendedCode = ExtendedClrTypeCode.Int64;
                         else if (value.GetType() == typeof(SqlInt64))
                             extendedCode = ExtendedClrTypeCode.SqlInt64;
@@ -258,19 +255,19 @@ namespace Microsoft.SqlServer.Server
                             extendedCode = ExtendedClrTypeCode.SqlDateTime;
                         break;
                     case SqlDbType.Decimal:
-                        if (value.GetType() == typeof(Decimal))
+                        if (value.GetType() == typeof(decimal))
                             extendedCode = ExtendedClrTypeCode.Decimal;
                         else if (value.GetType() == typeof(SqlDecimal))
                             extendedCode = ExtendedClrTypeCode.SqlDecimal;
                         break;
                     case SqlDbType.Real:
-                        if (value.GetType() == typeof(Single))
+                        if (value.GetType() == typeof(float))
                             extendedCode = ExtendedClrTypeCode.Single;
                         else if (value.GetType() == typeof(SqlSingle))
                             extendedCode = ExtendedClrTypeCode.SqlSingle;
                         break;
                     case SqlDbType.Int:
-                        if (value.GetType() == typeof(Int32))
+                        if (value.GetType() == typeof(int))
                             extendedCode = ExtendedClrTypeCode.Int32;
                         else if (value.GetType() == typeof(SqlInt32))
                             extendedCode = ExtendedClrTypeCode.SqlInt32;
@@ -279,13 +276,13 @@ namespace Microsoft.SqlServer.Server
                     case SqlDbType.SmallMoney:
                         if (value.GetType() == typeof(SqlMoney))
                             extendedCode = ExtendedClrTypeCode.SqlMoney;
-                        else if (value.GetType() == typeof(Decimal))
+                        else if (value.GetType() == typeof(decimal))
                             extendedCode = ExtendedClrTypeCode.Decimal;
                         break;
                     case SqlDbType.Float:
                         if (value.GetType() == typeof(SqlDouble))
                             extendedCode = ExtendedClrTypeCode.SqlDouble;
-                        else if (value.GetType() == typeof(Double))
+                        else if (value.GetType() == typeof(double))
                             extendedCode = ExtendedClrTypeCode.Double;
                         break;
                     case SqlDbType.UniqueIdentifier:
@@ -295,13 +292,13 @@ namespace Microsoft.SqlServer.Server
                             extendedCode = ExtendedClrTypeCode.Guid;
                         break;
                     case SqlDbType.SmallInt:
-                        if (value.GetType() == typeof(Int16))
+                        if (value.GetType() == typeof(short))
                             extendedCode = ExtendedClrTypeCode.Int16;
                         else if (value.GetType() == typeof(SqlInt16))
                             extendedCode = ExtendedClrTypeCode.SqlInt16;
                         break;
                     case SqlDbType.TinyInt:
-                        if (value.GetType() == typeof(Byte))
+                        if (value.GetType() == typeof(byte))
                             extendedCode = ExtendedClrTypeCode.Byte;
                         else if (value.GetType() == typeof(SqlByte))
                             extendedCode = ExtendedClrTypeCode.SqlByte;
@@ -310,7 +307,7 @@ namespace Microsoft.SqlServer.Server
                         // SqlDbType doesn't help us here, call general-purpose function
                         extendedCode = DetermineExtendedTypeCode(value);
 
-                        // Some types aren't allowed for Variants but are for the general-purpos function.  
+                        // Some types aren't allowed for Variants but are for the general-purpose function.  
                         //  Match behavior of other types and return invalid in these cases.
                         if (ExtendedClrTypeCode.SqlXml == extendedCode)
                         {
@@ -318,7 +315,16 @@ namespace Microsoft.SqlServer.Server
                         }
                         break;
                     case SqlDbType.Udt:
-                        throw ADP.DbTypeNotSupported(SqlDbType.Udt.ToString());
+                        // Validate UDT type if caller gave us a type to validate against
+                        if (null == udtType || value.GetType() == udtType)
+                        {
+                            extendedCode = ExtendedClrTypeCode.Object;
+                        }
+                        else
+                        {
+                            extendedCode = ExtendedClrTypeCode.Invalid;
+                        }
+                        break;
                     case SqlDbType.Time:
                         if (value.GetType() == typeof(TimeSpan))
                             extendedCode = ExtendedClrTypeCode.TimeSpan;
@@ -332,13 +338,17 @@ namespace Microsoft.SqlServer.Server
                             extendedCode = ExtendedClrTypeCode.SqlXml;
                         if (value.GetType() == typeof(XmlDataFeed))
                             extendedCode = ExtendedClrTypeCode.XmlReader;
-                        else if (value.GetType() == typeof(System.String))
+                        else if (value.GetType() == typeof(string))
                             extendedCode = ExtendedClrTypeCode.String;
                         break;
                     case SqlDbType.Structured:
                         if (isMultiValued)
                         {
-                            if (value is IEnumerable<SqlDataRecord>)
+                            if (value is DataTable)
+                            {
+                                extendedCode = ExtendedClrTypeCode.DataTable;
+                            }
+                            else if (value is IEnumerable<SqlDataRecord>)
                             {
                                 extendedCode = ExtendedClrTypeCode.IEnumerableOfSqlDataRecord;
                             }
@@ -358,41 +368,24 @@ namespace Microsoft.SqlServer.Server
         }
 
         // Method to map from Type to ExtendedTypeCode
-        static internal ExtendedClrTypeCode DetermineExtendedTypeCodeFromType(Type clrType)
+        internal static ExtendedClrTypeCode DetermineExtendedTypeCodeFromType(Type clrType)
         {
-            object result = s_typeToExtendedTypeCodeMap[clrType];
-
             ExtendedClrTypeCode resultCode;
-            if (null == result)
-            {
-                resultCode = ExtendedClrTypeCode.Invalid;
-            }
-            else
-            {
-                resultCode = (ExtendedClrTypeCode)result;
-            }
-
-            return resultCode;
+            return s_typeToExtendedTypeCodeMap.TryGetValue(clrType, out resultCode) ?
+                resultCode :
+                ExtendedClrTypeCode.Invalid;
         }
 
         // Returns the ExtendedClrTypeCode that describes the given value
-        static internal ExtendedClrTypeCode DetermineExtendedTypeCode(object value)
+        internal static ExtendedClrTypeCode DetermineExtendedTypeCode(object value)
         {
-            ExtendedClrTypeCode resultCode;
-            if (null == value)
-            {
-                resultCode = ExtendedClrTypeCode.Empty;
-            }
-            else
-            {
-                resultCode = DetermineExtendedTypeCodeFromType(value.GetType());
-            }
-
-            return resultCode;
+            return value != null ?
+                DetermineExtendedTypeCodeFromType(value.GetType()) :
+                ExtendedClrTypeCode.Empty;
         }
 
         // returns a sqldbtype for the given type code
-        static internal SqlDbType InferSqlDbTypeFromTypeCode(ExtendedClrTypeCode typeCode)
+        internal static SqlDbType InferSqlDbTypeFromTypeCode(ExtendedClrTypeCode typeCode)
         {
             Debug.Assert(typeCode >= ExtendedClrTypeCode.Invalid && typeCode <= ExtendedClrTypeCode.Last, "Someone added a typecode without adding support here!");
 
@@ -401,7 +394,7 @@ namespace Microsoft.SqlServer.Server
 
         // Infer SqlDbType from Type in the general case.  Katmai-only (or later) features that need to 
         //  infer types should use InferSqlDbTypeFromType_Katmai.
-        static internal SqlDbType InferSqlDbTypeFromType(Type type)
+        internal static SqlDbType InferSqlDbTypeFromType(Type type)
         {
             ExtendedClrTypeCode typeCode = DetermineExtendedTypeCodeFromType(type);
             SqlDbType returnType;
@@ -422,7 +415,7 @@ namespace Microsoft.SqlServer.Server
         //      example: TVP's are a new Katmai feature (no back compat issues) so can infer DATETIME2
         //          when mapping System.DateTime from DateTable or DbDataReader.  DATETIME2 is better because
         //          of greater range that can handle all DateTime values.
-        static internal SqlDbType InferSqlDbTypeFromType_Katmai(Type type)
+        internal static SqlDbType InferSqlDbTypeFromType_Katmai(Type type)
         {
             SqlDbType returnType = InferSqlDbTypeFromType(type);
             if (SqlDbType.DateTime == returnType)
@@ -432,8 +425,7 @@ namespace Microsoft.SqlServer.Server
             return returnType;
         }
 
-
-        static internal SqlMetaData SmiExtendedMetaDataToSqlMetaData(SmiExtendedMetaData source)
+        internal static SqlMetaData SmiExtendedMetaDataToSqlMetaData(SmiExtendedMetaData source)
         {
             if (SqlDbType.Xml == source.SqlDbType)
             {
@@ -447,8 +439,8 @@ namespace Microsoft.SqlServer.Server
                     source.TypeSpecificNamePart1,
                     source.TypeSpecificNamePart2,
                     source.TypeSpecificNamePart3,
-                    true
-                    );
+                    true,
+                    source.Type);
             }
 
             return new SqlMetaData(source.Name,
@@ -462,7 +454,6 @@ namespace Microsoft.SqlServer.Server
         }
 
         // Convert SqlMetaData instance to an SmiExtendedMetaData instance.
-
         internal static SmiExtendedMetaData SqlMetaDataToSmiExtendedMetaData(SqlMetaData source)
         {
             // now map everything across to the extended metadata object
@@ -478,7 +469,40 @@ namespace Microsoft.SqlServer.Server
             }
             else if (SqlDbType.Udt == source.SqlDbType)
             {
-                throw ADP.DbTypeNotSupported(SqlDbType.Udt.ToString());
+                // Split the input name. UdtTypeName is specified as single 3 part name.
+                // NOTE: ParseUdtTypeName throws if format is incorrect
+                string typeName = source.ServerTypeName;
+                if (null != typeName)
+                {
+                    string[] names = SqlParameter.ParseTypeName(typeName, true /* isUdtTypeName */);
+
+                    if (1 == names.Length)
+                    {
+                        typeSpecificNamePart3 = names[0];
+                    }
+                    else if (2 == names.Length)
+                    {
+                        typeSpecificNamePart2 = names[0];
+                        typeSpecificNamePart3 = names[1];
+                    }
+                    else if (3 == names.Length)
+                    {
+                        typeSpecificNamePart1 = names[0];
+                        typeSpecificNamePart2 = names[1];
+                        typeSpecificNamePart3 = names[2];
+                    }
+                    else
+                    {
+                        throw ADP.ArgumentOutOfRange(nameof(typeName));
+                    }
+
+                    if ((!string.IsNullOrEmpty(typeSpecificNamePart1) && TdsEnums.MAX_SERVERNAME < typeSpecificNamePart1.Length)
+                        || (!string.IsNullOrEmpty(typeSpecificNamePart2) && TdsEnums.MAX_SERVERNAME < typeSpecificNamePart2.Length)
+                        || (!string.IsNullOrEmpty(typeSpecificNamePart3) && TdsEnums.MAX_SERVERNAME < typeSpecificNamePart3.Length))
+                    {
+                        throw ADP.ArgumentOutOfRange(nameof(typeName));
+                    }
+                }
             }
 
             return new SmiExtendedMetaData(source.SqlDbType,
@@ -487,15 +511,15 @@ namespace Microsoft.SqlServer.Server
                                             source.Scale,
                                             source.LocaleId,
                                             source.CompareOptions,
+                                            null,
                                             source.Name,
                                             typeSpecificNamePart1,
                                             typeSpecificNamePart2,
                                             typeSpecificNamePart3);
         }
 
-
         // compare SmiMetaData to SqlMetaData and determine if they are compatible.
-        static internal bool IsCompatible(SmiMetaData firstMd, SqlMetaData secondMd)
+        internal static bool IsCompatible(SmiMetaData firstMd, SqlMetaData secondMd)
         {
             return firstMd.SqlDbType == secondMd.SqlDbType &&
                     firstMd.MaxLength == secondMd.MaxLength &&
@@ -507,15 +531,213 @@ namespace Microsoft.SqlServer.Server
                     !firstMd.IsMultiValued;  // SqlMetaData doesn't have a "multivalued" option
         }
 
-        // This is a modified version of SmiMetaDataFromSchemaTableRow above
-        // Since CoreCLR doesn't have GetSchema, we need to infer the MetaData from the CLR Type alone
-        static internal SmiExtendedMetaData SmiMetaDataFromType(string colName, Type colType)
+        // Extract metadata for a single DataColumn
+        internal static SmiExtendedMetaData SmiMetaDataFromDataColumn(DataColumn column, DataTable parent)
         {
+            SqlDbType dbType = InferSqlDbTypeFromType_Katmai(column.DataType);
+            if (InvalidSqlDbType == dbType)
+            {
+                throw SQL.UnsupportedColumnTypeForSqlProvider(column.ColumnName, column.DataType.Name);
+            }
+
+            long maxLength = AdjustMaxLength(dbType, column.MaxLength);
+            if (InvalidMaxLength == maxLength)
+            {
+                throw SQL.InvalidColumnMaxLength(column.ColumnName, maxLength);
+            }
+
+            byte precision;
+            byte scale;
+            if (column.DataType == typeof(SqlDecimal))
+            {
+                // Must scan all values in column to determine best-fit precision & scale
+                Debug.Assert(null != parent);
+                scale = 0;
+                byte nonFractionalPrecision = 0; // finds largest non-Fractional portion of precision
+                foreach (DataRow row in parent.Rows)
+                {
+                    object obj = row[column];
+                    if (!(obj is DBNull))
+                    {
+                        SqlDecimal value = (SqlDecimal)obj;
+                        if (!value.IsNull)
+                        {
+                            byte tempNonFractPrec = checked((byte)(value.Precision - value.Scale));
+                            if (tempNonFractPrec > nonFractionalPrecision)
+                            {
+                                nonFractionalPrecision = tempNonFractPrec;
+                            }
+
+                            if (value.Scale > scale)
+                            {
+                                scale = value.Scale;
+                            }
+                        }
+                    }
+                }
+
+                precision = checked((byte)(nonFractionalPrecision + scale));
+
+                if (SqlDecimal.MaxPrecision < precision)
+                {
+                    throw SQL.InvalidTableDerivedPrecisionForTvp(column.ColumnName, precision);
+                }
+                else if (0 == precision)
+                {
+                    precision = 1;
+                }
+            }
+            else if (dbType == SqlDbType.DateTime2 || dbType == SqlDbType.DateTimeOffset || dbType == SqlDbType.Time)
+            {
+                // Time types care about scale, too.  But have to infer maximums for these.
+                precision = 0;
+                scale = SmiMetaData.DefaultTime.Scale;
+            }
+            else if (dbType == SqlDbType.Decimal)
+            {
+                // Must scan all values in column to determine best-fit precision & scale
+                Debug.Assert(null != parent);
+                scale = 0;
+                byte nonFractionalPrecision = 0; // finds largest non-Fractional portion of precision
+                foreach (DataRow row in parent.Rows)
+                {
+                    object obj = row[column];
+                    if (!(obj is DBNull))
+                    {
+                        SqlDecimal value = (SqlDecimal)(decimal)obj;
+                        byte tempNonFractPrec = checked((byte)(value.Precision - value.Scale));
+                        if (tempNonFractPrec > nonFractionalPrecision)
+                        {
+                            nonFractionalPrecision = tempNonFractPrec;
+                        }
+
+                        if (value.Scale > scale)
+                        {
+                            scale = value.Scale;
+                        }
+                    }
+                }
+
+                precision = checked((byte)(nonFractionalPrecision + scale));
+
+                if (SqlDecimal.MaxPrecision < precision)
+                {
+                    throw SQL.InvalidTableDerivedPrecisionForTvp(column.ColumnName, precision);
+                }
+                else if (0 == precision)
+                {
+                    precision = 1;
+                }
+            }
+            else
+            {
+                precision = 0;
+                scale = 0;
+            }
+
+            // In Net Core, since DataColumn.Locale is not accessible because it is internal and in a separate assembly, 
+            // we try to get the Locale from the parent
+            CultureInfo columnLocale = ((null != parent) ? parent.Locale : CultureInfo.CurrentCulture);
+
+            return new SmiExtendedMetaData(
+                                        dbType,
+                                        maxLength,
+                                        precision,
+                                        scale,
+                                        columnLocale.LCID,
+                                        SmiMetaData.DefaultNVarChar.CompareOptions,
+                                        null,
+                                        false,  // no support for multi-valued columns in a TVP yet
+                                        null,   // no support for structured columns yet
+                                        null,   // no support for structured columns yet
+                                        column.ColumnName,
+                                        null,
+                                        null,
+                                        null);
+        }
+
+        internal static long AdjustMaxLength(SqlDbType dbType, long maxLength)
+        {
+            if (SmiMetaData.UnlimitedMaxLengthIndicator != maxLength)
+            {
+                if (maxLength < 0)
+                {
+                    maxLength = InvalidMaxLength;
+                }
+
+                switch (dbType)
+                {
+                    case SqlDbType.Binary:
+                        if (maxLength > SmiMetaData.MaxBinaryLength)
+                        {
+                            maxLength = InvalidMaxLength;
+                        }
+                        break;
+                    case SqlDbType.Char:
+                        if (maxLength > SmiMetaData.MaxANSICharacters)
+                        {
+                            maxLength = InvalidMaxLength;
+                        }
+                        break;
+                    case SqlDbType.NChar:
+                        if (maxLength > SmiMetaData.MaxUnicodeCharacters)
+                        {
+                            maxLength = InvalidMaxLength;
+                        }
+                        break;
+                    case SqlDbType.NVarChar:
+                        // Promote to MAX type if it won't fit in a normal type
+                        if (SmiMetaData.MaxUnicodeCharacters < maxLength)
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
+                        break;
+                    case SqlDbType.VarBinary:
+                        // Promote to MAX type if it won't fit in a normal type
+                        if (SmiMetaData.MaxBinaryLength < maxLength)
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
+                        break;
+                    case SqlDbType.VarChar:
+                        // Promote to MAX type if it won't fit in a normal type
+                        if (SmiMetaData.MaxANSICharacters < maxLength)
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            return maxLength;
+        }
+
+        // Map SmiMetaData from a schema table.
+        // DEVNOTE: Since we're using SchemaTable, we can assume that we aren't directly using a SqlDataReader
+        // so we don't support the Sql-specific stuff, like collation.
+        internal static SmiExtendedMetaData SmiMetaDataFromSchemaTableRow(DataRow schemaRow)
+        {
+            string colName = "";
+            object temp = schemaRow[SchemaTableColumn.ColumnName];
+            if (DBNull.Value != temp)
+            {
+                colName = (string)temp;
+            }
+
             // Determine correct SqlDbType.
+            temp = schemaRow[SchemaTableColumn.DataType];
+            if (DBNull.Value == temp)
+            {
+                throw SQL.NullSchemaTableDataTypeNotSupported(colName);
+            }
+
+            Type colType = (Type)temp;
             SqlDbType colDbType = InferSqlDbTypeFromType_Katmai(colType);
             if (InvalidSqlDbType == colDbType)
             {
-                // Unknown through standard mapping, use VarBinary for columns that are Object typed, otherwise we error out.
+                // Unknown through standard mapping, use VarBinary for columns that are Object typed, otherwise error
                 if (typeof(object) == colType)
                 {
                     colDbType = SqlDbType.VarBinary;
@@ -551,54 +773,169 @@ namespace Microsoft.SqlServer.Server
                 case SqlDbType.Variant:
                 case SqlDbType.Xml:
                 case SqlDbType.Date:
-                    // These types require no  metadata modifiers
+                    // These types require no  metadata modifies
                     break;
                 case SqlDbType.Binary:
                 case SqlDbType.VarBinary:
-                    // source isn't specifying a size, so assume the Maximum
-                    if (SqlDbType.Binary == colDbType)
+                    // These types need a binary max length
+                    temp = schemaRow[SchemaTableColumn.ColumnSize];
+                    if (DBNull.Value == temp)
                     {
-                        maxLength = SmiMetaData.MaxBinaryLength;
+                        // source isn't specifying a size, so assume the worst
+                        if (SqlDbType.Binary == colDbType)
+                        {
+                            maxLength = SmiMetaData.MaxBinaryLength;
+                        }
+                        else
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
                     }
                     else
                     {
-                        maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        // We (should) have a valid maxlength, so use it.
+                        maxLength = Convert.ToInt64(temp, null);
+
+                        // Max length must be 0 to MaxBinaryLength or it can be UnlimitedMAX if type is varbinary.
+                        // If it's greater than MaxBinaryLength, just promote it to UnlimitedMAX, if possible.
+                        if (maxLength > SmiMetaData.MaxBinaryLength)
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
+
+                        if ((maxLength < 0 &&
+                                (maxLength != SmiMetaData.UnlimitedMaxLengthIndicator ||
+                                 SqlDbType.Binary == colDbType)))
+                        {
+                            throw SQL.InvalidColumnMaxLength(colName, maxLength);
+                        }
                     }
                     break;
                 case SqlDbType.Char:
                 case SqlDbType.VarChar:
-                    // source isn't specifying a size, so assume the Maximum
-                    if (SqlDbType.Char == colDbType)
+                    // These types need an ANSI max length
+                    temp = schemaRow[SchemaTableColumn.ColumnSize];
+                    if (DBNull.Value == temp)
                     {
-                        maxLength = SmiMetaData.MaxANSICharacters;
+                        // source isn't specifying a size, so assume the worst
+                        if (SqlDbType.Char == colDbType)
+                        {
+                            maxLength = SmiMetaData.MaxANSICharacters;
+                        }
+                        else
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
                     }
                     else
                     {
-                        maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        // We (should) have a valid maxlength, so use it.
+                        maxLength = Convert.ToInt64(temp, null);
+
+                        // Max length must be 0 to MaxANSICharacters or it can be UnlimitedMAX if type is varbinary.
+                        // If it's greater than MaxANSICharacters, just promote it to UnlimitedMAX, if possible.
+                        if (maxLength > SmiMetaData.MaxANSICharacters)
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
+
+                        if ((maxLength < 0 &&
+                                (maxLength != SmiMetaData.UnlimitedMaxLengthIndicator ||
+                                 SqlDbType.Char == colDbType)))
+                        {
+                            throw SQL.InvalidColumnMaxLength(colName, maxLength);
+                        }
                     }
                     break;
                 case SqlDbType.NChar:
                 case SqlDbType.NVarChar:
-                    // source isn't specifying a size, so assume the Maximum
-                    if (SqlDbType.NChar == colDbType)
+                    // These types need a unicode max length
+                    temp = schemaRow[SchemaTableColumn.ColumnSize];
+                    if (DBNull.Value == temp)
                     {
-                        maxLength = SmiMetaData.MaxUnicodeCharacters;
+                        // source isn't specifying a size, so assume the worst
+                        if (SqlDbType.NChar == colDbType)
+                        {
+                            maxLength = SmiMetaData.MaxUnicodeCharacters;
+                        }
+                        else
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
                     }
                     else
                     {
-                        maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        // We (should) have a valid maxlength, so use it.
+                        maxLength = Convert.ToInt64(temp, null);
+
+                        // Max length must be 0 to MaxUnicodeCharacters or it can be UnlimitedMAX if type is varbinary.
+                        // If it's greater than MaxUnicodeCharacters, just promote it to UnlimitedMAX, if possible.
+                        if (maxLength > SmiMetaData.MaxUnicodeCharacters)
+                        {
+                            maxLength = SmiMetaData.UnlimitedMaxLengthIndicator;
+                        }
+
+                        if ((maxLength < 0 &&
+                                (maxLength != SmiMetaData.UnlimitedMaxLengthIndicator ||
+                                 SqlDbType.NChar == colDbType)))
+                        {
+                            throw SQL.InvalidColumnMaxLength(colName, maxLength);
+                        }
                     }
                     break;
                 case SqlDbType.Decimal:
                     // Decimal requires precision and scale
-                    precision = SmiMetaData.DefaultDecimal.Precision;
-                    scale = SmiMetaData.DefaultDecimal.Scale;
+                    temp = schemaRow[SchemaTableColumn.NumericPrecision];
+                    if (DBNull.Value == temp)
+                    {
+                        precision = SmiMetaData.DefaultDecimal.Precision;
+                    }
+                    else
+                    {
+                        precision = Convert.ToByte(temp, null);
+                    }
+
+                    temp = schemaRow[SchemaTableColumn.NumericScale];
+                    if (DBNull.Value == temp)
+                    {
+                        scale = SmiMetaData.DefaultDecimal.Scale;
+                    }
+                    else
+                    {
+                        scale = Convert.ToByte(temp, null);
+                    }
+
+                    if (precision < SmiMetaData.MinPrecision ||
+                            precision > SqlDecimal.MaxPrecision ||
+                            scale < SmiMetaData.MinScale ||
+                            scale > SqlDecimal.MaxScale ||
+                            scale > precision)
+                    {
+                        throw SQL.InvalidColumnPrecScale();
+                    }
                     break;
                 case SqlDbType.Time:
                 case SqlDbType.DateTime2:
                 case SqlDbType.DateTimeOffset:
                     // requires scale
-                    scale = SmiMetaData.DefaultTime.Scale;
+                    temp = schemaRow[SchemaTableColumn.NumericScale];
+                    if (DBNull.Value == temp)
+                    {
+                        scale = SmiMetaData.DefaultTime.Scale;
+                    }
+                    else
+                    {
+                        scale = Convert.ToByte(temp, null);
+                    }
+
+                    if (scale > SmiMetaData.MaxTimeScale)
+                    {
+                        throw SQL.InvalidColumnPrecScale();
+                    }
+                    else if (scale < 0)
+                    {
+                        scale = SmiMetaData.DefaultTime.Scale;
+                    }
                     break;
                 case SqlDbType.Udt:
                 case SqlDbType.Structured:
@@ -608,19 +945,20 @@ namespace Microsoft.SqlServer.Server
             }
 
             return new SmiExtendedMetaData(
-                                        colDbType,
-                                        maxLength,
-                                        precision,
-                                        scale,
-                                        Locale.GetCurrentCultureLcid(),
-                                        SmiMetaData.GetDefaultForType(colDbType).CompareOptions,
-                                        false,  // no support for multi-valued columns in a TVP yet
-                                        null,   // no support for structured columns yet
-                                        null,
-                                        colName,
-                                        null,
-                                        null,
-                                        null);
+                            colDbType,
+                            maxLength,
+                            precision,
+                            scale,
+                            System.Globalization.CultureInfo.CurrentCulture.LCID,
+                            SmiMetaData.GetDefaultForType(colDbType).CompareOptions,
+                            null,
+                            false,  // no support for multi-valued columns in a TVP yet
+                            null,   // no support for structured columns yet
+                            null,   // no support for structured columns yet
+                            colName,
+                            null,
+                            null,
+                            null);
         }
     }
 }

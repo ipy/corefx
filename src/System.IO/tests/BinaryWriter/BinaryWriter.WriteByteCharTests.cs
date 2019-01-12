@@ -9,7 +9,7 @@ using System.Text;
 
 namespace System.IO.Tests
 {
-    public class BinaryWriter_WriteByteCharTests
+    public partial class BinaryWriter_WriteByteCharTests
     {
         protected virtual Stream CreateStream()
         {
@@ -86,14 +86,14 @@ namespace System.IO.Tests
             for (int i = 0; i < randomNumbers.Length; i++)
             {
                 ch = (char)randomNumbers[i];
-                Assert.Throws<ArgumentException>(() => writer.Write(ch));
+                AssertExtensions.Throws<ArgumentException>(null, () => writer.Write(ch));
             }
             // between 56320 <= x < 57343
             randomNumbers = new int[] { 56320, 57342, 56431, 57001, 56453, 57245, 57111 };
             for (int i = 0; i < randomNumbers.Length; i++)
             {
                 ch = (char)randomNumbers[i];
-                Assert.Throws<ArgumentException>(() => writer.Write(ch));
+                AssertExtensions.Throws<ArgumentException>(null, () => writer.Write(ch));
             }
 
             writer.Dispose();
@@ -113,7 +113,7 @@ namespace System.IO.Tests
 
             Stream stream = CreateStream();
             // string name = iso-2022-jp, codepage = 50220 (original test used a code page number).
-            // taken from http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756(v=vs.85).aspx
+            // taken from https://docs.microsoft.com/en-us/windows/desktop/Intl/code-page-identifiers
             string codepageName = "iso-2022-jp";
             BinaryWriter writer = new BinaryWriter(stream, Encoding.GetEncoding(codepageName));
 
@@ -131,7 +131,7 @@ namespace System.IO.Tests
             byte[] readBytes = reader.ReadBytes(5);
             for (int i = 0; i < 5; i++)
             {
-                //We pretty much dont expect this to work
+                //We pretty much don't expect this to work
                 Assert.NotEqual(readBytes[i], bytes[i]);
             }
 
@@ -305,9 +305,9 @@ namespace System.IO.Tests
             for (int iLoop = 0; iLoop < iArrLargeValues.Length; iLoop++)
             {
                 // [] Offset out of range
-                Assert.Throws<ArgumentException>(() => dw2.Write(bArr, iArrLargeValues[iLoop], 0));
+                AssertExtensions.Throws<ArgumentException>(null, () => dw2.Write(bArr, iArrLargeValues[iLoop], 0));
                 // [] Invalid count value
-                Assert.Throws<ArgumentException>(() => dw2.Write(bArr, 0, iArrLargeValues[iLoop]));
+                AssertExtensions.Throws<ArgumentException>(null, () => dw2.Write(bArr, 0, iArrLargeValues[iLoop]));
             }
             dw2.Dispose();
             mstr.Dispose();
@@ -459,7 +459,7 @@ namespace System.IO.Tests
         /// They cannot use BinaryReader's ReadChar().  Similarly, data written using Write(char) can't be read back using ReadChars(int).
         /// A high-surrogate is a Unicode code point in the range U+D800 through U+DBFF and a low-surrogate is a Unicode code point in the range U+DC00 through U+DFFF
         /// 
-        /// We dont throw on the second read but then throws continuously - note the loop count difference in the 2 loops
+        /// We don't throw on the second read but then throws continuously - note the loop count difference in the 2 loops
         /// 
         /// BinaryReader was reverting to its original location instead of advancing. This was changed to skip past the char in the surrogate range.
         /// The affected method is InternalReadOneChar (IROC). Note that the work here is slightly complicated by the way surrogates are handled by 
